@@ -398,6 +398,10 @@ export default function OrdersPage() {
         return (
           <OrdersUnpaidTab
             {...commonProps}
+             onViewPaymentProof={(order) => {
+              console.log("🔍 Opening payment proof modal for order:", order)
+              setPaymentProofModal({ open: true, order })
+            }}
             onApprove={(order) => setApprovalDialog({ open: true, order })}
             onReject={(order) => setRejectionDialog({ open: true, order })}
             onViewOrder={handleViewOrder}
@@ -472,7 +476,7 @@ export default function OrdersPage() {
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" className="flex items-center justify-center space-x-2">
                       <Filter className="w-4 h-4" />
-                      <span className="hidden sm:inline">Status: ALL</span>
+                      <span className="hidden sm:inline">Status: {activeTab}</span>
                       <span className="sm:hidden">Filter</span>
                       <ChevronDown className="w-4 h-4" />
                     </Button>

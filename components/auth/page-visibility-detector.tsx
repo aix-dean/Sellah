@@ -1,47 +1,35 @@
 "use client"
 
 import { useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { wasLoggedOut } from "@/lib/auth"
+import { useRouter, usePathname } from "next/navigation"
+import { wasLoggedOut, clearLogoutFlags } from "@/lib/auth"
 
-interface PageVisibilityDetectorProps {
-  onVisibilityChange?: (isVisible: boolean) => void
-}
+const PUBLIC_ROUTES = ["/", "/login", "/register", "/forgot-password", "/about"]
 
-export function PageVisibilityDetector({ onVisibilityChange }: PageVisibilityDetectorProps) {
+export default function PageVisibilityDetector() {
   const router = useRouter()
+  const pathname = usePathname()
 
   useEffect(() => {
+    // Clear logout flags for public routes
+    if (PUBLIC_ROUTES.includes(pathname)) {
+      clearLogoutFlags()
+      return
+    }
+
+    // Only monitor protected routes
     const handleVisibilityChange = () => {
-      const isVisible = !document.hidden
-
-      // Call the callback if provided
-      if (onVisibilityChange) {
-        onVisibilityChange(isVisible)
-      }
-
-      // If page becomes visible and user was logged out, redirect to login
-      if (isVisible && wasLoggedOut()) {
-        console.log("Page became visible after logout, redirecting to login")
-        router.push("/login?prevented=true")
+      if (document.visibilityState === "visible" && wasLoggedOut()) {
+        router.push("/login?session=expired")
       }
     }
 
-    // Add event listener
     document.addEventListener("visibilitychange", handleVisibilityChange)
 
-    // Initial check
-    if (wasLoggedOut()) {
-      console.log("Page loaded after logout, redirecting to login")
-      router.push("/login?prevented=true")
-    }
-
-    // Cleanup
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange)
     }
-  }, [router, onVisibilityChange])
+  }, [router, pathname])
 
-  // This component doesn't render anything
   return null
 }

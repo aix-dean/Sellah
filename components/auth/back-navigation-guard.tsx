@@ -1,58 +1,35 @@
 "use client"
 
 import { useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { wasLoggedOut } from "@/lib/auth"
+import { useRouter, usePathname } from "next/navigation"
+import { wasLoggedOut, clearLogoutFlags } from "@/lib/auth"
 
-export function BackNavigationGuard() {
+const PUBLIC_ROUTES = ["/", "/login", "/register", "/forgot-password", "/about"]
+
+export default function BackNavigationGuard() {
   const router = useRouter()
+  const pathname = usePathname()
 
   useEffect(() => {
-    // Function to check auth status when page becomes visible
-    const handleVisibilityChange = () => {
-      if (!document.hidden && wasLoggedOut()) {
-        console.log("Detected back navigation after logout, redirecting to login")
-        router.push("/login?prevented=true")
-      }
+    // Clear logout flags for public routes
+    if (PUBLIC_ROUTES.includes(pathname)) {
+      clearLogoutFlags()
+      return
     }
 
-    // Function to handle popstate (back/forward navigation)
+    // Only guard protected routes
     const handlePopState = () => {
       if (wasLoggedOut()) {
-        console.log("Detected history navigation after logout, redirecting to login")
-        router.push("/login?prevented=true")
+        router.push("/login?session=expired")
       }
     }
 
-    // Set up cache control headers
-    const setupCacheControl = () => {
-      if (wasLoggedOut()) {
-        // Set cache control headers
-        document.cookie = "cache-control=no-store, no-cache, must-revalidate; path=/;"
-        document.cookie = "pragma=no-cache; path=/;"
-        document.cookie = "expires=0; path=/;"
-      }
-    }
-
-    // Add event listeners
-    document.addEventListener("visibilitychange", handleVisibilityChange)
     window.addEventListener("popstate", handlePopState)
 
-    // Initial check
-    if (wasLoggedOut()) {
-      console.log("Page loaded after logout, redirecting to login")
-      router.push("/login?prevented=true")
-    }
-
-    setupCacheControl()
-
-    // Cleanup
     return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange)
       window.removeEventListener("popstate", handlePopState)
     }
-  }, [router])
+  }, [router, pathname])
 
-  // This component doesn't render anything
   return null
 }

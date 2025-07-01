@@ -1,61 +1,64 @@
 "use client"
 
 import type React from "react"
+
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, Eye, EyeOff, RefreshCw, CheckCircle, AlertCircle } from "lucide-react"
-import { signInWithEmail, resendEmailVerification, checkEmailVerified } from "@/lib/auth"
+import { Eye, EyeOff, Mail, RefreshCw, Loader2, AlertCircle } from "lucide-react"
+import { signInWithEmail, resendVerificationEmail, wasLoggedOut, wasSessionExpired, clearLogoutFlags } from "@/lib/auth"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 
 export default function LoginForm() {
-  const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [showEmailVerification, setShowEmailVerification] = useState(false)
-  const [resendLoading, setResendLoading] = useState(false)
-  const [checkingVerification, setCheckingVerification] = useState(false)
+  const [showVerificationPrompt, setShowVerificationPrompt] = useState(false)
+  const [resendingEmail, setResendingEmail] = useState(false)
+  const [resendSuccess, setResendSuccess] = useState(false)
+  const router = useRouter()
 
   useEffect(() => {
-    // Clear any logout flags when accessing login
-    if (typeof window !== "undefined") {
-      sessionStorage.removeItem("auth_logged_out")
-      localStorage.removeItem("auth_logged_out")
-      // Clear the logout cookie
-      document.cookie = "auth_logged_out=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/"
-    }
-
-    // Check for verification success
-    const urlParams = new URLSearchParams(window.location.search)
-    if (urlParams.get("verified") === "true") {
-      setError("")
-      // You could show a success message here
+    // Check if user was logged out or session expired
+    if (wasLoggedOut()) {
+      if (wasSessionExpired()) {
+        setError("Your session has expired. Please sign in again.")
+      } else {
+        setError("You have been logged out. Please sign in again.")
+      }
+      clearLogoutFlags()
     }
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
-    setShowEmailVerification(false)
     setLoading(true)
+    setError("")
+    setShowVerificationPrompt(false)
+    setResendSuccess(false)
+
+    if (!email.trim() || !password) {
+      setError("Please enter both email and password")
+      setLoading(false)
+      return
+    }
 
     try {
-      const result = await signInWithEmail(email, password)
+      const result = await signInWithEmail(email.trim(), password)
 
-      if (result.success && result.user) {
-        // Successful login
+      if (result.success) {
         router.push("/dashboard")
-      } else if (result.needsEmailVerification) {
-        // Email not verified
-        setShowEmailVerification(true)
-        setError(result.error || result.message || "Please verify your email address.")
       } else {
-        // Other errors
-        setError(result.error || result.message || "Login failed. Please try again.")
+        if (result.error?.includes("verify your email")) {
+          setShowVerificationPrompt(true)
+        }
+        setError(result.error || "Login failed. Please try again.")
       }
     } catch (error: any) {
       console.error("Login error:", error)
@@ -65,263 +68,169 @@ export default function LoginForm() {
     }
   }
 
-  const handleResendEmail = async () => {
-    setResendLoading(true)
+  const handleResendVerification = async () => {
+    setResendingEmail(true)
     setError("")
+    setResendSuccess(false)
 
     try {
-      const result = await resendEmailVerification()
-      if (result.success) {
-        setError("") // Clear any existing errors
-        // You could show a success toast here
+      const result = await resendVerificationEmail()
+
+      if (result.error) {
+        setError(result.error)
       } else {
-        setError(result.error || result.message || "Failed to resend verification email")
+        setResendSuccess(true)
+        setShowVerificationPrompt(false)
       }
     } catch (error: any) {
-      setError(error.message || "Failed to resend verification email")
+      console.error("Resend verification error:", error)
+      setError("Failed to resend verification email. Please try again.")
     } finally {
-      setResendLoading(false)
-    }
-  }
-
-  const handleCheckVerification = async () => {
-    setCheckingVerification(true)
-    setError("")
-
-    try {
-      const isVerified = await checkEmailVerified()
-      if (isVerified) {
-        // Try to sign in again
-        const result = await signInWithEmail(email, password)
-        if (result.success) {
-          router.push("/dashboard")
-        } else {
-          setError("Login failed after verification. Please try again.")
-        }
-      } else {
-        setError("Email not yet verified. Please check your inbox and click the verification link.")
-      }
-    } catch (error: any) {
-      setError("Failed to check verification status. Please try again.")
-    } finally {
-      setCheckingVerification(false)
+      setResendingEmail(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left side - Sellah Branding */}
-      <div className="hidden md:flex flex-1 bg-gradient-to-br from-orange-400 to-orange-500">
-        <img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Login-Q1uRkQ6tX8FmAEN0XCpOshfCn9X6qw.png" alt="Sellah Logo" className="w-full h-full object-cover" />
-      </div>
-
-      {/* Right side - Login Form */}
-      <div className="flex-1 flex items-center justify-center bg-white p-4 md:p-8">
-        <div className="w-full max-w-md px-4 md:px-0">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-red-500 mb-2">Welcome Back!</h1>
-            <p className="text-gray-600">Sign in to your Sellah account</p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <div className="flex items-center space-x-2 mb-4">
+            <div className="w-8 h-8 bg-red-500 rounded flex items-center justify-center">
+              <span className="text-white font-bold text-lg">S</span>
+            </div>
+            <span className="font-bold text-xl text-red-500">SELLAH</span>
           </div>
+          <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
+          <CardDescription>Sign in to your account to continue</CardDescription>
+        </CardHeader>
 
+        <CardContent>
           {error && (
-            <Alert variant="destructive" className="mb-6">
+            <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
-          {showEmailVerification && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-              <div className="flex items-start">
-                <AlertCircle className="w-5 h-5 text-yellow-500 mt-0.5 mr-3 flex-shrink-0" />
-                <div>
-                  <h3 className="text-sm font-medium text-yellow-800 mb-2">Email Verification Required</h3>
-                  <p className="text-sm text-yellow-700 mb-3">
-                    Please verify your email address before signing in. Check your inbox for the verification link.
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Button
-                      onClick={handleCheckVerification}
-                      size="sm"
-                      className="bg-green-500 hover:bg-green-600 text-white"
-                      disabled={checkingVerification}
-                    >
-                      {checkingVerification ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Checking...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          I've Verified
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      onClick={handleResendEmail}
-                      size="sm"
-                      variant="outline"
-                      className="border-yellow-300 text-yellow-700 hover:bg-yellow-50 bg-transparent"
-                      disabled={resendLoading}
-                    >
-                      {resendLoading ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Sending...
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCw className="w-4 h-4 mr-2" />
-                          Resend Email
-                        </>
-                      )}
-                    </Button>
-                  </div>
+          {resendSuccess && (
+            <Alert className="mb-4 border-green-200 bg-green-50">
+              <Mail className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800">
+                Verification email sent successfully! Please check your inbox.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {showVerificationPrompt && (
+            <Alert className="mb-4 border-yellow-200 bg-yellow-50">
+              <Mail className="h-4 w-4 text-yellow-600" />
+              <AlertDescription className="text-yellow-800">
+                <div className="space-y-2">
+                  <p className="font-medium">Email Verification Required</p>
+                  <p className="text-sm">Please check your email and click the verification link before signing in.</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleResendVerification}
+                    disabled={resendingEmail}
+                    className="w-full mt-2 bg-transparent border-yellow-300 text-yellow-800 hover:bg-yellow-100"
+                  >
+                    {resendingEmail ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Mail className="w-4 h-4 mr-2" />
+                        Resend Verification Email
+                      </>
+                    )}
+                  </Button>
                 </div>
-              </div>
-            </div>
+              </AlertDescription>
+            </Alert>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
+              <Label htmlFor="email">Email Address</Label>
               <Input
+                id="email"
                 type="email"
-                placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="h-12 border-gray-300 rounded-lg"
                 required
+                placeholder="Enter your email address"
+                className={error && error.includes("email") ? "border-red-500" : ""}
               />
             </div>
 
-            <div className="relative">
-              <Input
-                type={showPassword ? "text" : "password"}
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="h-12 border-gray-300 rounded-lg pr-12"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-              >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  placeholder="Enter your password"
+                  className={`pr-10 ${error && error.includes("password") ? "border-red-500" : ""}`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
-            <div className="text-right">
-              <button
-                type="button"
-                onClick={() => router.push("/forgot-password")}
-                className="text-sm text-red-500 hover:text-red-600 underline"
-              >
-                Forgot Password?
-              </button>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <input
+                  id="remember-me"
+                  name="remember-me"
+                  type="checkbox"
+                  className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                />
+                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
+                  Remember me
+                </label>
+              </div>
+
+              <div className="text-sm">
+                <Link href="/forgot-password" className="font-medium text-red-600 hover:text-red-500">
+                  Forgot your password?
+                </Link>
+              </div>
             </div>
 
-            <Button
-              type="submit"
-              className="w-full h-12 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg"
-              disabled={loading}
-            >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Sign In"}
+            <Button type="submit" disabled={loading} className="w-full bg-red-500 hover:bg-red-600">
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                "Sign In"
+              )}
             </Button>
           </form>
 
-          <div className="text-center text-sm text-gray-600 mt-6">
-            Don't have an account?{" "}
-            <button
-              onClick={() => {
-                // Clear logout flags before navigating to register
-                if (typeof window !== "undefined") {
-                  sessionStorage.removeItem("auth_logged_out")
-                  localStorage.removeItem("auth_logged_out")
-                  document.cookie = "auth_logged_out=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/"
-                }
-                router.push("/register")
-              }}
-              className="text-red-500 hover:text-red-600 font-medium underline"
-            >
-              Sign Up
-            </button>
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-600">
+              Don't have an account?{" "}
+              <Link href="/register" className="font-medium text-red-600 hover:text-red-500">
+                Create one here
+              </Link>
+            </p>
           </div>
-
-          {/* Social Login Options */}
-          <div className="mt-8">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Or continue with</span>
-              </div>
-            </div>
-
-            <div className="mt-6 grid grid-cols-3 gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                className="h-12 border-gray-300 hover:bg-gray-50 bg-transparent"
-                onClick={() => {
-                  // Google sign in would be implemented here
-                  console.log("Google sign in")
-                }}
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path
-                    fill="currentColor"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                  />
-                </svg>
-              </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                className="h-12 border-gray-300 hover:bg-gray-50 bg-transparent"
-                onClick={() => {
-                  // Facebook sign in would be implemented here
-                  console.log("Facebook sign in")
-                }}
-              >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                </svg>
-              </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                className="h-12 border-gray-300 hover:bg-gray-50 bg-transparent"
-                onClick={() => {
-                  // Apple sign in would be implemented here
-                  console.log("Apple sign in")
-                }}
-              >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12.017 0C8.396 0 8.025.044 8.025.044c0 0-.396.044-.396.044C3.891.088 0 3.979 0 8.717c0 4.738 3.891 8.629 7.629 8.673 0 0 .396.044.396.044s.396-.044.396-.044c3.738-.044 7.629-3.935 7.629-8.673C16.05 3.979 12.159.088 8.421.044c0 0-.396-.044-.396-.044S12.017 0 12.017 0zm2.706 16.706c-.708.708-1.854.708-2.562 0L8.854 13.4c-.708-.708-.708-1.854 0-2.562.708-.708 1.854-.708 2.562 0l1.6 1.6 4.24-4.24c.708-.708 1.854-.708 2.562 0 .708.708.708 1.854 0 2.562l-5.095 5.946z" />
-                </svg>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

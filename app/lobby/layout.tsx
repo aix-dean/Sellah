@@ -1,5 +1,5 @@
 import type React from "react"
-import { ProtectedPageWrapper } from "@/components/auth/protected-page-wrapper"
+import ProtectedPageWrapper from "@/components/auth/protected-page-wrapper"
 
 export default function LobbyLayout({
   children,

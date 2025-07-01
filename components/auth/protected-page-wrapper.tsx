@@ -2,49 +2,46 @@
 
 import type React from "react"
 
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { PageVisibilityDetector } from "./page-visibility-detector"
-import { wasLoggedOut } from "@/lib/auth"
+import { useEffect, useState } from "react"
+import { useRouter, usePathname } from "next/navigation"
+import { wasLoggedOut, clearLogoutFlags } from "@/lib/auth"
+
+const PUBLIC_ROUTES = ["/", "/login", "/register", "/forgot-password", "/about"]
 
 interface ProtectedPageWrapperProps {
   children: React.ReactNode
 }
 
-export function ProtectedPageWrapper({ children }: ProtectedPageWrapperProps) {
+export default function ProtectedPageWrapper({ children }: ProtectedPageWrapperProps) {
   const router = useRouter()
+  const pathname = usePathname()
+  const [isChecking, setIsChecking] = useState(true)
 
   useEffect(() => {
-    // Set cache control headers
-    document.cookie = "cache-control=no-store, no-cache, must-revalidate; path=/;"
-    document.cookie = "pragma=no-cache; path=/;"
-    document.cookie = "expires=0; path=/;"
+    // If it's a public route, clear logout flags and allow access
+    if (PUBLIC_ROUTES.includes(pathname)) {
+      clearLogoutFlags()
+      setIsChecking(false)
+      return
+    }
 
-    // Check if user was logged out
+    // For protected routes, check logout status
     if (wasLoggedOut()) {
-      console.log("Protected page accessed after logout, redirecting to login")
-      router.push("/login?prevented=true")
+      router.push("/login?session=expired")
+      return
     }
 
-    // Handle back/forward navigation
-    const handlePopState = () => {
-      if (wasLoggedOut()) {
-        console.log("History navigation detected after logout, redirecting to login")
-        router.push("/login?prevented=true")
-      }
-    }
+    setIsChecking(false)
+  }, [router, pathname])
 
-    window.addEventListener("popstate", handlePopState)
+  // Show loading for protected routes while checking
+  if (isChecking && !PUBLIC_ROUTES.includes(pathname)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-red-600"></div>
+      </div>
+    )
+  }
 
-    return () => {
-      window.removeEventListener("popstate", handlePopState)
-    }
-  }, [router])
-
-  return (
-    <>
-      <PageVisibilityDetector />
-      {children}
-    </>
-  )
+  return <>{children}</>
 }

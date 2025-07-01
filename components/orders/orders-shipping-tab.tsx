@@ -176,7 +176,7 @@ export function OrdersShippingTab({
                           ) : (
                             <>
                               <MapPin className="h-4 w-4 text-green-500" />
-                              <span className="text-sm text-gray-700">
+                              <span className="text-sm text-gray-700 text-left">
                                 Delivery <br />{" "}
                                 {`${order.shipping_address?.street}, ${order.shipping_address.city}` || "N/A"}
                               </span>

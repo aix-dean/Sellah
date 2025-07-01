@@ -1,691 +1,456 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import {
-  Loader2,
-  ArrowLeft,
-  CheckCircle,
-  RefreshCw,
-  Building2,
-  User,
-  ChevronLeft,
-  ChevronRight,
-  AlertCircle,
-} from "lucide-react"
-import { completeRegistration, resendEmailVerification, checkEmailVerified } from "@/lib/auth"
-import type { CompleteRegistrationData } from "@/lib/auth"
 import { Label } from "@/components/ui/label"
-import { fetchSignInMethodsForEmail } from "firebase/auth"
-import { auth } from "@/lib/firebase"
-import { useRouter } from "next/navigation"
-
-type RegistrationStep = "personal" | "company" | "email-verification"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Progress } from "@/components/ui/progress"
+import { Eye, EyeOff, ArrowLeft, ArrowRight, CheckCircle, Mail, Loader2 } from "lucide-react"
+import { registerUser, type RegistrationData } from "@/lib/auth"
+import Link from "next/link"
 
 export default function RegistrationForm() {
-  const router = useRouter()
-  const [step, setStep] = useState<RegistrationStep>("personal")
-  const [userData, setUserData] = useState({
-    first_name: "",
-    middle_name: "",
-    last_name: "",
-    phone_number: "",
-    gender: "Male",
+  const [currentStep, setCurrentStep] = useState(1)
+  const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [registrationComplete, setRegistrationComplete] = useState(false)
+  const [licenseKey, setLicenseKey] = useState("")
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const [formData, setFormData] = useState<RegistrationData>({
+    firstName: "",
+    middleName: "",
+    lastName: "",
     email: "",
     password: "",
+    companyName: "",
+    phoneNumber: "",
+    street: "",
+    city: "",
+    province: "",
   })
-  const [companyData, setCompanyData] = useState({
-    name: "",
-    address: {
-      street: "",
-      city: "",
-      province: "",
-      postal_code: "",
-    },
-    website: "",
-  })
+
   const [confirmPassword, setConfirmPassword] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [resendLoading, setResendLoading] = useState(false)
-  const [checkingVerification, setCheckingVerification] = useState(false)
-  const [registrationResult, setRegistrationResult] = useState<{
-    userId: string
-    companyId: string
-    licenseId: string
-    email: string
-  } | null>(null)
 
-  useEffect(() => {
-    // Clear any logout flags when accessing registration
-    if (typeof window !== "undefined") {
-      sessionStorage.removeItem("auth_logged_out")
-      localStorage.removeItem("auth_logged_out")
-      // Clear the logout cookie
-      document.cookie = "auth_logged_out=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/"
-    }
-  }, [])
-
-  const handleUserInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setUserData((prev) => ({
-      ...prev,
-      [name]: value,
-    }))
-  }
-
-  const handleCompanyInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-
-    // Handle nested address fields
-    if (name.startsWith("address.")) {
-      const addressField = name.split(".")[1]
-      setCompanyData((prev) => ({
-        ...prev,
-        address: {
-          ...prev.address,
-          [addressField]: value,
-        },
-      }))
-    } else {
-      setCompanyData((prev) => ({
-        ...prev,
-        [name]: value,
-      }))
+  const handleInputChange = (field: keyof RegistrationData, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: "" }))
     }
   }
 
-  const handleGenderChange = (gender: string) => {
-    setUserData((prev) => ({
-      ...prev,
-      gender,
-    }))
+  const handlePhoneChange = (value: string) => {
+    // Remove any non-digit characters
+    const digits = value.replace(/\D/g, "")
+
+    // Ensure it starts with 9 and limit to 10 digits
+    if (digits.length === 0 || digits[0] === "9") {
+      const limitedDigits = digits.slice(0, 10)
+      handleInputChange("phoneNumber", limitedDigits)
+    }
   }
 
-  const validatePersonalForm = (): string[] => {
-    const errors: string[] = []
+  const validateStep1 = (): boolean => {
+    const newErrors: Record<string, string> = {}
 
-    if (!userData.first_name.trim()) errors.push("First name is required")
-    if (!userData.last_name.trim()) errors.push("Last name is required")
-    if (!userData.email.trim()) errors.push("Email is required")
-    if (!userData.password.trim()) errors.push("Password is required")
-    if (!userData.phone_number.trim()) errors.push("Phone number is required")
-
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (userData.email && !emailRegex.test(userData.email)) {
-      errors.push("Please enter a valid email address")
+    if (!formData.firstName.trim()) {
+      newErrors.firstName = "First name is required"
     }
 
-    // Password validation
-    if (userData.password && userData.password.length < 6) {
-      errors.push("Password must be at least 6 characters long")
+    if (!formData.lastName.trim()) {
+      newErrors.lastName = "Last name is required"
     }
 
-    if (userData.password !== confirmPassword) {
-      errors.push("Passwords do not match")
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required"
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address"
     }
 
-    // Phone number validation
-    if (userData.phone_number && !/^\d{10}$/.test(userData.phone_number)) {
-      errors.push("Phone number must be exactly 10 digits")
+    if (!formData.password) {
+      newErrors.password = "Password is required"
+    } else if (formData.password.length < 6) {
+      newErrors.password = "Password must be at least 6 characters"
     }
 
-    return errors
+    if (!confirmPassword) {
+      newErrors.confirmPassword = "Please confirm your password"
+    } else if (formData.password !== confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match"
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
   }
 
-  const validateCompanyForm = (): string[] => {
-    const errors: string[] = []
+  const validateStep2 = (): boolean => {
+    const newErrors: Record<string, string> = {}
 
-    if (!companyData.name.trim()) errors.push("Company name is required")
-    if (!companyData.address.city.trim()) errors.push("City is required")
-    if (!companyData.address.province.trim()) errors.push("Province is required")
-
-    // Website validation (if provided)
-    if (companyData.website && companyData.website.trim()) {
-      const urlRegex = /^https?:\/\/.+\..+/
-      if (!urlRegex.test(companyData.website)) {
-        errors.push("Please enter a valid website URL (include http:// or https://)")
-      }
+    if (!formData.companyName.trim()) {
+      newErrors.companyName = "Company name is required"
     }
 
-    return errors
+    if (!formData.phoneNumber) {
+      newErrors.phoneNumber = "Phone number is required"
+    } else if (formData.phoneNumber.length !== 10) {
+      newErrors.phoneNumber = "Phone number must be exactly 10 digits"
+    } else if (!formData.phoneNumber.startsWith("9")) {
+      newErrors.phoneNumber = "Phone number must start with 9"
+    }
+
+    if (!formData.street.trim()) {
+      newErrors.street = "Street address is required"
+    }
+
+    if (!formData.city.trim()) {
+      newErrors.city = "City is required"
+    }
+
+    if (!formData.province.trim()) {
+      newErrors.province = "Province is required"
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
   }
 
-  const handlePersonalNext = async (e: React.FormEvent) => {
+  const handleNext = () => {
+    if (currentStep === 1 && validateStep1()) {
+      setCurrentStep(2)
+    }
+  }
+
+  const handleBack = () => {
+    if (currentStep === 2) {
+      setCurrentStep(1)
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
-    setLoading(true)
 
-    try {
-      const errors = validatePersonalForm()
-      if (errors.length > 0) {
-        setError(errors.join(", "))
-        setLoading(false)
-        return
-      }
-
-      // Check if email is already registered
-      const signInMethods = await fetchSignInMethodsForEmail(auth, userData.email)
-      if (signInMethods.length > 0) {
-        setError("This email is already registered. Please use a different email or login to your existing account.")
-        setLoading(false)
-        return
-      }
-
-      // Email is not registered, proceed to next step
-      setStep("company")
-    } catch (error: any) {
-      console.error("Error checking email:", error)
-      if (error.code === "auth/invalid-email") {
-        setError("Please enter a valid email address")
-      } else {
-        setError("Failed to verify email availability. Please try again.")
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleCompleteRegistration = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-
-    // Validate both forms
-    const personalErrors = validatePersonalForm()
-    const companyErrors = validateCompanyForm()
-    const allErrors = [...personalErrors, ...companyErrors]
-
-    if (allErrors.length > 0) {
-      setError(allErrors.join(", "))
+    if (!validateStep2()) {
       return
     }
 
     setLoading(true)
+    setErrors({})
 
     try {
-      const registrationData: CompleteRegistrationData = {
-        userData,
-        companyData: {
-          ...companyData,
-          business_type: "Other", // Default value for backend compatibility
-        },
+      // Add +63 prefix to phone number
+      const registrationData = {
+        ...formData,
+        phoneNumber: `+63${formData.phoneNumber}`,
       }
 
-      console.log("Submitting registration data:", registrationData)
+      const result = await registerUser(registrationData)
 
-      const result = await completeRegistration(registrationData)
-
-      console.log("Registration result:", result)
-
-      if (result.success && result.user) {
-        setRegistrationResult({
-          userId: result.user.uid,
-          companyId: result.companyId || "",
-          licenseId: result.licenseId || "",
-          email: result.user.email || userData.email,
-        })
-
-        setStep("email-verification")
+      if (result.success) {
+        setLicenseKey(result.licenseKey || "")
+        setRegistrationComplete(true)
       } else {
-        setError(result.error || result.message || "Registration failed. Please try again.")
+        setErrors({ submit: result.error || "Registration failed. Please try again." })
       }
     } catch (error: any) {
       console.error("Registration error:", error)
-      setError(error.message || "Failed to complete registration. Please try again.")
+      setErrors({ submit: error.message || "Registration failed. Please try again." })
     } finally {
       setLoading(false)
     }
   }
 
-  const handleResendEmail = async () => {
-    setResendLoading(true)
-    setError("")
-
-    try {
-      const result = await resendEmailVerification()
-      if (result.success) {
-        // Show success message briefly
-        setError("") // Clear any existing errors
-      } else {
-        setError(result.error || result.message || "Failed to resend verification email")
-      }
-    } catch (error: any) {
-      setError(error.message || "Failed to resend verification email")
-    } finally {
-      setResendLoading(false)
-    }
-  }
-
-  const handleCheckVerification = async () => {
-    setCheckingVerification(true)
-    setError("")
-
-    try {
-      const isVerified = await checkEmailVerified()
-      if (isVerified) {
-        // Redirect to login
-        router.push("/login?verified=true")
-      } else {
-        setError("Email not yet verified. Please check your inbox and click the verification link.")
-      }
-    } catch (error: any) {
-      setError("Failed to check verification status. Please try again.")
-    } finally {
-      setCheckingVerification(false)
-    }
-  }
-
-  if (step === "email-verification") {
+  if (registrationComplete) {
     return (
-      <div className="min-h-screen flex">
-        <div className="hidden md:flex flex-1 bg-gradient-to-br from-orange-400 to-orange-500">
-          <img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Login-Q1uRkQ6tX8FmAEN0XCpOshfCn9X6qw.png" alt="Sellah Logo" className="w-full object-cover" />
-        </div>
-        <div className="flex-1 flex items-center justify-center bg-white p-8">
-          <div className="w-full max-w-md text-center">
-            <div className="mb-6">
-              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="w-10 h-10 text-green-500" />
-              </div>
-              <h1 className="text-3xl font-bold text-red-500 mb-4">Registration Complete!</h1>
-              <p className="text-gray-600 mb-4">Your account and company information have been successfully saved.</p>
-              <p className="text-gray-600 mb-6">
-                We've sent a verification link to <strong>{registrationResult?.email || userData.email}</strong>. Please
-                check your email and click the verification link to activate your account.
-              </p>
-              <p className="text-sm text-gray-500 mb-8">
-                Didn't receive the email? Check your spam folder or click the button below to resend.
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+              <CheckCircle className="w-8 h-8 text-green-600" />
+            </div>
+            <CardTitle className="text-2xl font-bold text-green-600">Registration Successful!</CardTitle>
+            <CardDescription>
+              Your account has been created successfully. Please check your email to verify your account.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <h3 className="font-semibold text-blue-900 mb-2">Your License Key:</h3>
+              <code className="bg-white px-3 py-2 rounded border text-sm font-mono block text-center break-all">
+                {licenseKey}
+              </code>
+              <p className="text-xs text-blue-700 mt-2">
+                Please save this license key. You'll need it for your account.
               </p>
             </div>
 
-            {error && (
-              <Alert variant="destructive" className="mb-6">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <div className="space-y-4">
-              <Button
-                onClick={handleCheckVerification}
-                className="w-full h-12 bg-green-500 hover:bg-green-600 text-white"
-                disabled={checkingVerification}
-              >
-                {checkingVerification ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Checking...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-5 h-5 mr-2" />
-                    I've Verified My Email
-                  </>
-                )}
-              </Button>
-
-              <Button
-                onClick={handleResendEmail}
-                variant="outline"
-                className="w-full h-12 border-red-500 text-red-500 hover:bg-red-50 bg-transparent"
-                disabled={resendLoading}
-              >
-                {resendLoading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-5 h-5 mr-2" />
-                    Resend Verification Email
-                  </>
-                )}
-              </Button>
-
-              <Button
-                onClick={() => router.push("/login")}
-                variant="ghost"
-                className="w-full h-12 text-gray-600 hover:text-gray-800"
-              >
-                Back to Login
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (step === "company") {
-    return (
-      <div className="min-h-screen flex">
-        {/* Left side - Sellah Branding */}
-        <div className="hidden md:flex flex-1 bg-gradient-to-br from-orange-400 to-orange-500">
-          <img src="/images/login-design.png" alt="Sellah Logo" className="w-full h-full object-cover" />
-        </div>
-
-        {/* Right side - Company Form */}
-        <div className="flex-1 flex items-center justify-center bg-white p-4 md:p-8">
-          <div className="w-full max-w-md px-4 md:px-0">
-            <div className="flex items-center justify-between mb-6">
-              <Button
-                onClick={() => setStep("personal")}
-                variant="ghost"
-                className="p-0 h-auto text-gray-600 hover:text-gray-800"
-              >
-                <ChevronLeft className="w-5 h-5 mr-2" />
-                Back
-              </Button>
-
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                <div className="w-3 h-3 rounded-full bg-red-500"></div>
+            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+              <div className="flex items-center space-x-2 mb-2">
+                <Mail className="w-5 h-5 text-yellow-600" />
+                <h3 className="font-semibold text-yellow-900">Email Verification Required</h3>
               </div>
+              <p className="text-sm text-yellow-800">
+                We've sent a verification email to <strong>{formData.email}</strong>. Please click the verification link
+                in your email before signing in.
+              </p>
             </div>
 
-            <div className="flex items-center mb-8">
-              <Building2 className="w-8 h-8 text-red-500 mr-3" />
-              <h1 className="text-3xl font-bold text-red-500">Company Information</h1>
-            </div>
-
-            {error && (
-              <Alert variant="destructive" className="mb-6">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <form onSubmit={handleCompleteRegistration} className="space-y-4">
-              <div>
-                <Label htmlFor="name" className="text-sm font-medium text-gray-700">
-                  Company Name <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="name"
-                  type="text"
-                  name="name"
-                  placeholder="Company Name"
-                  value={companyData.name}
-                  onChange={handleCompanyInputChange}
-                  className="h-12 border-gray-300 rounded-lg mt-1"
-                  required
-                />
-              </div>
-
-              <div className="space-y-4">
-                <Label className="text-sm font-medium text-gray-700">
-                  Company Location <span className="text-red-500">*</span>
-                </Label>
-
-                <div>
-                  <Input
-                    type="text"
-                    name="address.street"
-                    placeholder="Street Address"
-                    value={companyData.address.street}
-                    onChange={handleCompanyInputChange}
-                    className="h-12 border-gray-300 rounded-lg"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Input
-                      type="text"
-                      name="address.city"
-                      placeholder="City *"
-                      value={companyData.address.city}
-                      onChange={handleCompanyInputChange}
-                      className="h-12 border-gray-300 rounded-lg"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Input
-                      type="text"
-                      name="address.province"
-                      placeholder="Province *"
-                      value={companyData.address.province}
-                      onChange={handleCompanyInputChange}
-                      className="h-12 border-gray-300 rounded-lg"
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="website" className="text-sm font-medium text-gray-700">
-                  Website (Optional)
-                </Label>
-                <Input
-                  id="website"
-                  type="url"
-                  name="website"
-                  placeholder="https://example.com"
-                  value={companyData.website}
-                  onChange={handleCompanyInputChange}
-                  className="h-12 border-gray-300 rounded-lg mt-1"
-                />
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full h-12 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg mt-6"
-                disabled={loading}
-              >
-                {loading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <>
-                    Complete Registration <ChevronRight className="w-5 h-5 ml-1" />
-                  </>
-                )}
-              </Button>
-            </form>
-          </div>
-        </div>
+            <Link href="/login" className="w-full">
+              <Button className="w-full bg-red-500 hover:bg-red-600">Go to Login</Button>
+            </Link>
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left side - Sellah Branding */}
-      <div className="hidden md:flex flex-1 bg-gradient-to-br from-orange-400 to-orange-500">
-        <img src="/images/login-design.png" alt="Sellah Logo" className="w-full h-full object-cover" />
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <div className="flex items-center space-x-2 mb-4">
+            <div className="w-8 h-8 bg-red-500 rounded flex items-center justify-center">
+              <span className="text-white font-bold text-lg">S</span>
+            </div>
+            <span className="font-bold text-xl text-red-500">SELLAH</span>
+          </div>
+          <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
+          <CardDescription>
+            Step {currentStep} of 2: {currentStep === 1 ? "Personal Information" : "Company Details"}
+          </CardDescription>
+          <Progress value={(currentStep / 2) * 100} className="mt-4" />
+        </CardHeader>
 
-      {/* Right side - Registration Form */}
-      <div className="flex-1 flex items-center justify-center bg-white p-4 md:p-8">
-        <div className="w-full max-w-md px-4 md:px-0">
-          <Button
-            onClick={() => router.back()}
-            variant="ghost"
-            className="mb-6 p-0 h-auto text-gray-600 hover:text-gray-800"
+        <CardContent>
+          <form
+            onSubmit={
+              currentStep === 2
+                ? handleSubmit
+                : (e) => {
+                    e.preventDefault()
+                    handleNext()
+                  }
+            }
           >
-            <ArrowLeft className="w-5 h-5 mr-2" />
-            Back
-          </Button>
-
-          <div className="flex items-center mb-8">
-            <User className="w-8 h-8 text-red-500 mr-3" />
-            <h1 className="text-3xl font-bold text-red-500">Personal Information</h1>
-          </div>
-
-          <div className="flex items-center justify-end mb-6">
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 rounded-full bg-red-500"></div>
-              <div className="w-3 h-3 rounded-full bg-gray-300"></div>
-            </div>
-          </div>
-
-          {error && (
-            <Alert variant="destructive" className="mb-6">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          <form onSubmit={handlePersonalNext} className="space-y-4">
-            <div>
-              <Input
-                type="text"
-                name="first_name"
-                placeholder="First Name"
-                value={userData.first_name}
-                onChange={handleUserInputChange}
-                className="h-12 border-gray-300 rounded-lg"
-                required
-              />
-            </div>
-
-            <div>
-              <Input
-                type="text"
-                name="middle_name"
-                placeholder="Middle Name"
-                value={userData.middle_name}
-                onChange={handleUserInputChange}
-                className="h-12 border-gray-300 rounded-lg"
-              />
-            </div>
-
-            <div>
-              <Input
-                type="text"
-                name="last_name"
-                placeholder="Last Name"
-                value={userData.last_name}
-                onChange={handleUserInputChange}
-                className="h-12 border-gray-300 rounded-lg"
-                required
-              />
-            </div>
-
-            <div>
-              <div className="relative">
-                <div className="absolute left-0 top-0 h-12 flex justify-center items-center pl-3 w-12 border-r border-gray-300 bg-gray-50 rounded-l-lg">
-                  <span className="text-gray-700 font-medium text-sm">+63</span>
+            {currentStep === 1 && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="firstName">First Name *</Label>
+                    <Input
+                      id="firstName"
+                      type="text"
+                      value={formData.firstName}
+                      onChange={(e) => handleInputChange("firstName", e.target.value)}
+                      className={errors.firstName ? "border-red-500" : ""}
+                      placeholder="John"
+                    />
+                    {errors.firstName && <p className="text-sm text-red-500 mt-1">{errors.firstName}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="lastName">Last Name *</Label>
+                    <Input
+                      id="lastName"
+                      type="text"
+                      value={formData.lastName}
+                      onChange={(e) => handleInputChange("lastName", e.target.value)}
+                      className={errors.lastName ? "border-red-500" : ""}
+                      placeholder="Doe"
+                    />
+                    {errors.lastName && <p className="text-sm text-red-500 mt-1">{errors.lastName}</p>}
+                  </div>
                 </div>
-                <Input
-                  type="text"
-                  name="phone_number"
-                  placeholder="9XX XXX XXXX"
-                  value={userData.phone_number}
-                  onChange={(e) => {
-                    // Only allow numbers and limit to 10 digits
-                    const value = e.target.value.replace(/\D/g, "").slice(0, 10)
-                    setUserData((prev) => ({
-                      ...prev,
-                      phone_number: value,
-                    }))
-                  }}
-                  className="h-12 border-gray-300 rounded-lg pl-16"
-                  required
-                />
-              </div>
-              <p className="text-xs text-gray-500 mt-1">Enter your 10-digit phone number without the country code</p>
-            </div>
 
-            <div>
-              <Input
-                type="email"
-                name="email"
-                placeholder="Email"
-                value={userData.email}
-                onChange={handleUserInputChange}
-                className="h-12 border-gray-300 rounded-lg"
-                required
-              />
-            </div>
-
-            <div>
-              <Input
-                type="password"
-                name="password"
-                placeholder="Password"
-                value={userData.password}
-                onChange={handleUserInputChange}
-                className="h-12 border-gray-300 rounded-lg"
-                required
-              />
-            </div>
-
-            <div>
-              <Input
-                type="password"
-                placeholder="Confirm Password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="h-12 border-gray-300 rounded-lg"
-                required
-              />
-            </div>
-
-            {/* Gender Selection */}
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-gray-700">Gender:</label>
-              <div className="flex space-x-6">
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="gender"
-                    value="Female"
-                    checked={userData.gender === "Female"}
-                    onChange={() => handleGenderChange("Female")}
-                    className="w-4 h-4 text-red-500 border-gray-300 focus:ring-red-500"
+                <div>
+                  <Label htmlFor="middleName">Middle Name</Label>
+                  <Input
+                    id="middleName"
+                    type="text"
+                    value={formData.middleName}
+                    onChange={(e) => handleInputChange("middleName", e.target.value)}
+                    placeholder="Optional"
                   />
-                  <span className="text-sm text-gray-700">Female</span>
-                </label>
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="gender"
-                    value="Male"
-                    checked={userData.gender === "Male"}
-                    onChange={() => handleGenderChange("Male")}
-                    className="w-4 h-4 text-red-500 border-gray-300 focus:ring-red-500"
-                  />
-                  <span className="text-sm text-gray-700">Male</span>
-                </label>
-              </div>
-            </div>
+                </div>
 
-            <Button
-              type="submit"
-              className="w-full h-12 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg mt-6"
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Checking email...
-                </>
-              ) : (
-                <>
-                  Next <ChevronRight className="w-5 h-5 ml-1" />
-                </>
-              )}
-            </Button>
+                <div>
+                  <Label htmlFor="email">Email Address *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange("email", e.target.value)}
+                    className={errors.email ? "border-red-500" : ""}
+                    placeholder="john@example.com"
+                  />
+                  {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email}</p>}
+                </div>
+
+                <div>
+                  <Label htmlFor="password">Password *</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      value={formData.password}
+                      onChange={(e) => handleInputChange("password", e.target.value)}
+                      className={errors.password ? "border-red-500 pr-10" : "pr-10"}
+                      placeholder="Enter your password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {errors.password && <p className="text-sm text-red-500 mt-1">{errors.password}</p>}
+                </div>
+
+                <div>
+                  <Label htmlFor="confirmPassword">Confirm Password *</Label>
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className={errors.confirmPassword ? "border-red-500 pr-10" : "pr-10"}
+                      placeholder="Confirm your password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {errors.confirmPassword && <p className="text-sm text-red-500 mt-1">{errors.confirmPassword}</p>}
+                </div>
+
+                <Button type="submit" className="w-full bg-red-500 hover:bg-red-600">
+                  Next Step
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            )}
+
+            {currentStep === 2 && (
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="companyName">Company Name *</Label>
+                  <Input
+                    id="companyName"
+                    type="text"
+                    value={formData.companyName}
+                    onChange={(e) => handleInputChange("companyName", e.target.value)}
+                    className={errors.companyName ? "border-red-500" : ""}
+                    placeholder="Your Company Name"
+                  />
+                  {errors.companyName && <p className="text-sm text-red-500 mt-1">{errors.companyName}</p>}
+                </div>
+
+                <div>
+                  <Label htmlFor="phoneNumber">Phone Number *</Label>
+                  <div className="flex">
+                    <div className="flex items-center px-3 bg-gray-100 border border-r-0 rounded-l-md">
+                      <span className="text-sm font-medium">+63</span>
+                    </div>
+                    <Input
+                      id="phoneNumber"
+                      type="tel"
+                      value={formData.phoneNumber}
+                      onChange={(e) => handlePhoneChange(e.target.value)}
+                      className={`rounded-l-none ${errors.phoneNumber ? "border-red-500" : ""}`}
+                      placeholder="9XXXXXXXXX"
+                      maxLength={10}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Must start with 9 and be 10 digits long</p>
+                  {errors.phoneNumber && <p className="text-sm text-red-500 mt-1">{errors.phoneNumber}</p>}
+                </div>
+
+                <div>
+                  <Label htmlFor="street">Street Address *</Label>
+                  <Input
+                    id="street"
+                    type="text"
+                    value={formData.street}
+                    onChange={(e) => handleInputChange("street", e.target.value)}
+                    className={errors.street ? "border-red-500" : ""}
+                    placeholder="123 Main Street"
+                  />
+                  {errors.street && <p className="text-sm text-red-500 mt-1">{errors.street}</p>}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="city">City *</Label>
+                    <Input
+                      id="city"
+                      type="text"
+                      value={formData.city}
+                      onChange={(e) => handleInputChange("city", e.target.value)}
+                      className={errors.city ? "border-red-500" : ""}
+                      placeholder="Manila"
+                    />
+                    {errors.city && <p className="text-sm text-red-500 mt-1">{errors.city}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="province">Province *</Label>
+                    <Input
+                      id="province"
+                      type="text"
+                      value={formData.province}
+                      onChange={(e) => handleInputChange("province", e.target.value)}
+                      className={errors.province ? "border-red-500" : ""}
+                      placeholder="Metro Manila"
+                    />
+                    {errors.province && <p className="text-sm text-red-500 mt-1">{errors.province}</p>}
+                  </div>
+                </div>
+
+                {errors.submit && (
+                  <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                    <p className="text-sm text-red-600">{errors.submit}</p>
+                  </div>
+                )}
+
+                <div className="flex space-x-3">
+                  <Button type="button" variant="outline" onClick={handleBack} className="flex-1 bg-transparent">
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back
+                  </Button>
+                  <Button type="submit" disabled={loading} className="flex-1 bg-red-500 hover:bg-red-600">
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Creating Account...
+                      </>
+                    ) : (
+                      "Create Account"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
           </form>
 
-          <div className="text-center text-sm text-gray-600 mt-6">
-            Already have an account?{" "}
-            <button
-              onClick={() => router.push("/login")}
-              className="text-red-500 hover:text-red-600 font-medium underline"
-            >
-              Login
-            </button>
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-600">
+              Already have an account?{" "}
+              <Link href="/login" className="font-medium text-red-500 hover:text-red-600">
+                Sign in
+              </Link>
+            </p>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

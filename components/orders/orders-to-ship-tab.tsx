@@ -36,22 +36,28 @@ export function OrdersToShipTab({
     return `₱${amount.toFixed(2)}`
   }
 
+  // Filter orders to only show those with 'preparing' status
+  const preparingOrders = orders.filter((order) => {
+    const status = order.status?.toLowerCase() || ""
+    return status === "preparing"
+  })
+
   const getStatusBadge = (order: any) => {
+    // For TO SHIP tab, show payment approval status
     if (order.approve_payment === false) {
       return (
         <Badge
           variant="secondary"
           className="bg-blue-100 text-blue-800 hover:bg-blue-100 cursor-pointer"
-          onClick={() => onViewPaymentProof(order)}
         >
-          Payment Proof
+          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
         </Badge>
       )
     }
 
     return (
       <Badge variant="secondary" className="bg-green-100 text-green-800 hover:bg-green-100">
-        Payment Approved
+        {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
       </Badge>
     )
   }
@@ -66,7 +72,7 @@ export function OrdersToShipTab({
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedOrders(orders.map((order) => order.id))
+      setSelectedOrders(preparingOrders.map((order) => order.id))
     } else {
       setSelectedOrders([])
     }
@@ -102,7 +108,7 @@ export function OrdersToShipTab({
     )
   }
 
-  if (orders.length === 0) {
+  if (preparingOrders.length === 0) {
     return (
       <div className="text-center py-12">
         <Truck className="mx-auto h-12 w-12 text-gray-400 mb-4" />
@@ -122,7 +128,10 @@ export function OrdersToShipTab({
               <thead>
                 <tr className="border-b border-gray-200">
                   <th className="text-left py-3 px-4 font-medium text-gray-700">
-                    <Checkbox checked={selectedOrders.length === orders.length} onCheckedChange={handleSelectAll} />
+                    <Checkbox
+                      checked={selectedOrders.length === preparingOrders.length}
+                      onCheckedChange={handleSelectAll}
+                    />
                   </th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Order</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Customer</th>
@@ -134,7 +143,7 @@ export function OrdersToShipTab({
                 </tr>
               </thead>
               <tbody>
-                {orders.map((order) => {
+                {preparingOrders.map((order) => {
                   const isSelected = selectedOrders.includes(order.id)
 
                   return (
@@ -145,8 +154,8 @@ export function OrdersToShipTab({
                           onCheckedChange={(checked) => handleSelectOrder(order.id, checked)}
                         />
                       </td>
-                      <td className="py-4 px-4">
-                        <div>
+                      <td className="py-4 px-4 text-left text-left">
+                        <div className="text-left">
                           <button
                             onClick={() => handleOrderClick(order)}
                             className="font-medium text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
@@ -207,9 +216,7 @@ export function OrdersToShipTab({
                             size="sm"
                             onClick={() => {
                               onReadyToShip(order, false)
-                              // Add visual feedback that the action is processing
                             }}
-                            disabled={order.approve_payment !== true}
                             className="bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-300 disabled:cursor-not-allowed"
                           >
                             <Truck className="h-4 w-4 mr-1" />
@@ -227,7 +234,7 @@ export function OrdersToShipTab({
 
         {/* Mobile Card View */}
         <div className="md:hidden space-y-4">
-          {orders.map((order) => {
+          {preparingOrders.map((order) => {
             const isSelected = selectedOrders.includes(order.id)
 
             return (
@@ -301,9 +308,7 @@ export function OrdersToShipTab({
                       size="sm"
                       onClick={() => {
                         onReadyToShip(order, false)
-                        // Add visual feedback that the action is processing
                       }}
-                      disabled={order.approve_payment !== true}
                       className="flex-1 bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-300 disabled:cursor-not-allowed"
                     >
                       <Truck className="h-4 w-4 mr-1" />
