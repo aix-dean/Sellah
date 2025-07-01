@@ -47,7 +47,7 @@ export default function AboutPage() {
               <p className="text-gray-700 text-lg mb-6">
                 Welcome to Sellah, your ultimate ERP solution tailored specifically for sellers looking to thrive in the
                 dynamic world of the Out-of-Home (OOH) industry. Sellah empowers sellers to seamlessly list and manage
-                their products on OHSHOP, a leading online marketplace dedicated to the OOH sector.
+                their products on OHSHOP, a leading online marketplace dedicated to the OOH sector.Lorem Ipsum
               </p>
             </div>
             <div className="flex justify-center">
