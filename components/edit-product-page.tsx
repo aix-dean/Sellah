@@ -912,7 +912,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
           <div className="space-y-6">
             <div className="border-b border-gray-200 pb-4">
               <h2 className="text-xl font-semibold text-gray-900">Product Details</h2>
-              <p className="text-sm text-gray-600 mt-1">Enter the basic information about your product</p>
+              <p className="text-sm text-gray-600 mt-1 text-left">Enter the basic information about your product</p>
             </div>
 
             <div className="space-y-6">
