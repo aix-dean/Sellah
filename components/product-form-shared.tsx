@@ -383,7 +383,7 @@ export function CategorySelection({
           const isSelected = selectedCategories.includes(category.id)
           return (
             <div key={category.id} className="flex space-x-3 p-2 hover:bg-gray-50 rounded-md items-start flex-row">
-              <div className="flex items-center h-5">
+              <div className="flex h-5">
                 <input
                   type="checkbox"
                   id={`category-${category.id}`}
