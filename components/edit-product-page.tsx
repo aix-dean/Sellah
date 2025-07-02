@@ -911,13 +911,13 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
         return (
           <div className="space-y-6">
             <div className="border-b border-gray-200 pb-4">
-              <h2 className="text-xl font-semibold text-gray-900">Product Details</h2>
+              <h2 className="text-xl font-semibold text-gray-900 text-left">Product Details</h2>
               <p className="text-sm text-gray-600 mt-1 text-left">Enter the basic information about your product</p>
             </div>
 
             <div className="space-y-6">
               <div>
-                <Label htmlFor="name" className="text-sm font-medium text-gray-700 mb-2 block">
+                <Label htmlFor="name" className="text-sm font-medium text-gray-700 mb-2 block text-left">
                   Product Name <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -935,7 +935,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
               </div>
 
               <div>
-                <Label htmlFor="description" className="text-sm font-medium text-gray-700 mb-2 block">
+                <Label htmlFor="description" className="text-sm font-medium text-gray-700 mb-2 block text-left">
                   Product Description <span className="text-red-500">*</span>
                 </Label>
                 <Textarea
