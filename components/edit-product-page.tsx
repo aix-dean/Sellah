@@ -976,7 +976,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
             </div>
 
             {/* Unit Selection */}
-            <div>
+            <div className="text-left">
               <Label htmlFor="unit" className="text-sm font-medium text-gray-700 mb-2 block">
                 Unit <span className="text-red-500">*</span>
               </Label>
@@ -999,7 +999,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
             {/* Variations Section */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <div>
+                <div className="text-left">
                   <Label className="text-base font-medium text-gray-900">Product Variations</Label>
                   <p className="text-sm text-gray-600 mt-1">Add different versions of your product (optional)</p>
                 </div>
@@ -1165,14 +1165,14 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
       case 3:
         return (
           <div className="space-y-6">
-            <div className="border-b border-gray-200 pb-4">
+            <div className="border-b border-gray-200 pb-4 text-left">
               <h2 className="text-xl font-semibold text-gray-900">Sales Information</h2>
               <p className="text-sm text-gray-600 mt-1">Set pricing and inventory for your product</p>
             </div>
 
             {formData.variations.length > 0 ? (
               <div className="space-y-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left">
                   <h3 className="text-lg font-medium text-blue-900 mb-2">Variation Pricing & Stock</h3>
                   <p className="text-sm text-blue-700">Set the price and stock quantity for each variation.</p>
                 </div>
@@ -1180,7 +1180,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                 <div className="space-y-4">
                   {formData.variations.map((variation, index) => (
                     <div key={variation.id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center justify-between mb-4 text-left">
                         <div>
                           <h4 className="font-medium text-gray-900">{variation.name || `Variation ${index + 1}`}</h4>
                           <p className="text-sm text-gray-500 mt-1">
@@ -1194,7 +1194,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
+                        <div className="text-left">
                           <Label
                             htmlFor={`variation-price-${variation.id}`}
                             className="text-sm font-medium text-gray-700 mb-1 block"
@@ -1220,7 +1220,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                           )}
                         </div>
 
-                        <div>
+                        <div className="text-left">
                           <Label
                             htmlFor={`variation-stock-${variation.id}`}
                             className="text-sm font-medium text-gray-700 mb-1 block"
@@ -1261,12 +1261,12 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
       case 4:
         return (
           <div className="space-y-6">
-            <div className="border-b border-gray-200 pb-4">
+            <div className="border-b border-gray-200 pb-4 text-left">
               <h2 className="text-xl font-semibold text-gray-900">Shipping</h2>
               <p className="text-sm text-gray-600 mt-1">Configure delivery and pickup options</p>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-4 text-left">
               <Label className="text-base font-medium text-gray-900 block">
                 Delivery Options <span className="text-red-500">*</span>
               </Label>
@@ -1880,7 +1880,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
 
           {/* Right Content - Form */}
           <div className="flex-1 bg-white rounded-lg shadow-sm border">
-            <div className="p-6">
+            <div className="p-6 text-left">
               {/* Error and Success Messages */}
               {error && (
                 <Alert variant="destructive" className="mb-6">
