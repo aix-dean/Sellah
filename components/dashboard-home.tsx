@@ -190,7 +190,7 @@ export default function DashboardHome() {
         {/* Welcome Section */}
         <div className="flex flex-col md:flex-row md:justify-between md:items-start space-y-4 md:space-y-0">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Welcome back!</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 text-left">Welcome back!</h1>
             <p className="text-gray-600 mt-1">Here's what's happening with your store today.</p>
           </div>
           <div className="flex flex-col md:items-end text-sm text-gray-500">
