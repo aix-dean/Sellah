@@ -81,18 +81,19 @@ export default function RegistrationForm() {
     setErrors({})
 
     try {
-      // Create registration data with default company information
+      // Create registration data with minimal required fields
       const registrationData: RegistrationData = {
         firstName: formData.firstName,
         middleName: formData.middleName,
         lastName: formData.lastName,
         email: formData.email,
         password: formData.password,
-        companyName: `${formData.firstName} ${formData.lastName} Company`,
-        phoneNumber: "+639000000000", // Default phone number
-        street: "Default Street",
-        city: "Default City",
-        province: "Default Province",
+        // These fields are still required by the interface but won't be used
+        companyName: "",
+        phoneNumber: "",
+        street: "",
+        city: "",
+        province: "",
       }
 
       const result = await registerUser(registrationData)

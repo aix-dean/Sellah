@@ -9,7 +9,7 @@ import {
   type User,
   onAuthStateChanged,
 } from "firebase/auth"
-import { doc, setDoc, getDoc, collection, addDoc, Timestamp } from "firebase/firestore"
+import { doc, setDoc, getDoc, Timestamp } from "firebase/firestore"
 import { auth, db } from "./firebase"
 import { generateLicenseKey } from "./license-generator"
 
@@ -109,29 +109,13 @@ export async function registerUser(data: RegistrationData): Promise<AuthResult> 
     // Generate unique license key
     const licenseKey = generateLicenseKey()
 
-    // Create company document
-    const companyRef = await addDoc(collection(db, "companies"), {
-      name: data.companyName,
-      phone: data.phoneNumber,
-      address: {
-        street: data.street,
-        city: data.city,
-        province: data.province,
-      },
-      owner_id: user.uid,
-      created_at: Timestamp.now(),
-      updated_at: Timestamp.now(),
-      status: "active",
-    })
-
-    // Create user document in iboard_users collection
+    // Create user document in iboard_users collection without company_id
     await setDoc(doc(db, "iboard_users", user.uid), {
       uid: user.uid,
       first_name: data.firstName,
       middle_name: data.middleName || "",
       last_name: data.lastName,
       email: data.email,
-      company_id: companyRef.id,
       license_key: licenseKey,
       email_verified: true,
       created_at: Timestamp.now(),
@@ -140,11 +124,10 @@ export async function registerUser(data: RegistrationData): Promise<AuthResult> 
       role: "owner",
     })
 
-    // Create license document
+    // Create license document without company_id
     const licenseDocument = {
       license_key: licenseKey,
       user_id: user.uid,
-      company_id: companyRef.id,
       status: "active",
       type: "standard",
       created_at: Timestamp.now(),
@@ -167,7 +150,6 @@ export async function registerUser(data: RegistrationData): Promise<AuthResult> 
 
     console.log("Registration successful:", {
       userId: user.uid,
-      companyId: companyRef.id,
       licenseKey: licenseKey,
     })
 
