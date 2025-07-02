@@ -2,7 +2,6 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
-  sendEmailVerification,
   sendPasswordResetEmail,
   GoogleAuthProvider,
   signInWithPopup,
@@ -107,9 +106,6 @@ export async function registerUser(data: RegistrationData): Promise<AuthResult> 
     const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password)
     const user = userCredential.user
 
-    // Send email verification
-    await sendEmailVerification(user)
-
     // Generate unique license key
     const licenseKey = generateLicenseKey()
 
@@ -137,10 +133,10 @@ export async function registerUser(data: RegistrationData): Promise<AuthResult> 
       email: data.email,
       company_id: companyRef.id,
       license_key: licenseKey,
-      email_verified: false,
+      email_verified: true,
       created_at: Timestamp.now(),
       updated_at: Timestamp.now(),
-      status: "pending_verification",
+      status: "active",
       role: "owner",
     })
 
@@ -149,7 +145,7 @@ export async function registerUser(data: RegistrationData): Promise<AuthResult> 
       license_key: licenseKey,
       user_id: user.uid,
       company_id: companyRef.id,
-      status: "pending_verification",
+      status: "active",
       type: "standard",
       created_at: Timestamp.now(),
       updated_at: Timestamp.now(),
@@ -161,8 +157,8 @@ export async function registerUser(data: RegistrationData): Promise<AuthResult> 
         api_access: true,
       },
       metadata: {
-        activation_count: 0,
-        last_activated: null,
+        activation_count: 1,
+        last_activated: Timestamp.now(),
         created_by: user.uid,
       },
     }
@@ -205,52 +201,6 @@ export async function signInWithEmail(email: string, password: string): Promise<
     clearLogoutFlags()
     const userCredential = await signInWithEmailAndPassword(auth, email, password)
     const user = userCredential.user
-
-    // Check if email is verified
-    if (!user.emailVerified) {
-      await firebaseSignOut(auth)
-      return {
-        success: false,
-        error: "Please verify your email address before signing in. Check your inbox for the verification email.",
-      }
-    }
-
-    // Update user status to active if email is verified
-    const userRef = doc(db, "iboard_users", user.uid)
-    const userDoc = await getDoc(userRef)
-
-    if (userDoc.exists() && userDoc.data().status === "pending_verification") {
-      await setDoc(
-        userRef,
-        {
-          email_verified: true,
-          status: "active",
-          updated_at: Timestamp.now(),
-        },
-        { merge: true },
-      )
-
-      // Also update license status to active
-      const licenseKey = userDoc.data().license_key
-      if (licenseKey) {
-        const licenseRef = doc(db, "licenses", licenseKey)
-        const licenseDoc = await getDoc(licenseRef)
-
-        if (licenseDoc.exists()) {
-          await setDoc(
-            licenseRef,
-            {
-              status: "active",
-              activated_at: Timestamp.now(),
-              updated_at: Timestamp.now(),
-              "metadata.activation_count": (licenseDoc.data().metadata?.activation_count || 0) + 1,
-              "metadata.last_activated": Timestamp.now(),
-            },
-            { merge: true },
-          )
-        }
-      }
-    }
 
     return {
       success: true,
@@ -380,19 +330,6 @@ export async function getUserData(uid: string) {
     }
   } catch (error: any) {
     return { data: null, error: error.message }
-  }
-}
-
-export async function resendVerificationEmail() {
-  try {
-    const user = auth.currentUser
-    if (user && !user.emailVerified) {
-      await sendEmailVerification(user)
-      return { error: null }
-    }
-    return { error: "No user found or email already verified" }
-  } catch (error: any) {
-    return { error: error.message }
   }
 }
 

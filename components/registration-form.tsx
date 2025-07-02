@@ -7,17 +7,17 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Eye, EyeOff, CheckCircle, Mail, Loader2 } from "lucide-react"
+import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { registerUser, type RegistrationData } from "@/lib/auth"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 
 export default function RegistrationForm() {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [registrationComplete, setRegistrationComplete] = useState(false)
-  const [licenseKey, setLicenseKey] = useState("")
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const router = useRouter()
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -98,8 +98,8 @@ export default function RegistrationForm() {
       const result = await registerUser(registrationData)
 
       if (result.success) {
-        setLicenseKey(result.licenseKey || "")
-        setRegistrationComplete(true)
+        // Redirect directly to dashboard after successful registration
+        router.push("/dashboard")
       } else {
         setErrors({ submit: result.error || "Registration failed. Please try again." })
       }
@@ -109,50 +109,6 @@ export default function RegistrationForm() {
     } finally {
       setLoading(false)
     }
-  }
-
-  if (registrationComplete) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-              <CheckCircle className="w-8 h-8 text-green-600" />
-            </div>
-            <CardTitle className="text-2xl font-bold text-green-600">Registration Successful!</CardTitle>
-            <CardDescription>
-              Your account has been created successfully. Please check your email to verify your account.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-              <h3 className="font-semibold text-blue-900 mb-2">Your License Key:</h3>
-              <code className="bg-white px-3 py-2 rounded border text-sm font-mono block text-center break-all">
-                {licenseKey}
-              </code>
-              <p className="text-xs text-blue-700 mt-2">
-                Please save this license key. You'll need it for your account.
-              </p>
-            </div>
-
-            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-              <div className="flex items-center space-x-2 mb-2">
-                <Mail className="w-5 h-5 text-yellow-600" />
-                <h3 className="font-semibold text-yellow-900">Email Verification Required</h3>
-              </div>
-              <p className="text-sm text-yellow-800">
-                We've sent a verification email to <strong>{formData.email}</strong>. Please click the verification link
-                in your email before signing in.
-              </p>
-            </div>
-
-            <Link href="/login" className="w-full">
-              <Button className="w-full bg-red-500 hover:bg-red-600">Go to Login</Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    )
   }
 
   return (

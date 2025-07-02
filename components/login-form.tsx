@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Eye, EyeOff, Mail, RefreshCw, Loader2, AlertCircle } from "lucide-react"
-import { signInWithEmail, resendVerificationEmail, wasLoggedOut, wasSessionExpired, clearLogoutFlags } from "@/lib/auth"
+import { Eye, EyeOff, Loader2, AlertCircle } from "lucide-react"
+import { signInWithEmail, wasLoggedOut, wasSessionExpired, clearLogoutFlags } from "@/lib/auth"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 
@@ -19,9 +19,6 @@ export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [showVerificationPrompt, setShowVerificationPrompt] = useState(false)
-  const [resendingEmail, setResendingEmail] = useState(false)
-  const [resendSuccess, setResendSuccess] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -40,8 +37,6 @@ export default function LoginForm() {
     e.preventDefault()
     setLoading(true)
     setError("")
-    setShowVerificationPrompt(false)
-    setResendSuccess(false)
 
     if (!email.trim() || !password) {
       setError("Please enter both email and password")
@@ -55,9 +50,6 @@ export default function LoginForm() {
       if (result.success) {
         router.push("/dashboard")
       } else {
-        if (result.error?.includes("verify your email")) {
-          setShowVerificationPrompt(true)
-        }
         setError(result.error || "Login failed. Please try again.")
       }
     } catch (error: any) {
@@ -65,28 +57,6 @@ export default function LoginForm() {
       setError("An unexpected error occurred. Please try again.")
     } finally {
       setLoading(false)
-    }
-  }
-
-  const handleResendVerification = async () => {
-    setResendingEmail(true)
-    setError("")
-    setResendSuccess(false)
-
-    try {
-      const result = await resendVerificationEmail()
-
-      if (result.error) {
-        setError(result.error)
-      } else {
-        setResendSuccess(true)
-        setShowVerificationPrompt(false)
-      }
-    } catch (error: any) {
-      console.error("Resend verification error:", error)
-      setError("Failed to resend verification email. Please try again.")
-    } finally {
-      setResendingEmail(false)
     }
   }
 
@@ -109,47 +79,6 @@ export default function LoginForm() {
             <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {resendSuccess && (
-            <Alert className="mb-4 border-green-200 bg-green-50">
-              <Mail className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">
-                Verification email sent successfully! Please check your inbox.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {showVerificationPrompt && (
-            <Alert className="mb-4 border-yellow-200 bg-yellow-50">
-              <Mail className="h-4 w-4 text-yellow-600" />
-              <AlertDescription className="text-yellow-800">
-                <div className="space-y-2">
-                  <p className="font-medium">Email Verification Required</p>
-                  <p className="text-sm">Please check your email and click the verification link before signing in.</p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleResendVerification}
-                    disabled={resendingEmail}
-                    className="w-full mt-2 bg-transparent border-yellow-300 text-yellow-800 hover:bg-yellow-100"
-                  >
-                    {resendingEmail ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                        Sending...
-                      </>
-                    ) : (
-                      <>
-                        <Mail className="w-4 h-4 mr-2" />
-                        Resend Verification Email
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </AlertDescription>
             </Alert>
           )}
 
