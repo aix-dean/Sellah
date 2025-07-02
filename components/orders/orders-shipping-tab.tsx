@@ -148,14 +148,14 @@ export function OrdersShippingTab({
                   return (
                     <tr key={order.id} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="py-4 px-4">
-                        <div>
+                        <div className="text-left">
                           <button
                             onClick={() => handleOrderClick(order)}
                             className="font-medium text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
                           >
                             {order.order_number}
                           </button>
-                          <div className="text-sm text-gray-500">{order.items?.length || 0} items</div>
+                          <div className="text-sm text-gray-500 text-left">{order.items?.length || 0} items</div>
                         </div>
                       </td>
                       <td className="py-4 px-4">
@@ -169,7 +169,7 @@ export function OrdersShippingTab({
                           {order.is_pickup ? (
                             <>
                               <Package className="h-4 w-4 text-blue-500" />
-                              <span className="text-sm text-gray-700">
+                              <span className="text-sm text-gray-700 text-left">
                                 Pick-up <br /> {order.pickup_info?.pickup_address || "Store"}
                               </span>
                             </>
