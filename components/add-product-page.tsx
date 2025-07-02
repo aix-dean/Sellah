@@ -753,7 +753,7 @@ export default function AddProductPage(): ReactElement {
               </div>
 
               <div>
-                <Label htmlFor="description" className="text-sm font-medium text-gray-700 mb-2 block">
+                <Label htmlFor="description" className="text-sm font-medium text-gray-700 mb-2 block text-left">
                   Product Description <span className="text-red-500">*</span>
                 </Label>
                 <Textarea
