@@ -54,8 +54,8 @@ interface ProductFormData {
   }>
   delivery_days: string
   condition: string
-  availability_type: "stock" | "per_order"
-  per_order_days: string
+  availability_type: "stock" | "pre_order"
+  pre_order_days: string
   payment_methods: {
     ewallet: boolean
     bank_transfer: boolean
@@ -177,7 +177,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
     delivery_days: "",
     condition: "",
     availability_type: "stock",
-    per_order_days: "",
+    pre_order_days: "",
     payment_methods: {
       ewallet: false,
       bank_transfer: false,
@@ -288,7 +288,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
         delivery_days: productData.delivery_days?.toString() || "",
         condition: productData.condition || "",
         availability_type: productData.availability_type || "stock",
-        per_order_days: productData.per_order_days?.toString() || "",
+        pre_order_days: productData.pre_order_days?.toString() || "",
         payment_methods: paymentMethods,
         variations: convertedVariations,
       })
@@ -753,7 +753,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
         case 6:
           const availabilityValid =
             formData.availability_type === "stock" ||
-            (formData.availability_type === "per_order" && formData.per_order_days.trim() !== "")
+            (formData.availability_type === "pre_order" && formData.pre_order_days.trim() !== "")
           return formData.condition.trim() !== "" && availabilityValid
         default:
           return true
@@ -812,8 +812,8 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
           delivery_options: formData.delivery_options,
           condition: formData.condition,
           availability_type: formData.availability_type,
-          per_order_days:
-            formData.availability_type === "per_order" ? Number.parseInt(formData.per_order_days) || 0 : null,
+          pre_order_days:
+            formData.availability_type === "pre_order" ? Number.parseInt(formData.pre_order_days) || 0 : null,
           payment_methods: {
             ...formData.payment_methods,
             manual: true, // Force manual to true
@@ -911,13 +911,13 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
         return (
           <div className="space-y-6">
             <div className="border-b border-gray-200 pb-4">
-              <h2 className="text-xl font-semibold text-gray-900 text-left">Product Details</h2>
-              <p className="text-sm text-gray-600 mt-1 text-left">Enter the basic information about your product</p>
+              <h2 className="text-xl font-semibold text-gray-900">Product Details</h2>
+              <p className="text-sm text-gray-600 mt-1">Enter the basic information about your product</p>
             </div>
 
             <div className="space-y-6">
               <div>
-                <Label htmlFor="name" className="text-sm font-medium text-gray-700 mb-2 block text-left">
+                <Label htmlFor="name" className="text-sm font-medium text-gray-700 mb-2 block">
                   Product Name <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -935,7 +935,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
               </div>
 
               <div>
-                <Label htmlFor="description" className="text-sm font-medium text-gray-700 mb-2 block text-left">
+                <Label htmlFor="description" className="text-sm font-medium text-gray-700 mb-2 block">
                   Product Description <span className="text-red-500">*</span>
                 </Label>
                 <Textarea
@@ -976,7 +976,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
             </div>
 
             {/* Unit Selection */}
-            <div className="text-left">
+            <div>
               <Label htmlFor="unit" className="text-sm font-medium text-gray-700 mb-2 block">
                 Unit <span className="text-red-500">*</span>
               </Label>
@@ -999,7 +999,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
             {/* Variations Section */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <div className="text-left">
+                <div>
                   <Label className="text-base font-medium text-gray-900">Product Variations</Label>
                   <p className="text-sm text-gray-600 mt-1">Add different versions of your product (optional)</p>
                 </div>
@@ -1165,14 +1165,14 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
       case 3:
         return (
           <div className="space-y-6">
-            <div className="border-b border-gray-200 pb-4 text-left">
+            <div className="border-b border-gray-200 pb-4">
               <h2 className="text-xl font-semibold text-gray-900">Sales Information</h2>
               <p className="text-sm text-gray-600 mt-1">Set pricing and inventory for your product</p>
             </div>
 
             {formData.variations.length > 0 ? (
               <div className="space-y-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <h3 className="text-lg font-medium text-blue-900 mb-2">Variation Pricing & Stock</h3>
                   <p className="text-sm text-blue-700">Set the price and stock quantity for each variation.</p>
                 </div>
@@ -1180,7 +1180,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                 <div className="space-y-4">
                   {formData.variations.map((variation, index) => (
                     <div key={variation.id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-4 text-left">
+                      <div className="flex items-center justify-between mb-4">
                         <div>
                           <h4 className="font-medium text-gray-900">{variation.name || `Variation ${index + 1}`}</h4>
                           <p className="text-sm text-gray-500 mt-1">
@@ -1194,7 +1194,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="text-left">
+                        <div>
                           <Label
                             htmlFor={`variation-price-${variation.id}`}
                             className="text-sm font-medium text-gray-700 mb-1 block"
@@ -1220,7 +1220,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                           )}
                         </div>
 
-                        <div className="text-left">
+                        <div>
                           <Label
                             htmlFor={`variation-stock-${variation.id}`}
                             className="text-sm font-medium text-gray-700 mb-1 block"
@@ -1261,12 +1261,12 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
       case 4:
         return (
           <div className="space-y-6">
-            <div className="border-b border-gray-200 pb-4 text-left">
+            <div className="border-b border-gray-200 pb-4">
               <h2 className="text-xl font-semibold text-gray-900">Shipping</h2>
               <p className="text-sm text-gray-600 mt-1">Configure delivery and pickup options</p>
             </div>
 
-            <div className="space-y-4 text-left">
+            <div className="space-y-4">
               <Label className="text-base font-medium text-gray-900 block">
                 Delivery Options <span className="text-red-500">*</span>
               </Label>
@@ -1660,60 +1660,58 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
 
             {/* Availability Type */}
             <div className="space-y-4">
-              <Label className="text-base font-medium text-gray-900 block">
+              <Label className="text-base font-medium">
                 Availability <span className="text-red-500">*</span>
               </Label>
               <div className="space-y-3">
-                <label className="flex items-center space-x-3 cursor-pointer select-none p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                <label className="flex items-center space-x-2 cursor-pointer select-none">
                   <input
                     type="radio"
                     name="availability_type"
                     value="stock"
                     checked={formData.availability_type === "stock"}
                     onChange={handleInputChange}
-                    className="text-red-500 focus:ring-red-500 h-4 w-4 flex-shrink-0"
+                    className="text-red-500 focus:ring-red-500"
                   />
                   <div>
-                    <span className="text-gray-900 font-medium">On Stock</span>
-                    <p className="text-sm text-gray-500">Product is available in inventory</p>
+                    <span className="text-gray-700">On Stock</span>
                   </div>
                 </label>
-                <label className="flex items-center space-x-3 cursor-pointer select-none p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                <label className="flex items-center space-x-2 cursor-pointer select-none">
                   <input
                     type="radio"
                     name="availability_type"
-                    value="per_order"
-                    checked={formData.availability_type === "per_order"}
+                    value="pre_order"
+                    checked={formData.availability_type === "pre_order"}
                     onChange={handleInputChange}
-                    className="text-red-500 focus:ring-red-500 h-4 w-4 flex-shrink-0"
+                    className="text-red-500 focus:ring-red-500"
                   />
                   <div>
-                    <span className="text-gray-900 font-medium">Pre-Order</span>
-                    <p className="text-sm text-gray-500">Product is made/sourced after order is placed</p>
+                    <span className="text-gray-700">Pre-Order</span>
                   </div>
                 </label>
               </div>
 
-              {formData.availability_type === "per_order" && (
+              {formData.availability_type === "pre_order" && (
                 <div>
-                  <Label htmlFor="per_order_days" className="text-sm font-medium text-gray-700 mb-2 block">
-                    Delivery Days for Per Order <span className="text-red-500">*</span>
+                  <Label htmlFor="pre_order_days">
+                    Delivery Days for Pre-Order <span className="text-red-500">*</span>
                   </Label>
                   <Input
-                    id="per_order_days"
-                    name="per_order_days"
+                    id="pre_order_days"
+                    name="pre_order_days"
                     type="number"
-                    value={formData.per_order_days}
+                    value={formData.pre_order_days}
                     onChange={handleInputChange}
                     placeholder="Number of days to deliver"
                     className={
-                      error && formData.availability_type === "per_order" && !formData.per_order_days.trim()
+                      error && formData.availability_type === "pre_order" && !formData.pre_order_days.trim()
                         ? "border-red-300 focus:border-red-500 focus:ring-red-500"
                         : ""
                     }
                     required
                   />
-                  {error && formData.availability_type === "per_order" && !formData.per_order_days.trim() && (
+                  {error && formData.availability_type === "pre_order" && !formData.pre_order_days.trim() && (
                     <p className="text-red-500 text-xs mt-1">Delivery days is required for per order items</p>
                   )}
                 </div>
