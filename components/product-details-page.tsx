@@ -319,7 +319,7 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
         <div className="bg-white rounded-lg shadow-sm border p-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-800">{product.name}</h1>
+              <h1 className="text-3xl font-bold text-gray-800 text-left">{product.name}</h1>
               <div className="flex flex-wrap items-center gap-2 mt-2">
                 <Badge variant={product.status === "published" ? "success" : "secondary"}>
                   {product.status === "published" ? "Published" : "Unpublished"}
@@ -360,7 +360,7 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
         {product.variations && product.variations.length > 1 && (
           <div className="bg-white rounded-lg shadow-sm border">
             <div className="p-6">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Select Variation</h2>
+              <h2 className="text-lg font-semibold text-gray-800 mb-4 text-left">Select Variation</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {product.variations.map((variation, index) => (
                   <button
@@ -548,7 +548,7 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
                 </div>
                 <TabsContent value="description" className="p-6">
                   <div className="prose max-w-none">
-                    <p className="text-gray-700 whitespace-pre-line">{product.description}</p>
+                    <p className="text-gray-700 whitespace-pre-line text-left">{product.description}</p>
                   </div>
                 </TabsContent>
                 <TabsContent value="specifications" className="p-6">
@@ -604,7 +604,7 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
           <div className="space-y-6">
             {/* Product Stats */}
             <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4 text-left">
                 {product.variations && product.variations.length > 0 ? "Variation Stats" : "Product Stats"}
               </h2>
               <div className="grid grid-cols-2 gap-4">
@@ -684,7 +684,7 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
 
             {/* Shipping Info */}
             <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Shipping Information</h2>
+              <h2 className="text-lg font-semibold text-gray-800 mb-4 text-left">Shipping Information</h2>
               <div className="space-y-4">
                 <div className="flex items-start">
                   <Truck className="w-5 h-5 text-gray-400 mr-3 mt-0.5" />
@@ -697,7 +697,7 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
                   <Calendar className="w-5 h-5 text-gray-400 mr-3 mt-0.5" />
                   <div>
                     <div className="text-sm text-gray-500">Delivery Time</div>
-                    <div className="font-medium">
+                    <div className="font-medium text-left">
                       {product.delivery_days === 1
                         ? "1 day"
                         : product.delivery_days === 7
@@ -714,21 +714,7 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
             </div>
 
             {/* Product Info */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Product Information</h2>
-              <div className="space-y-3">
-                <Separator />
-                <div>
-                  <div className="text-sm text-gray-500">Created On</div>
-                  <div className="font-medium">{formatDate(product.created_at)}</div>
-                </div>
-                <Separator />
-                <div>
-                  <div className="text-sm text-gray-500">Last Updated</div>
-                  <div className="font-medium">{formatDate(product.updated)}</div>
-                </div>
-              </div>
-            </div>
+            
           </div>
         </div>
         {/* Delete Product Dialog */}
