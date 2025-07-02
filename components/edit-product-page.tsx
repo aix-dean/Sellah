@@ -54,8 +54,8 @@ interface ProductFormData {
   }>
   delivery_days: string
   condition: string
-  availability_type: "stock" | "per_order"
-  per_order_days: string
+  availability_type: "stock" | "pre_order"
+  pre_order_days: string
   payment_methods: {
     ewallet: boolean
     bank_transfer: boolean
@@ -177,7 +177,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
     delivery_days: "",
     condition: "",
     availability_type: "stock",
-    per_order_days: "",
+    pre_order_days: "",
     payment_methods: {
       ewallet: false,
       bank_transfer: false,
@@ -288,7 +288,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
         delivery_days: productData.delivery_days?.toString() || "",
         condition: productData.condition || "",
         availability_type: productData.availability_type || "stock",
-        per_order_days: productData.per_order_days?.toString() || "",
+        pre_order_days: productData.pre_order_days?.toString() || "",
         payment_methods: paymentMethods,
         variations: convertedVariations,
       })
@@ -753,7 +753,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
         case 6:
           const availabilityValid =
             formData.availability_type === "stock" ||
-            (formData.availability_type === "per_order" && formData.per_order_days.trim() !== "")
+            (formData.availability_type === "pre_order" && formData.pre_order_days.trim() !== "")
           return formData.condition.trim() !== "" && availabilityValid
         default:
           return true
@@ -812,8 +812,8 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
           delivery_options: formData.delivery_options,
           condition: formData.condition,
           availability_type: formData.availability_type,
-          per_order_days:
-            formData.availability_type === "per_order" ? Number.parseInt(formData.per_order_days) || 0 : null,
+          pre_order_days:
+            formData.availability_type === "pre_order" ? Number.parseInt(formData.pre_order_days) || 0 : null,
           payment_methods: {
             ...formData.payment_methods,
             manual: true, // Force manual to true
@@ -1660,60 +1660,58 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
 
             {/* Availability Type */}
             <div className="space-y-4">
-              <Label className="text-base font-medium text-gray-900 block">
+              <Label className="text-base font-medium">
                 Availability <span className="text-red-500">*</span>
               </Label>
               <div className="space-y-3">
-                <label className="flex items-center space-x-3 cursor-pointer select-none p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                <label className="flex items-center space-x-2 cursor-pointer select-none">
                   <input
                     type="radio"
                     name="availability_type"
                     value="stock"
                     checked={formData.availability_type === "stock"}
                     onChange={handleInputChange}
-                    className="text-red-500 focus:ring-red-500 h-4 w-4 flex-shrink-0"
+                    className="text-red-500 focus:ring-red-500"
                   />
                   <div>
-                    <span className="text-gray-900 font-medium">On Stock</span>
-                    <p className="text-sm text-gray-500">Product is available in inventory</p>
+                    <span className="text-gray-700">On Stock</span>
                   </div>
                 </label>
-                <label className="flex items-center space-x-3 cursor-pointer select-none p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                <label className="flex items-center space-x-2 cursor-pointer select-none">
                   <input
                     type="radio"
                     name="availability_type"
-                    value="per_order"
-                    checked={formData.availability_type === "per_order"}
+                    value="pre_order"
+                    checked={formData.availability_type === "pre_order"}
                     onChange={handleInputChange}
-                    className="text-red-500 focus:ring-red-500 h-4 w-4 flex-shrink-0"
+                    className="text-red-500 focus:ring-red-500"
                   />
                   <div>
-                    <span className="text-gray-900 font-medium">Pre-Order</span>
-                    <p className="text-sm text-gray-500">Product is made/sourced after order is placed</p>
+                    <span className="text-gray-700">Pre-Order</span>
                   </div>
                 </label>
               </div>
 
-              {formData.availability_type === "per_order" && (
+              {formData.availability_type === "pre_order" && (
                 <div>
-                  <Label htmlFor="per_order_days" className="text-sm font-medium text-gray-700 mb-2 block">
-                    Delivery Days for Per Order <span className="text-red-500">*</span>
+                  <Label htmlFor="pre_order_days">
+                    Delivery Days for Pre-Order <span className="text-red-500">*</span>
                   </Label>
                   <Input
-                    id="per_order_days"
-                    name="per_order_days"
+                    id="pre_order_days"
+                    name="pre_order_days"
                     type="number"
-                    value={formData.per_order_days}
+                    value={formData.pre_order_days}
                     onChange={handleInputChange}
                     placeholder="Number of days to deliver"
                     className={
-                      error && formData.availability_type === "per_order" && !formData.per_order_days.trim()
+                      error && formData.availability_type === "pre_order" && !formData.pre_order_days.trim()
                         ? "border-red-300 focus:border-red-500 focus:ring-red-500"
                         : ""
                     }
                     required
                   />
-                  {error && formData.availability_type === "per_order" && !formData.per_order_days.trim() && (
+                  {error && formData.availability_type === "pre_order" && !formData.pre_order_days.trim() && (
                     <p className="text-red-500 text-xs mt-1">Delivery days is required for per order items</p>
                   )}
                 </div>
@@ -1880,7 +1878,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
 
           {/* Right Content - Form */}
           <div className="flex-1 bg-white rounded-lg shadow-sm border">
-            <div className="p-6">
+            <div className="p-6 text-left">
               {/* Error and Success Messages */}
               {error && (
                 <Alert variant="destructive" className="mb-6">

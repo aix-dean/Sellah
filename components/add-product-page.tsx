@@ -106,7 +106,7 @@ export default function AddProductPage(): ReactElement {
     delivery_days: "",
     condition: "",
     availability_type: "stock",
-    per_order_days: "",
+    pre_order_days: "",
     payment_methods: {
       ewallet: false,
       bank_transfer: false,
@@ -595,7 +595,7 @@ export default function AddProductPage(): ReactElement {
         delivery_days: formData.delivery_days || "",
         condition: formData.condition,
         availability_type: formData.availability_type,
-        per_order_days: formData.per_order_days || "",
+        pre_order_days: formData.pre_order_days || "",
         payment_methods: {
           ...formData.payment_methods,
           manual: true, // Force manual to true
@@ -658,7 +658,7 @@ export default function AddProductPage(): ReactElement {
           delivery_days: "",
           condition: "",
           availability_type: "stock",
-          per_order_days: "",
+          pre_order_days: "",
           payment_methods: {
             ewallet: false,
             bank_transfer: false,
@@ -1300,8 +1300,8 @@ export default function AddProductPage(): ReactElement {
                   <input
                     type="radio"
                     name="availability_type"
-                    value="per_order"
-                    checked={formData.availability_type === "per_order"}
+                    value="pre_order"
+                    checked={formData.availability_type === "pre_order"}
                     onChange={handleInputChange}
                     className="text-red-500 focus:ring-red-500"
                   />
@@ -1309,14 +1309,14 @@ export default function AddProductPage(): ReactElement {
                 </label>
               </div>
 
-              {formData.availability_type === "per_order" && (
+              {formData.availability_type === "pre_order" && (
                 <div>
-                  <Label htmlFor="per_order_days">Delivery Days for Per Order *</Label>
+                  <Label htmlFor="pre_order_days">Delivery Days for Pre-Order *</Label>
                   <Input
-                    id="per_order_days"
-                    name="per_order_days"
+                    id="pre_order_days"
+                    name="pre_order_days"
                     type="number"
-                    value={formData.per_order_days}
+                    value={formData.pre_order_days}
                     onChange={handleInputChange}
                     placeholder="Number of days to deliver"
                     required
@@ -1371,7 +1371,7 @@ export default function AddProductPage(): ReactElement {
 
           {/* Right Content - Form */}
           <div className="flex-1 bg-white rounded-lg shadow-sm border">
-            <div className="p-4 sm:p-6">
+            <div className="p-4 sm:p-6 text-left">
               {/* Error and Success Messages */}
               {generalError && (
                 <Alert variant="destructive" className="mb-4 sm:mb-6">

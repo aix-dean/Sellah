@@ -40,8 +40,8 @@ export interface ProductFormData {
   }>
   delivery_days: string
   condition: string
-  availability_type: "stock" | "per_order"
-  per_order_days: string
+  availability_type: "stock" | "pre_order"
+  pre_order_days: string
   payment_methods: {
     ewallet: boolean
     bank_transfer: boolean
@@ -166,8 +166,8 @@ export const validateStep = (
         errors.condition = "Product condition is required"
       }
       // Remove payment method validation since it's now automatic
-      if (formData.availability_type === "per_order" && formData.per_order_days.trim() === "") {
-        errors.per_order_days = "Delivery days is required for per order items"
+      if (formData.availability_type === "pre_order" && formData.pre_order_days.trim() === "") {
+        errors.pre_order_days = "Delivery days is required for per order items"
       }
       break
   }
