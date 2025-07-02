@@ -373,7 +373,7 @@ export function CategorySelection({
 
   return (
     <div className="space-y-4">
-      <Label className="text-sm font-medium text-gray-700 mb-2 block">
+      <Label className="text-sm font-medium text-gray-700 mb-2 block text-left">
         Categories <span className="text-red-500">*</span>
       </Label>
 
