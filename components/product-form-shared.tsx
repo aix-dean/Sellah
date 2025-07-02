@@ -373,7 +373,7 @@ export function CategorySelection({
 
   return (
     <div className="space-y-4">
-      <Label className="text-sm font-medium text-gray-700 mb-2 block">
+      <Label className="text-sm font-medium text-gray-700 mb-2 block text-left">
         Categories <span className="text-red-500">*</span>
       </Label>
 
@@ -382,8 +382,8 @@ export function CategorySelection({
         {categories.map((category) => {
           const isSelected = selectedCategories.includes(category.id)
           return (
-            <div key={category.id} className="flex items-start space-x-3 p-2 hover:bg-gray-50 rounded-md">
-              <div className="flex items-center h-5">
+            <div key={category.id} className="flex space-x-3 p-2 hover:bg-gray-50 rounded-md items-start flex-row">
+              <div className="flex h-5">
                 <input
                   type="checkbox"
                   id={`category-${category.id}`}

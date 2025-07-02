@@ -732,7 +732,7 @@ export default function AddProductPage(): ReactElement {
 
             <div className="space-y-4 sm:space-y-6">
               <div>
-                <Label htmlFor="name" className="text-sm font-medium text-gray-700 mb-2 block">
+                <Label htmlFor="name" className="text-sm font-medium text-gray-700 mb-2 block text-left">
                   Product Name <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -753,7 +753,7 @@ export default function AddProductPage(): ReactElement {
               </div>
 
               <div>
-                <Label htmlFor="description" className="text-sm font-medium text-gray-700 mb-2 block">
+                <Label htmlFor="description" className="text-sm font-medium text-gray-700 mb-2 block text-left">
                   Product Description <span className="text-red-500">*</span>
                 </Label>
                 <Textarea

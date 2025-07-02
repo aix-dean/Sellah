@@ -190,7 +190,7 @@ export default function DashboardHome() {
         {/* Welcome Section */}
         <div className="flex flex-col md:flex-row md:justify-between md:items-start space-y-4 md:space-y-0">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Welcome back!</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 text-left">Welcome back!</h1>
             <p className="text-gray-600 mt-1">Here's what's happening with your store today.</p>
           </div>
           <div className="flex flex-col md:items-end text-sm text-gray-500">
@@ -228,92 +228,13 @@ export default function DashboardHome() {
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-          {stats.map((stat, index) => {
-            const Icon = stat.icon
-            const TrendIcon = stat.trend === "up" ? TrendingUp : stat.trend === "down" ? TrendingDown : TrendingUp
-
-            return (
-              <Card key={index} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4 md:p-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                      <Icon className={`w-4 h-4 md:w-5 md:h-5 ${stat.color}`} />
-                    </div>
-                    {!stat.loading && stat.trend !== "neutral" && (
-                      <div className={`flex items-center space-x-1 text-xs ${stat.color}`}>
-                        <TrendIcon className="w-3 h-3" />
-                        <span>{stat.change}</span>
-                      </div>
-                    )}
-                  </div>
-                  <h3 className="text-xs md:text-sm font-medium text-gray-500 mb-1">{stat.title}</h3>
-                  <p className="text-xl md:text-2xl font-bold text-gray-800">
-                    {stat.loading ? (
-                      <span className="animate-pulse bg-gray-200 rounded h-6 w-16 inline-block"></span>
-                    ) : (
-                      stat.value
-                    )}
-                  </p>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
+        
 
         {/* Quick Actions */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Button className="h-auto p-4 flex flex-col space-y-2 bg-red-500 hover:bg-red-600">
-                <Plus className="w-5 h-5" />
-                <span className="text-sm">Add Product</span>
-              </Button>
-              <Button variant="outline" className="h-auto p-4 flex flex-col space-y-2">
-                <Eye className="w-5 h-5" />
-                <span className="text-sm">View Orders</span>
-              </Button>
-              <Button variant="outline" className="h-auto p-4 flex flex-col space-y-2">
-                <Edit className="w-5 h-5" />
-                <span className="text-sm">Edit Profile</span>
-              </Button>
-              <Button variant="outline" className="h-auto p-4 flex flex-col space-y-2">
-                <MoreHorizontal className="w-5 h-5" />
-                <span className="text-sm">More</span>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        
 
         {/* Performance Overview */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">This Month's Performance</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-              <div className="p-4 bg-green-50 rounded-lg">
-                <p className="text-2xl font-bold text-green-600">₱45K</p>
-                <p className="text-sm text-gray-600">Revenue</p>
-              </div>
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <p className="text-2xl font-bold text-blue-600">156</p>
-                <p className="text-sm text-gray-600">Orders</p>
-              </div>
-              <div className="p-4 bg-purple-50 rounded-lg">
-                <p className="text-2xl font-bold text-purple-600">89</p>
-                <p className="text-sm text-gray-600">Customers</p>
-              </div>
-              <div className="p-4 bg-orange-50 rounded-lg">
-                <p className="text-2xl font-bold text-orange-600">4.8</p>
-                <p className="text-sm text-gray-600">Rating</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        
       </div>
     </DashboardLayout>
   )

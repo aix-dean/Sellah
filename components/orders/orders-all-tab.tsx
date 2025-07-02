@@ -84,7 +84,7 @@ export function OrdersAllTab({ orders, loading, error, onViewOrder, onRefresh, f
               <tbody>
                 {orders.map((order) => (
                   <tr key={order.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-4 px-4">
+                    <td className="py-4 px-4 text-left">
                       <div>
                         <div className="font-medium text-gray-900">{order.order_number}</div>
                         <div className="text-sm text-gray-500">{order.items?.length || 0} items</div>
@@ -101,14 +101,14 @@ export function OrdersAllTab({ orders, loading, error, onViewOrder, onRefresh, f
                         {order.is_pickup ? (
                           <>
                             <Package className="h-4 w-4 text-blue-500" />
-                            <span className="text-sm text-gray-700">
+                            <span className="text-sm text-gray-700 text-left">
                               Pick-up <br/> {order.pickup_info?.pickup_address || "Store"}
                             </span>
                           </>
                         ) : (
                           <>
                             <MapPin className="h-4 w-4 text-green-500" />
-                            <span className="text-sm text-gray-700">
+                            <span className="text-sm text-gray-700 text-left">
                               Delivery <br /> {`${order.shipping_address?.street}, ${order.shipping_address.city}` || "N/A"}
                             </span>
                           </>

@@ -30,6 +30,7 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
   const [displayName, setDisplayName] = useState(userName)
   const [userData, setUserData] = useState<any>(null)
 
+  // Main navigation items
   const menuItems = [
     { id: "home", label: "Home", icon: Home, href: "/dashboard" },
     { id: "products", label: "Products", icon: Package, href: "/dashboard/products" },
@@ -39,21 +40,17 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
 
   const handleNavigation = (href: string) => {
     router.push(href)
-    setSidebarOpen(false) // Close mobile sidebar after navigation
+    setSidebarOpen(false)
   }
 
   const handleLogout = async () => {
     setLoggingOut(true)
     try {
       await signOut()
-
-      // Clear any component state
       setCurrentUser(null)
       setUserData(null)
       setDisplayName("")
-
-      // Redirect to login page
-      window.location.href = "/login"
+      // signOut function already handles redirect
     } catch (error) {
       console.error("Error signing out:", error)
       alert("Failed to logout. Please try again.")
@@ -88,13 +85,9 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
 
             const firstName = firestoreUserData.first_name || ""
             const lastName = firestoreUserData.last_name || ""
-            const firstNameAlt = firestoreUserData.firstName || ""
-            const lastNameAlt = firestoreUserData.lastName || ""
 
-            if ((firstName && lastName) || (firstNameAlt && lastNameAlt)) {
-              const displayFirstName = firstName || firstNameAlt
-              const displayLastName = lastName || lastNameAlt
-              setDisplayName(`${displayFirstName} ${displayLastName}`)
+            if (firstName && lastName) {
+              setDisplayName(`${firstName} ${lastName}`)
             } else if (user.phoneNumber) {
               setDisplayName(user.phoneNumber)
             } else if (user.email) {
@@ -135,7 +128,6 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
 
   useEffect(() => {
     return () => {
-      // Cleanup on component unmount
       setCurrentUser(null)
       setUserData(null)
       setDisplayName("")
@@ -144,15 +136,15 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
-      <header className="bg-red-500 text-white px-4 py-3 flex items-center justify-between h-[64px] relative z-10">
+      {/* Fixed Header */}
+      <header className="bg-red-500 text-white px-4 py-3 flex items-center justify-between h-16 fixed top-0 left-0 right-0 z-50 shadow-lg">
         <div className="flex items-center space-x-4">
-          {/* Mobile menu button - only visible on mobile */}
+          {/* Mobile menu button */}
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="text-white hover:bg-red-600 hidden"
+            className="text-white hover:bg-red-600 md:hidden"
           >
             <Menu className="w-5 h-5" />
           </Button>
@@ -172,6 +164,7 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
           <Button variant="ghost" size="sm" className="text-white hover:bg-red-600">
             <MessageSquare className="w-5 h-5" />
           </Button>
+
           <div className="relative">
             <Button
               variant="ghost"
@@ -186,8 +179,6 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
                     currentUser?.photoURL ||
                     "/placeholder.svg?height=32&width=32&query=user profile" ||
                     "/placeholder.svg" ||
-                    "/placeholder.svg" ||
-                    "/placeholder.svg" ||
                     "/placeholder.svg"
                   }
                   alt="Profile"
@@ -198,7 +189,7 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
               <ChevronDown className="w-4 h-4" />
             </Button>
 
-            {/* Dropdown Menu */}
+            {/* User Dropdown Menu */}
             {showUserMenu && (
               <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border z-50">
                 <div className="py-2">
@@ -207,12 +198,12 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
                       setShowUserMenu(false)
                       handleNavigation("/dashboard/account")
                     }}
-                    className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center space-x-2 md:hidden"
+                    className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
                   >
                     <Users className="w-4 h-4" />
                     <span>Account Settings</span>
                   </button>
-                  <hr className="my-1 md:hidden" />
+                  <hr className="my-1" />
                   <button
                     onClick={() => {
                       setShowUserMenu(false)
@@ -230,46 +221,24 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
         </div>
       </header>
 
-      <div className="flex h-[calc(100vh-64px)]">
-        {/* Desktop Sidebar - hidden on mobile */}
-        <aside className="hidden md:block bg-pink-100 w-64 fixed top-[64px] bottom-0 overflow-y-auto z-30">
-          <nav className="p-4 space-y-2">
-            {menuItems.map((item) => {
-              const Icon = item.icon
-              const isActive = activeItem === item.id
-
-              return (
-                <div key={item.id}>
-                  <Button
-                    variant="ghost"
-                    onClick={() => handleNavigation(item.href)}
-                    className={`w-full justify-start text-left h-12 ${
-                      isActive ? "bg-red-500 text-white hover:bg-red-600" : "text-gray-700 hover:bg-pink-200"
-                    }`}
-                  >
-                    <Icon className="w-5 h-5 mr-3" />
-                    <span className="flex-1">{item.label}</span>
-                  </Button>
-                </div>
-              )
-            })}
-          </nav>
-        </aside>
-
-        {/* Mobile Sidebar - only visible when open on mobile */}
+      <div className="flex min-h-screen w-full text-left pt-12 items-stretch justify-between gap-x-2.5 flex-col">
+        {/* Left Sidebar - Desktop Navigation */}
         <aside
-          className={`bg-pink-100 w-64 fixed top-[64px] bottom-0 transition-transform duration-300 overflow-y-auto z-40 md:hidden ${
-            sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
+          className={`
+          bg-pink-100 w-64 fixed top-16 bottom-0 left-0 overflow-y-auto z-40 shadow-lg transition-transform duration-300
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+        `}
         >
-          <nav className="p-4 space-y-2">
-            {menuItems.map((item) => {
-              const Icon = item.icon
-              const isActive = activeItem === item.id
+          <div className="p-3">
+            <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-4">Navigation</h2>
+            <nav className="space-y-2">
+              {menuItems.map((item) => {
+                const Icon = item.icon
+                const isActive = activeItem === item.id
 
-              return (
-                <div key={item.id}>
+                return (
                   <Button
+                    key={item.id}
                     variant="ghost"
                     onClick={() => handleNavigation(item.href)}
                     className={`w-full justify-start text-left h-12 ${
@@ -279,26 +248,27 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
                     <Icon className="w-5 h-5 mr-3" />
                     <span className="flex-1">{item.label}</span>
                   </Button>
-                </div>
-              )
-            })}
-          </nav>
+                )
+              })}
+            </nav>
+          </div>
         </aside>
 
-        {/* Main Content */}
-        <main className="flex-1 p-4 md:p-6 pb-20 md:pb-6 overflow-y-auto ml-0 md:ml-64 w-full">
-          {children}
+        {/* Main Content Area */}
+        <main className="flex-1 pt-3 pb-20 md:pb-6 overflow-y-auto text-center g:ml-64 ml-2 mr-2 lg:mr-2.5 md:ml-36 md:pt-2.5">
+          <div className="max-w-full">{children}</div>
+
           {/* Firestore Debug Panel - only in development */}
           {process.env.NODE_ENV === "development" && <FirestoreDebugPanel />}
         </main>
       </div>
 
-      {/* Mobile overlay */}
+      {/* Mobile Overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* Bottom Navigation - only visible on mobile */}
+      {/* Bottom Navigation - Mobile Only */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 z-40 md:hidden">
         <div className="flex justify-around items-center max-w-md mx-auto">
           {menuItems.map((item) => {
@@ -309,7 +279,7 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
               <button
                 key={item.id}
                 onClick={() => handleNavigation(item.href)}
-                className={`flex flex-col items-center space-y-1 p-2 rounded-lg transition-colors ${
+                className={`flex items-center space-y-1 p-2 rounded-lg transition-colors ${
                   isActive ? "text-red-500 bg-red-50" : "text-gray-600 hover:text-red-500 hover:bg-gray-50"
                 }`}
               >

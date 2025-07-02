@@ -10,6 +10,7 @@ interface OrdersUnpaidTabProps {
   orders: any[]
   loading: boolean
   error: string | null
+  onViewPaymentProof: (order: any) => void    
   onApprove: (order: any) => void
   onReject: (order: any) => void
   onViewOrder: (orderId: string) => void
@@ -21,6 +22,7 @@ export function OrdersUnpaidTab({
   orders,
   loading,
   error,
+  onViewPaymentProof,
   onApprove,
   onReject,
   onViewOrder,
@@ -34,29 +36,33 @@ export function OrdersUnpaidTab({
   const [selectedOrder, setSelectedOrder] = useState<any>(null)
   const [showOrderModal, setShowOrderModal] = useState(false)
 
+
+  const getStatusBadge = (order: any) => {
+    if (order.approve_payment === false) {
+      return (
+        <Badge
+          variant="secondary"
+          className="bg-blue-100 text-blue-800 hover:bg-blue-100 cursor-pointer"
+          onClick={() => onViewPaymentProof(order)}
+        >
+          Payment Proof
+        </Badge>
+      )
+    }
+
+    return (
+      <Badge variant="secondary" className="bg-green-100 text-green-800 hover:bg-green-100">
+        Payment Approved
+      </Badge>
+    )
+  }
+
   const handleOrderClick = (order: any) => {
     setSelectedOrder(order)
     setShowOrderModal(true)
   }
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      "payment sent": { label: "Payment Sent", className: "bg-yellow-100 text-yellow-800 hover:bg-yellow-100" },
-      pending: { label: "Pending", className: "bg-orange-100 text-orange-800 hover:bg-orange-100" },
-      unpaid: { label: "Unpaid", className: "bg-red-100 text-red-800 hover:bg-red-100" },
-    }
 
-    const config = statusConfig[status?.toLowerCase() as keyof typeof statusConfig] || {
-      label: status?.replace("_", " ") || "Unknown",
-      className: "bg-gray-100 text-gray-800 hover:bg-gray-100",
-    }
-
-    return (
-      <Badge variant="secondary" className={config.className}>
-        {config.label}
-      </Badge>
-    )
-  }
 
   if (loading) {
     return (
@@ -114,15 +120,15 @@ export function OrdersUnpaidTab({
               <tbody>
                 {orders.map((order) => (
                   <tr key={order.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-4 px-4">
-                      <div>
+                    <td className="py-4 px-4 text-left">
+                      <div className="text-left">
                         <button
                           onClick={() => handleOrderClick(order)}
-                          className="font-medium text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+                          className="font-medium text-blue-600 hover:text-blue-700 hover:underline cursor-pointer text-left"
                         >
                           {order.order_number}
                         </button>
-                        <div className="text-sm text-gray-500">{order.items?.length || 0} items</div>
+                        <div className="text-sm text-gray-500 text-left">{order.items?.length || 0} items</div>
                       </div>
                     </td>
                     <td className="py-4 px-4">
@@ -136,14 +142,14 @@ export function OrdersUnpaidTab({
                         {order.is_pickup ? (
                           <>
                             <Package className="h-4 w-4 text-blue-500" />
-                            <span className="text-sm text-gray-700">
+                            <span className="text-sm text-gray-700 text-left">
                               Pick-up <br /> {order.pickup_info?.pickup_address || "Store"}
                             </span>
                           </>
                         ) : (
                           <>
                             <MapPin className="h-4 w-4 text-green-500" />
-                            <span className="text-sm text-gray-700">
+                            <span className="text-sm text-gray-700 text-left">
                               Delivery <br />{" "}
                               {`${order.shipping_address?.street}, ${order.shipping_address.city}` || "N/A"}
                             </span>
@@ -160,13 +166,13 @@ export function OrdersUnpaidTab({
                     <td className="py-4 px-4">
                       <div className="font-medium text-gray-900">{formatCurrency(order.total_amount)}</div>
                     </td>
-                    <td className="py-4 px-4">{getStatusBadge(order.status)}</td>
+                    <td className="py-4 px-4">{getStatusBadge(order)}</td>
                     <td className="py-4 px-4">
                       <div className="flex space-x-2">
                         <Button
                           size="sm"
                           onClick={() => onApprove(order)}
-                          disabled={order.status?.toLowerCase() !== "payment sent"}
+                          disabled={!order.approve_payment}
                           className="bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105"
                         >
                           <CheckCircle className="h-4 w-4 mr-1" />
@@ -204,7 +210,7 @@ export function OrdersUnpaidTab({
                     </button>
                     <div className="text-sm text-gray-500">{order.items?.length || 0} items</div>
                   </div>
-                  {getStatusBadge(order.status)}
+                  {getStatusBadge(order)}
                 </div>
 
                 <div className="space-y-2 mb-4">
@@ -246,7 +252,7 @@ export function OrdersUnpaidTab({
                   <Button
                     size="sm"
                     onClick={() => onApprove(order)}
-                    disabled={order.status?.toLowerCase() !== "payment sent"}
+                    disabled={!order.approve_payment}
                     className="flex-1 bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105"
                   >
                     <CheckCircle className="h-4 w-4 mr-1" />

@@ -1,10 +1,21 @@
+"use client"
 import type React from "react"
-import { ProtectedPageWrapper } from "@/components/auth/protected-page-wrapper"
+import { usePathname } from "next/navigation"
+import ProtectedPageWrapper from "@/components/auth/protected-page-wrapper"
+import DashboardLayout from "@/components/dashboard-layout"
 
-export default function DashboardLayout({
+export default function DashboardLayoutPage({
   children,
 }: {
   children: React.ReactNode
 }) {
-  return <ProtectedPageWrapper>{children}</ProtectedPageWrapper>
+  const pathname = usePathname()
+
+  const isAccountPage = pathname === "/dashboard/account"
+
+  return (
+    <ProtectedPageWrapper>
+      {isAccountPage ? children : <DashboardLayout>{children}</DashboardLayout>}
+    </ProtectedPageWrapper>
+  )
 }
