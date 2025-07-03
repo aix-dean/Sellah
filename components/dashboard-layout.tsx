@@ -259,18 +259,21 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
             const Icon = item.icon
             const isActive = activeItem === item.id
 
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleNavigation(item.href)}
-                className={`flex items-center space-y-1 p-2 rounded-lg transition-colors ${
-                  isActive ? "text-red-500 bg-red-50" : "text-gray-600 hover:text-red-500 hover:bg-gray-50"
-                }`}
-              >
-                <Icon className="w-6 h-6" />
+             return (
+        <button
+          key={item.id}
+          onClick={() => handleNavigation(item.href)}
+          className={`flex flex-col items-center justify-center space-y-1 p-2 rounded-lg transition-colors ${
+            isActive ? "text-red-500 bg-red-50" : "text-gray-600 hover:text-red-500 hover:bg-gray-50"
+          }`}
+        >
+          <Icon className="w-6 h-6" />
+          <span className="text-xs">{item.label}</span>
+        </button>
+      )
             })}
         </div>
-
+      </nav>
       {/* Logout Confirmation Modal */}
       {showLogoutModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
