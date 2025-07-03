@@ -211,12 +211,7 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
 
       <div className="flex min-h-screen w-full text-left pt-12 items-stretch justify-between gap-x-2.5 flex-col">
         {/* Left Sidebar - Desktop Navigation */}
-        <aside
-          className={`
-          bg-pink-100 w-64 fixed top-16 md:block hidden bottom-0 left-0 overflow-y-auto z-40 shadow-lg transition-transform duration-300
-        }
-        `}
-        >
+        <aside className='bg-pink-100 w-64 fixed top-16 md:block hidden bottom-0 left-0 overflow-y-auto z-40 shadow-lg transition-transform duration-300'>
           <div className="p-3">
             
             <nav className="space-y-2">
