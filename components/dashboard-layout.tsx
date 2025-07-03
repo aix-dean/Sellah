@@ -10,7 +10,7 @@ import FirestoreDebugPanel from "./firestore-debug-panel"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Home, Package, ShoppingCart, Users, Menu, Bell, MessageSquare, ChevronDown, LogOut, X } from "lucide-react"
+import { Home, Package, ShoppingCart, Users, Bell, MessageSquare, ChevronDown, LogOut, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { signOut } from "@/lib/auth"
 
@@ -167,6 +167,7 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
                     currentUser?.photoURL ||
                     "/placeholder.svg?height=32&width=32&query=user profile" ||
                     "/placeholder.svg" ||
+                    "/placeholder.svg" ||
                     "/placeholder.svg"
                   }
                   alt="Profile"
@@ -211,9 +212,8 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
 
       <div className="flex min-h-screen w-full text-left pt-12 items-stretch justify-between gap-x-2.5 flex-col">
         {/* Left Sidebar - Desktop Navigation */}
-        <aside className='bg-pink-100 w-64 fixed top-16 md:block hidden bottom-0 left-0 overflow-y-auto z-40 shadow-lg transition-transform duration-300'>
+        <aside className="bg-pink-100 w-64 fixed top-16 md:block hidden bottom-0 left-0 overflow-y-auto z-40 shadow-lg transition-transform duration-300">
           <div className="p-3">
-            
             <nav className="space-y-2">
               {menuItems.map((item) => {
                 const Icon = item.icon
@@ -238,14 +238,13 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
         </aside>
 
         {/* Main Content Area */}
-        <main className="flex-1 pt-3 pb-20 md:pb-6 overflow-y-auto text-center g:ml-64 ml-2 mr-2 lg:mr-2.5 md:ml-36 md:pt-2.5">
+        <main className="flex-1 pt-3 pb-20 md:pb-6 overflow-y-auto text-center lg:ml-64 ml-2 mr-2 lg:mr-2.5 md:ml-36 md:pt-2.5">
           <div className="max-w-full">{children}</div>
 
           {/* Firestore Debug Panel - only in development */}
           {process.env.NODE_ENV === "development" && <FirestoreDebugPanel />}
         </main>
       </div>
-
 
       {/* Bottom Navigation - Mobile Only */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 z-40 md:hidden">
@@ -254,19 +253,19 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
             const Icon = item.icon
             const isActive = activeItem === item.id
 
-             return (
-                <button
-                  key={item.id}
-                  onClick={() => handleNavigation(item.href)}
-                  className={`flex flex-col items-center space-y-1 p-2 rounded-lg transition-colors text-gray-600 hover:text-red-500 hover:bg-gray-50 ${
-                    isActive ? "text-red-500 bg-red-50" : "text-gray-600 hover:text-red-500 hover:bg-gray-50"
-                  }`}
-                >
-                  <Icon className="w-6 h-6" />
-                  <span className="text-xs font-medium">{item.label}</span>
-                </button>
-              )
-            })}
+            return (
+              <button
+                key={item.id}
+                onClick={() => handleNavigation(item.href)}
+                className={`flex flex-col items-center space-y-1 p-2 rounded-lg transition-colors text-gray-600 hover:text-red-500 hover:bg-gray-50 ${
+                  isActive ? "text-red-500 bg-red-50" : "text-gray-600 hover:text-red-500 hover:bg-gray-50"
+                }`}
+              >
+                <Icon className="w-6 h-6" />
+                <span className="text-xs font-medium">{item.label}</span>
+              </button>
+            )
+          })}
         </div>
       </nav>
       {/* Logout Confirmation Modal */}
