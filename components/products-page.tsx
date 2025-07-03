@@ -350,8 +350,7 @@ export default function ProductsPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Products</h1>
-            <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your product inventory and listings</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Inventoryy           <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your product inventory and listings</p>
           </div>
           <Button onClick={handleAddProduct} className="bg-red-500 hover:bg-red-600 text-white w-full sm:w-auto">
             <Plus className="w-4 h-4 mr-2" />

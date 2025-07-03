@@ -2,15 +2,18 @@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { User, MapPin, Package, Calendar, CreditCard, CheckCircle, XCircle } from "lucide-react"
+import { User, MapPin, Package, Calendar, CreditCard, CheckCircle, XCircle, Loader2 } from "lucide-react"
 import { useState } from "react"
 import { OrderDetailsModal } from "../order-details-modal"
+import { deductStockFromOrder, restoreStockFromOrder } from "@/lib/stock-service"
+import { toast } from "@/hooks/use-toast"
+import { useUserData } from "@/hooks/use-user-data"
 
 interface OrdersUnpaidTabProps {
   orders: any[]
   loading: boolean
   error: string | null
-  onViewPaymentProof: (order: any) => void    
+  onViewPaymentProof: (order: any) => void
   onApprove: (order: any) => void
   onReject: (order: any) => void
   onViewOrder: (orderId: string) => void
@@ -29,13 +32,14 @@ export function OrdersUnpaidTab({
   onRefresh,
   formatDate,
 }: OrdersUnpaidTabProps) {
+  const { currentUser } = useUserData()
+  const [selectedOrder, setSelectedOrder] = useState<any>(null)
+  const [showOrderModal, setShowOrderModal] = useState(false)
+  const [processingOrders, setProcessingOrders] = useState<Set<string>>(new Set())
+
   const formatCurrency = (amount: number) => {
     return `₱${amount.toFixed(2)}`
   }
-
-  const [selectedOrder, setSelectedOrder] = useState<any>(null)
-  const [showOrderModal, setShowOrderModal] = useState(false)
-
 
   const getStatusBadge = (order: any) => {
     if (order.approve_payment === false) {
@@ -62,7 +66,158 @@ export function OrdersUnpaidTab({
     setShowOrderModal(true)
   }
 
+  const handleApproveWithStockDeduction = async (order: any) => {
+    if (!currentUser) {
+      toast({
+        title: "Error",
+        description: "User not authenticated",
+        variant: "destructive",
+      })
+      return
+    }
 
+    // Add order to processing set
+    setProcessingOrders((prev) => new Set(prev).add(order.id))
+
+    try {
+      // First, attempt to deduct stock
+      const stockResult = await deductStockFromOrder(
+        order.id,
+        order.items || [],
+        currentUser.uid,
+        currentUser.displayName || currentUser.email,
+      )
+
+      if (!stockResult.success) {
+        // Show detailed error message for insufficient stock
+        if (stockResult.insufficientItems && stockResult.insufficientItems.length > 0) {
+          const insufficientItemsText = stockResult.insufficientItems
+            .map(
+              (item) =>
+                `${item.product_name}${item.variation_name ? ` (${item.variation_name})` : ""}: Need ${item.requested}, Available ${item.available}`,
+            )
+            .join("\n")
+
+          toast({
+            title: "Insufficient Stock",
+            description: `Cannot approve order due to insufficient stock:\n\n${insufficientItemsText}`,
+            variant: "destructive",
+          })
+        } else {
+          toast({
+            title: "Stock Deduction Failed",
+            description: stockResult.message,
+            variant: "destructive",
+          })
+        }
+        return
+      }
+
+      // If stock deduction successful, proceed with order approval
+      await onApprove(order)
+
+      // Show success message with stock deduction info
+      const itemCount = order.items?.length || 0
+      toast({
+        title: "Order Approved Successfully",
+        description: `Order ${order.order_number} approved and stock deducted for ${itemCount} item${itemCount !== 1 ? "s" : ""}`,
+      })
+
+      // Refresh the orders list
+      onRefresh()
+    } catch (error) {
+      console.error("Error approving order with stock deduction:", error)
+
+      // Attempt to restore stock if order approval failed
+      try {
+        await restoreStockFromOrder(
+          order.id,
+          order.items || [],
+          currentUser.uid,
+          currentUser.displayName || currentUser.email,
+        )
+      } catch (restoreError) {
+        console.error("Error restoring stock after failed approval:", restoreError)
+      }
+
+      toast({
+        title: "Approval Failed",
+        description: "Failed to approve order. Stock has been restored.",
+        variant: "destructive",
+      })
+    } finally {
+      // Remove order from processing set
+      setProcessingOrders((prev) => {
+        const newSet = new Set(prev)
+        newSet.delete(order.id)
+        return newSet
+      })
+    }
+  }
+
+  const handleRejectWithStockRestore = async (order: any) => {
+    if (!currentUser) {
+      toast({
+        title: "Error",
+        description: "User not authenticated",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Add order to processing set
+    setProcessingOrders((prev) => new Set(prev).add(order.id))
+
+    try {
+      // First, proceed with order rejection
+      await onReject(order)
+
+      // If the order had stock previously deducted, restore it
+      if (order.stock_deducted) {
+        const stockResult = await restoreStockFromOrder(
+          order.id,
+          order.items || [],
+          currentUser.uid,
+          currentUser.displayName || currentUser.email,
+        )
+
+        if (stockResult.success) {
+          toast({
+            title: "Order Rejected",
+            description: `Order ${order.order_number} rejected and stock restored`,
+          })
+        } else {
+          toast({
+            title: "Order Rejected",
+            description: `Order ${order.order_number} rejected, but stock restoration failed: ${stockResult.message}`,
+            variant: "destructive",
+          })
+        }
+      } else {
+        toast({
+          title: "Order Rejected",
+          description: `Order ${order.order_number} has been rejected`,
+        })
+      }
+
+      // Refresh the orders list
+      onRefresh()
+    } catch (error) {
+      console.error("Error rejecting order:", error)
+      toast({
+        title: "Rejection Failed",
+        description: "Failed to reject order. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      // Remove order from processing set
+      setProcessingOrders((prev) => {
+        const newSet = new Set(prev)
+        newSet.delete(order.id)
+        return newSet
+      })
+    }
+  }
 
   if (loading) {
     return (
@@ -118,78 +273,91 @@ export function OrdersUnpaidTab({
                 </tr>
               </thead>
               <tbody>
-                {orders.map((order) => (
-                  <tr key={order.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-4 px-4 text-left">
-                      <div className="text-left">
-                        <button
-                          onClick={() => handleOrderClick(order)}
-                          className="font-medium text-blue-600 hover:text-blue-700 hover:underline cursor-pointer text-left"
-                        >
-                          {order.order_number}
-                        </button>
-                        <div className="text-sm text-gray-500 text-left">{order.items?.length || 0} items</div>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center space-x-2">
-                        <User className="h-4 w-4 text-gray-400" />
-                        <span className="text-gray-900">{order.customer_name}</span>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center space-x-2">
-                        {order.is_pickup ? (
-                          <>
-                            <Package className="h-4 w-4 text-blue-500" />
-                            <span className="text-sm text-gray-700 text-left">
-                              Pick-up <br /> {order.pickup_info?.pickup_address || "Store"}
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <MapPin className="h-4 w-4 text-green-500" />
-                            <span className="text-sm text-gray-700 text-left">
-                              Delivery <br />{" "}
-                              {`${order.shipping_address?.street}, ${order.shipping_address.city}` || "N/A"}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm text-gray-700">{formatDate(order.created_at)}</span>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="font-medium text-gray-900">{formatCurrency(order.total_amount)}</div>
-                    </td>
-                    <td className="py-4 px-4">{getStatusBadge(order)}</td>
-                    <td className="py-4 px-4">
-                      <div className="flex space-x-2">
-                        <Button
-                          size="sm"
-                          onClick={() => onApprove(order)}
-                          disabled={!order.approve_payment}
-                          className="bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105"
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => onReject(order)}
-                          className="bg-red-600 hover:bg-red-700 text-white transition-all duration-200 hover:scale-105"
-                        >
-                          <XCircle className="h-4 w-4 mr-1" />
-                          Reject
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {orders.map((order) => {
+                  const isProcessing = processingOrders.has(order.id)
+
+                  return (
+                    <tr key={order.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-4 px-4 text-left">
+                        <div className="text-left">
+                          <button
+                            onClick={() => handleOrderClick(order)}
+                            className="font-medium text-blue-600 hover:text-blue-700 hover:underline cursor-pointer text-left"
+                          >
+                            {order.order_number}
+                          </button>
+                          <div className="text-sm text-gray-500 text-left">{order.items?.length || 0} items</div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center space-x-2">
+                          <User className="h-4 w-4 text-gray-400" />
+                          <span className="text-gray-900">{order.customer_name}</span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center space-x-2">
+                          {order.is_pickup ? (
+                            <>
+                              <Package className="h-4 w-4 text-blue-500" />
+                              <span className="text-sm text-gray-700 text-left">
+                                Pick-up <br /> {order.pickup_info?.pickup_address || "Store"}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <MapPin className="h-4 w-4 text-green-500" />
+                              <span className="text-sm text-gray-700 text-left">
+                                Delivery <br />{" "}
+                                {`${order.shipping_address?.street}, ${order.shipping_address.city}` || "N/A"}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center space-x-2">
+                          <Calendar className="h-4 w-4 text-gray-400" />
+                          <span className="text-sm text-gray-700">{formatDate(order.created_at)}</span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="font-medium text-gray-900">{formatCurrency(order.total_amount)}</div>
+                      </td>
+                      <td className="py-4 px-4">{getStatusBadge(order)}</td>
+                      <td className="py-4 px-4">
+                        <div className="flex space-x-2">
+                          <Button
+                            size="sm"
+                            onClick={() => handleApproveWithStockDeduction(order)}
+                            disabled={!order.approve_payment || isProcessing}
+                            className="bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105"
+                          >
+                            {isProcessing ? (
+                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                            ) : (
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                            )}
+                            {isProcessing ? "Processing..." : "Approve"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => handleRejectWithStockRestore(order)}
+                            disabled={isProcessing}
+                            className="bg-red-600 hover:bg-red-700 text-white transition-all duration-200 hover:scale-105"
+                          >
+                            {isProcessing ? (
+                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                            ) : (
+                              <XCircle className="h-4 w-4 mr-1" />
+                            )}
+                            Reject
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -197,79 +365,92 @@ export function OrdersUnpaidTab({
 
         {/* Mobile Card View */}
         <div className="md:hidden space-y-4">
-          {orders.map((order) => (
-            <Card key={order.id} className="border border-gray-200">
-              <CardContent className="p-4">
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <button
-                      onClick={() => handleOrderClick(order)}
-                      className="font-medium text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+          {orders.map((order) => {
+            const isProcessing = processingOrders.has(order.id)
+
+            return (
+              <Card key={order.id} className="border border-gray-200">
+                <CardContent className="p-4">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <button
+                        onClick={() => handleOrderClick(order)}
+                        className="font-medium text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+                      >
+                        {order.order_number}
+                      </button>
+                      <div className="text-sm text-gray-500">{order.items?.length || 0} items</div>
+                    </div>
+                    {getStatusBadge(order)}
+                  </div>
+
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center space-x-2">
+                      <User className="h-4 w-4 text-gray-400" />
+                      <span className="text-sm text-gray-700">{order.customer_name}</span>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      {order.is_pickup ? (
+                        <>
+                          <Package className="h-4 w-4 text-blue-500" />
+                          <span className="text-sm text-gray-700">
+                            Pick-up • {order.pickup_info?.company_name || "Store"}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <MapPin className="h-4 w-4 text-green-500" />
+                          <span className="text-sm text-gray-700">
+                            Delivery • {order.shipping_address?.city || "N/A"}
+                          </span>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <Calendar className="h-4 w-4 text-gray-400" />
+                      <span className="text-sm text-gray-700">{formatDate(order.created_at)}</span>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <CreditCard className="h-4 w-4 text-gray-400" />
+                      <span className="text-sm font-medium text-gray-900">{formatCurrency(order.total_amount)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex space-x-2">
+                    <Button
+                      size="sm"
+                      onClick={() => handleApproveWithStockDeduction(order)}
+                      disabled={!order.approve_payment || isProcessing}
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105"
                     >
-                      {order.order_number}
-                    </button>
-                    <div className="text-sm text-gray-500">{order.items?.length || 0} items</div>
+                      {isProcessing ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                      )}
+                      {isProcessing ? "Processing..." : "Approve"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => handleRejectWithStockRestore(order)}
+                      disabled={isProcessing}
+                      className="flex-1 bg-red-600 hover:bg-red-700 text-white transition-all duration-200 hover:scale-105"
+                    >
+                      {isProcessing ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <XCircle className="h-4 w-4 mr-1" />
+                      )}
+                      Reject
+                    </Button>
                   </div>
-                  {getStatusBadge(order)}
-                </div>
-
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center space-x-2">
-                    <User className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm text-gray-700">{order.customer_name}</span>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    {order.is_pickup ? (
-                      <>
-                        <Package className="h-4 w-4 text-blue-500" />
-                        <span className="text-sm text-gray-700">
-                          Pick-up • {order.pickup_info?.company_name || "Store"}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <MapPin className="h-4 w-4 text-green-500" />
-                        <span className="text-sm text-gray-700">
-                          Delivery • {order.shipping_address?.city || "N/A"}
-                        </span>
-                      </>
-                    )}
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Calendar className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm text-gray-700">{formatDate(order.created_at)}</span>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <CreditCard className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm font-medium text-gray-900">{formatCurrency(order.total_amount)}</span>
-                  </div>
-                </div>
-
-                <div className="flex space-x-2">
-                  <Button
-                    size="sm"
-                    onClick={() => onApprove(order)}
-                    disabled={!order.approve_payment}
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105"
-                  >
-                    <CheckCircle className="h-4 w-4 mr-1" />
-                    Approve
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => onReject(order)}
-                    className="flex-1 bg-red-600 hover:bg-red-700 text-white transition-all duration-200 hover:scale-105"
-                  >
-                    <XCircle className="h-4 w-4 mr-1" />
-                    Reject
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
       </div>
       {/* Order Details Modal */}

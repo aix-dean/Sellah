@@ -260,17 +260,17 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
             const isActive = activeItem === item.id
 
              return (
-        <button
-          key={item.id}
-          onClick={() => handleNavigation(item.href)}
-          className={`flex flex-col items-center justify-center space-y-1 p-2 rounded-lg transition-colors ${
-            isActive ? "text-red-500 bg-red-50" : "text-gray-600 hover:text-red-500 hover:bg-gray-50"
-          }`}
-        >
-          <Icon className="w-6 h-6" />
-          <span className="text-xs">{item.label}</span>
-        </button>
-      )
+                <button
+                  key={item.id}
+                  onClick={() => handleNavigation(item.href)}
+                  className={`flex flex-col items-center space-y-1 p-2 rounded-lg transition-colors text-gray-600 hover:text-red-500 hover:bg-gray-50 ${
+                    isActive ? "text-red-500 bg-red-50" : "text-gray-600 hover:text-red-500 hover:bg-gray-50"
+                  }`}
+                >
+                  <Icon className="w-6 h-6" />
+                  <span className="text-xs font-medium">{item.label}</span>
+                </button>
+              )
             })}
         </div>
       </nav>
