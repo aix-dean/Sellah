@@ -21,7 +21,6 @@ interface DashboardLayoutProps {
 }
 
 export default function DashboardLayout({ children, activeItem = "home", userName = "" }: DashboardLayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
@@ -33,14 +32,13 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
   // Main navigation items
   const menuItems = [
     { id: "home", label: "Home", icon: Home, href: "/dashboard" },
-    { id: "products", label: "Products", icon: Package, href: "/dashboard/products" },
+    { id: "inventory", label: "Inventory", icon: Package, href: "/dashboard/products" },
     { id: "orders", label: "Orders", icon: ShoppingCart, href: "/dashboard/orders" },
     { id: "account", label: "Account", icon: Users, href: "/dashboard/account" },
   ]
 
   const handleNavigation = (href: string) => {
     router.push(href)
-    setSidebarOpen(false)
   }
 
   const handleLogout = async () => {
@@ -139,15 +137,6 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
       {/* Fixed Header */}
       <header className="bg-red-500 text-white px-4 py-3 flex items-center justify-between h-16 fixed top-0 left-0 right-0 z-50 shadow-lg">
         <div className="flex items-center space-x-4">
-          {/* Mobile menu button */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="text-white hover:bg-red-600 md:hidden"
-          >
-            <Menu className="w-5 h-5" />
-          </Button>
 
           <div className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-white rounded flex items-center justify-center">
@@ -225,12 +214,12 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
         {/* Left Sidebar - Desktop Navigation */}
         <aside
           className={`
-          bg-pink-100 w-64 fixed top-16 bottom-0 left-0 overflow-y-auto z-40 shadow-lg transition-transform duration-300
-          ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+          bg-pink-100 w-64 fixed top-16 md:block hidden bottom-0 left-0 overflow-y-auto z-40 shadow-lg transition-transform duration-300
+        }
         `}
         >
           <div className="p-3">
-            <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-4">Navigation</h2>
+            
             <nav className="space-y-2">
               {menuItems.map((item) => {
                 const Icon = item.icon
@@ -263,10 +252,6 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
         </main>
       </div>
 
-      {/* Mobile Overlay */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
 
       {/* Bottom Navigation - Mobile Only */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 z-40 md:hidden">
@@ -284,11 +269,7 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
                 }`}
               >
                 <Icon className="w-6 h-6" />
-                <span className="text-xs font-medium">{item.label}</span>
-              </button>
-            )
-          })}
-        </div>
+                    </div>
       </nav>
 
       {/* Logout Confirmation Modal */}

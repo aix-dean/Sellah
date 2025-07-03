@@ -41,6 +41,7 @@ interface CompanyFormData {
   address_city: string
   address_province: string
   website: string
+  position: string // Add this line
 }
 
 interface ProductToDelete {
@@ -69,6 +70,7 @@ export default function ProductsPage() {
     address_city: "",
     address_province: "",
     website: "",
+    position: "", // Add this line
   })
 
   const { currentUser, userData, loading: userLoading } = useUserData()
@@ -108,6 +110,10 @@ export default function ProductsPage() {
       if (!companyData.address_province.trim()) {
         throw new Error("Province is required")
       }
+      if (!companyData.position.trim()) {
+        // Add this validation
+        throw new Error("Your position is required")
+      }
 
       // Create new company
       const newCompanyData = {
@@ -119,6 +125,7 @@ export default function ProductsPage() {
           province: companyData.address_province,
         },
         website: companyData.website,
+        position: companyData.position, // Add this line
         created_by: currentUser.uid,
         created_at: serverTimestamp(),
         updated_at: serverTimestamp(),
@@ -168,10 +175,11 @@ export default function ProductsPage() {
     // Reset form data
     setCompanyData({
       name: "",
-      address_street:"",
+      address_street: "",
       address_city: "",
       address_province: "",
       website: "",
+      position: "", // Add this line
     })
   }
 
@@ -455,13 +463,26 @@ export default function ProductsPage() {
                     />
                   </div>
 
+                  <div>
+                    <Label htmlFor="position">Your Position *</Label>
+                    <Input
+                      id="position"
+                      name="position"
+                      value={companyData.position}
+                      onChange={handleCompanyInputChange}
+                      placeholder="e.g., CEO, Founder, Manager"
+                      required
+                      disabled={savingCompany}
+                    />
+                  </div>
+
                   <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 justify-end pt-4">
                     <Button
                       type="button"
                       variant="outline"
                       onClick={handleCloseCompanyForm}
                       disabled={savingCompany}
-                      className="w-full sm:w-auto"
+                      className="w-full sm:w-auto bg-transparent"
                     >
                       Cancel
                     </Button>

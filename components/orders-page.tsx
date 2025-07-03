@@ -461,7 +461,7 @@ export default function OrdersPage() {
         <div className="bg-white border-b border-gray-200">
           <div className="px-4 sm:px-6 py-3">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 space-y-4 sm:space-y-0">
-              <h1 className="text-2xl font-bold text-gray-900">My Orders</h1>
+              <h1 className="text-2xl font-bold text-gray-900 text-left">My Orders</h1>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-3">
                 <Button
                   variant="outline"
