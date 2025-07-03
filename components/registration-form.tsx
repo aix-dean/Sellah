@@ -25,6 +25,7 @@ export default function RegistrationForm() {
     lastName: "",
     email: "",
     password: "",
+    contactNumber: "",
   })
 
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -35,6 +36,21 @@ export default function RegistrationForm() {
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: "" }))
     }
+  }
+
+  const handleContactNumberChange = (value: string) => {
+    // Remove any non-digit characters
+    const digitsOnly = value.replace(/\D/g, "")
+
+    // Limit to 10 digits and ensure it starts with 9
+    let formattedNumber = digitsOnly
+    if (formattedNumber.length > 0 && !formattedNumber.startsWith("9")) {
+      formattedNumber = "9" + formattedNumber.slice(0, 9)
+    } else if (formattedNumber.length > 10) {
+      formattedNumber = formattedNumber.slice(0, 10)
+    }
+
+    handleInputChange("contactNumber", formattedNumber)
   }
 
   const validateForm = (): boolean => {
@@ -52,6 +68,12 @@ export default function RegistrationForm() {
       newErrors.email = "Email is required"
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Please enter a valid email address"
+    }
+
+    if (!formData.contactNumber.trim()) {
+      newErrors.contactNumber = "Contact number is required"
+    } else if (!/^9\d{9}$/.test(formData.contactNumber)) {
+      newErrors.contactNumber = "Contact number must start with 9 and be exactly 10 digits"
     }
 
     if (!formData.password) {
@@ -88,9 +110,9 @@ export default function RegistrationForm() {
         lastName: formData.lastName,
         email: formData.email,
         password: formData.password,
+        phoneNumber: `+63${formData.contactNumber}`, // Add Philippine country code
         // These fields are still required by the interface but won't be used
         companyName: "",
-        phoneNumber: "",
         street: "",
         city: "",
         province: "",
@@ -178,6 +200,26 @@ export default function RegistrationForm() {
                   placeholder="john@example.com"
                 />
                 {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email}</p>}
+              </div>
+
+              <div>
+                <Label htmlFor="contactNumber">Contact Number *</Label>
+                <div className="flex">
+                  <div className="flex items-center px-3 bg-gray-100 border border-r-0 border-gray-300 rounded-l-md">
+                    <span className="text-sm text-gray-600">+63</span>
+                  </div>
+                  <Input
+                    id="contactNumber"
+                    type="text"
+                    value={formData.contactNumber}
+                    onChange={(e) => handleContactNumberChange(e.target.value)}
+                    className={`rounded-l-none ${errors.contactNumber ? "border-red-500" : ""}`}
+                    placeholder="9123456789"
+                    maxLength={10}
+                  />
+                </div>
+                {errors.contactNumber && <p className="text-sm text-red-500 mt-1">{errors.contactNumber}</p>}
+                <p className="text-xs text-gray-500 mt-1">Must start with 9 and be exactly 10 digits</p>
               </div>
 
               <div>

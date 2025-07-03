@@ -54,7 +54,7 @@ interface ProductFormData {
   }>
   delivery_days: string
   condition: string
-  availability_type: "stock" | "pre_order"
+  is_pre_order: boolean
   pre_order_days: string
   payment_methods: {
     ewallet: boolean
@@ -176,7 +176,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
     media: [],
     delivery_days: "",
     condition: "",
-    availability_type: "stock",
+    is_pre_order: false,
     pre_order_days: "",
     payment_methods: {
       ewallet: false,
@@ -287,7 +287,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
         media: mediaArray,
         delivery_days: productData.delivery_days?.toString() || "",
         condition: productData.condition || "",
-        availability_type: productData.availability_type || "stock",
+        is_pre_order: productData.is_pre_order || false,
         pre_order_days: productData.pre_order_days?.toString() || "",
         payment_methods: paymentMethods,
         variations: convertedVariations,
@@ -752,8 +752,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
           return formData.media.filter((item) => !item.isVideo).length > 0
         case 6:
           const availabilityValid =
-            formData.availability_type === "stock" ||
-            (formData.availability_type === "pre_order" && formData.pre_order_days.trim() !== "")
+            !formData.is_pre_order || (formData.is_pre_order && formData.pre_order_days.trim() !== "")
           return formData.condition.trim() !== "" && availabilityValid
         default:
           return true
@@ -811,9 +810,9 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
           price: formData.variations.length > 0 ? 0 : 0, // Base price is 0 if variations exist
           delivery_options: formData.delivery_options,
           condition: formData.condition,
-          availability_type: formData.availability_type,
-          pre_order_days:
-            formData.availability_type === "pre_order" ? Number.parseInt(formData.pre_order_days) || 0 : null,
+          is_pre_order: formData.is_pre_order,
+          availability_type: formData.is_pre_order ? "pre_order" : "stock",
+          pre_order_days: formData.is_pre_order ? Number.parseInt(formData.pre_order_days) || 0 : null,
           payment_methods: {
             ...formData.payment_methods,
             manual: true, // Force manual to true
@@ -1008,7 +1007,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                   onClick={addVariation}
                   variant="outline"
                   size="sm"
-                  className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                  className="text-blue-600 border-blue-600 hover:bg-blue-50 bg-transparent"
                 >
                   Add Variation
                 </Button>
@@ -1667,23 +1666,23 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                 <label className="flex items-center space-x-2 cursor-pointer select-none">
                   <input
                     type="radio"
-                    name="availability_type"
-                    value="stock"
-                    checked={formData.availability_type === "stock"}
-                    onChange={handleInputChange}
+                    name="is_pre_order"
+                    value="false"
+                    checked={!formData.is_pre_order}
+                    onChange={() => setFormData((prev) => ({ ...prev, is_pre_order: false }))}
                     className="text-red-500 focus:ring-red-500"
                   />
                   <div>
-                    <span className="text-gray-700">On Stock</span>
+                    <span className="text-gray-700">In Stock</span>
                   </div>
                 </label>
                 <label className="flex items-center space-x-2 cursor-pointer select-none">
                   <input
                     type="radio"
-                    name="availability_type"
-                    value="pre_order"
-                    checked={formData.availability_type === "pre_order"}
-                    onChange={handleInputChange}
+                    name="is_pre_order"
+                    value="true"
+                    checked={formData.is_pre_order}
+                    onChange={() => setFormData((prev) => ({ ...prev, is_pre_order: true }))}
                     className="text-red-500 focus:ring-red-500"
                   />
                   <div>
@@ -1692,7 +1691,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                 </label>
               </div>
 
-              {formData.availability_type === "pre_order" && (
+              {formData.is_pre_order && (
                 <div>
                   <Label htmlFor="pre_order_days">
                     Delivery Days for Pre-Order <span className="text-red-500">*</span>
@@ -1705,14 +1704,14 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                     onChange={handleInputChange}
                     placeholder="Number of days to deliver"
                     className={
-                      error && formData.availability_type === "pre_order" && !formData.pre_order_days.trim()
+                      error && formData.is_pre_order && !formData.pre_order_days.trim()
                         ? "border-red-300 focus:border-red-500 focus:ring-red-500"
                         : ""
                     }
                     required
                   />
-                  {error && formData.availability_type === "pre_order" && !formData.pre_order_days.trim() && (
-                    <p className="text-red-500 text-xs mt-1">Delivery days is required for per order items</p>
+                  {error && formData.is_pre_order && !formData.pre_order_days.trim() && (
+                    <p className="text-red-500 text-xs mt-1">Delivery days is required for pre-order items</p>
                   )}
                 </div>
               )}

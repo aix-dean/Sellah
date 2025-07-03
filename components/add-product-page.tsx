@@ -105,7 +105,7 @@ export default function AddProductPage(): ReactElement {
     media: [],
     delivery_days: "",
     condition: "",
-    availability_type: "stock",
+    is_pre_order: false,
     pre_order_days: "",
     payment_methods: {
       ewallet: false,
@@ -594,7 +594,8 @@ export default function AddProductPage(): ReactElement {
         media: formData.media,
         delivery_days: formData.delivery_days || "",
         condition: formData.condition,
-        availability_type: formData.availability_type,
+        is_pre_order: formData.is_pre_order,
+        availability_type: formData.is_pre_order ? "pre_order" : "stock",
         pre_order_days: formData.pre_order_days || "",
         payment_methods: {
           ...formData.payment_methods,
@@ -657,7 +658,7 @@ export default function AddProductPage(): ReactElement {
           media: [],
           delivery_days: "",
           condition: "",
-          availability_type: "stock",
+          is_pre_order: false,
           pre_order_days: "",
           payment_methods: {
             ewallet: false,
@@ -838,7 +839,7 @@ export default function AddProductPage(): ReactElement {
                   onClick={addVariation}
                   variant="outline"
                   size="sm"
-                  className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                  className="text-blue-600 border-blue-600 hover:bg-blue-50 bg-transparent"
                 >
                   Add Variation
                 </Button>
@@ -1288,28 +1289,28 @@ export default function AddProductPage(): ReactElement {
                 <label className="flex items-center space-x-2 cursor-pointer select-none">
                   <input
                     type="radio"
-                    name="availability_type"
-                    value="stock"
-                    checked={formData.availability_type === "stock"}
-                    onChange={handleInputChange}
+                    name="is_pre_order"
+                    value="false"
+                    checked={!formData.is_pre_order}
+                    onChange={() => setFormData((prev) => ({ ...prev, is_pre_order: false }))}
                     className="text-red-500 focus:ring-red-500"
                   />
-                  <span className="text-gray-700">On Stock</span>
+                  <span className="text-gray-700">In Stock</span>
                 </label>
                 <label className="flex items-center space-x-2 cursor-pointer select-none">
                   <input
                     type="radio"
-                    name="availability_type"
-                    value="pre_order"
-                    checked={formData.availability_type === "pre_order"}
-                    onChange={handleInputChange}
+                    name="is_pre_order"
+                    value="true"
+                    checked={formData.is_pre_order}
+                    onChange={() => setFormData((prev) => ({ ...prev, is_pre_order: true }))}
                     className="text-red-500 focus:ring-red-500"
                   />
-                  <span className="text-gray-700">Per Order</span>
+                  <span className="text-gray-700">Pre-Order</span>
                 </label>
               </div>
 
-              {formData.availability_type === "pre_order" && (
+              {formData.is_pre_order && (
                 <div>
                   <Label htmlFor="pre_order_days">Delivery Days for Pre-Order *</Label>
                   <Input
