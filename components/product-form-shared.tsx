@@ -29,6 +29,10 @@ export interface ProductFormData {
     pickup: boolean
     delivery_note: string
     pickup_note: string
+    couriers?: {
+      lalamove: boolean
+      transportify: boolean
+    }
   }
   product_images: File[]
   product_video: File | null
@@ -61,6 +65,13 @@ export interface ProductFormData {
     images: File[]
     media: string | null
   }>
+  // New location field
+  location?: {
+    street: string
+    city: string
+    province: string
+    postal_code: string
+  } | null
 }
 
 export interface CompanyData {
@@ -145,6 +156,14 @@ export const validateStep = (
     case 4:
       if (!formData.delivery_options.delivery && !formData.delivery_options.pickup) {
         errors.delivery_options = "Please select at least one delivery option"
+      }
+      // If delivery is selected, at least one courier must be selected
+      if (
+        formData.delivery_options.delivery &&
+        !formData.delivery_options.couriers?.lalamove &&
+        !formData.delivery_options.couriers?.transportify
+      ) {
+        errors.couriers = "Please select at least one courier for delivery"
       }
       break
     case 5:
@@ -762,7 +781,7 @@ export function NavigationButtons({
               onClick={onSaveDraft}
               disabled={loading}
               variant="outline"
-              className="flex items-center justify-center space-x-2"
+              className="flex items-center justify-center space-x-2 bg-transparent"
             >
               {loading ? (
                 <>

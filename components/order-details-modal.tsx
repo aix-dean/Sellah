@@ -272,7 +272,7 @@ export function OrderDetailsModal({ open, onOpenChange, order, onViewFullOrder }
                 <div key={index} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
                   <div className="flex-shrink-0">
                     <img
-                      src={item.image_url || "/placeholder.svg?height=60&width=60"}
+                      src={item.product_image || "/placeholder.svg?height=60&width=60"}
                       alt={item.product_name}
                       className="w-12 h-12 rounded object-cover border border-gray-200"
                       onError={(e) => {

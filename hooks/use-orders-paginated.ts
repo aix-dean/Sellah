@@ -13,7 +13,7 @@ interface OrderItem {
   total_price: number
   seller_id: string
   specifications?: any
-  image_url?: string
+  product_image?: string // Changed from image_url to product_image
   sku?: string
   variation_data?: {
     color?: string
@@ -122,7 +122,7 @@ export function useOrdersPaginated(userId: string | null, pageSize = 20) {
           total_price: item.total_price || item.total_cost || 0,
           seller_id: item.seller_id || data.seller_id || data.product_owner || "",
           specifications: item.specifications,
-          image_url: item.image_url,
+          product_image: item.product_image, // Mapped product_image
           sku: item.sku,
           variation_data: item.variation_data || null,
           variation_id: item.variation_id,
@@ -136,6 +136,7 @@ export function useOrdersPaginated(userId: string | null, pageSize = 20) {
             unit_price: data.cost || data.unit_price || 0,
             total_price: data.total_cost || data.total_price || 0,
             seller_id: data.seller_id || data.product_owner || "",
+            product_image: data.product_image, // Mapped product_image
             variation_data: data.variation_data || null,
             variation_id: data.variation_id,
             variation_name: data.variation_name,
@@ -173,6 +174,9 @@ export function useOrdersPaginated(userId: string | null, pageSize = 20) {
       })),
     })
 
+    // Calculate total_amount if not explicitly present or if it needs to be re-derived
+    const calculatedTotalAmount = (data.subtotal || 0) + (data.shipping_fee || 0) + (data.tax_amount || 0)
+
     return {
       id: docSnapshot.id,
       order_number: data.order_number || `ORD-${docSnapshot.id.slice(0, 8)}`,
@@ -185,7 +189,7 @@ export function useOrdersPaginated(userId: string | null, pageSize = 20) {
       subtotal: data.subtotal || data.total_cost || 0,
       shipping_fee: data.shipping_fee || 0,
       tax_amount: data.tax_amount || 0,
-      total_amount: data.total_amount || data.total_cost || 0,
+      total_amount: data.total_amount || calculatedTotalAmount, // Use existing total_amount or calculate
       status: normalizedStatus, // Use normalized status
       order_type: data.order_type || data.type || "MERCHANDISE",
       payment_method: data.payment_method || "",

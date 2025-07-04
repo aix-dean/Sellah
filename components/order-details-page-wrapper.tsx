@@ -41,6 +41,7 @@ import OrderActivityModal from "./order-activity-modal"
 import { PaymentProofModal } from "./payment-proof-modal"
 import { OrderApprovalDialog } from "./order-approval-dialog"
 import { OrderRejectionDialog } from "./order-rejection-dialog"
+import { updateOrderStatusWithStockManagement } from "@/lib/order-status-handler"
 
 interface OrderDetailsPageWrapperProps {
   orderId: string
@@ -53,7 +54,7 @@ interface OrderItem {
   unit_price: number
   total_price: number
   specifications?: any
-  image_url?: string
+  product_image?: string // Changed from image_url to product_image
   sku?: string
   variation_data?: {
     color?: string
@@ -218,23 +219,22 @@ export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWra
         return
       }
 
-      const orderRef = doc(db, "orders", orderId)
-      const now = Timestamp.now()
+      // Use the new stock management handler
+      const result = await updateOrderStatusWithStockManagement(
+        orderId,
+        newStatus,
+        currentUser.uid,
+        oldStatus,
+        currentUser.displayName || currentUser.email || "User",
+        order,
+      )
 
-      // Update the order
-      await updateDoc(orderRef, {
-        status: newStatus,
-        updated_at: now,
-        status_history: arrayUnion({
-          status: newStatus,
-          timestamp: now,
-          note: `Status changed from ${oldStatus} to ${newStatus}`,
-          updated_by: currentUser.uid,
-          user_name: currentUser.displayName || currentUser.email,
-        }),
-      })
+      if (!result.success) {
+        throw new Error(result.error || "Failed to update order status")
+      }
 
       // Update payment status if order is completed or cancelled
+      const orderRef = doc(db, "orders", orderId)
       if (newStatus === "completed" || newStatus === "delivered") {
         await updateDoc(orderRef, {
           payment_status: "paid",
@@ -260,7 +260,7 @@ export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWra
       } else if (newStatus === "cancelled") {
         await updateDoc(orderRef, {
           payment_status: "cancelled",
-          cancelled_at: now,
+          cancelled_at: Timestamp.now(),
           cancelled_by: currentUser.uid,
         })
 
@@ -282,31 +282,11 @@ export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWra
         })
       }
 
-      // Create status change activity record
-      await createOrderActivity({
-        order_id: orderId,
-        user_id: currentUser.uid,
-        activity_type: "status_change",
-        old_value: oldStatus,
-        new_value: newStatus,
-        description: `Order status changed from ${oldStatus} to ${newStatus}`,
-        metadata: {
-          user_name: currentUser.displayName || currentUser.email,
-          order_number: order.order_number,
-          total_amount: order.total_amount,
-          customer_name: order.customer_name,
-          status_change_reason: "Manual update by user",
-          items_count: order.items.length,
-          device_info: navigator.userAgent,
-          timestamp_iso: new Date().toISOString(),
-        },
-      })
-
       // Update local state
       setOrder({
         ...order,
         status: newStatus,
-        updated_at: now,
+        updated_at: Timestamp.now(),
         payment_status:
           newStatus === "completed" || newStatus === "delivered"
             ? "paid"
@@ -315,9 +295,18 @@ export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWra
               : order.payment_status,
       })
 
+      let toastMessage = `Order status changed to ${newStatus.toUpperCase()}`
+      if (result.stockDeductionResult) {
+        if (result.stockDeductionResult.success) {
+          toastMessage += ` and stock deducted successfully`
+        } else {
+          toastMessage += ` (stock deduction had some issues)`
+        }
+      }
+
       toast({
         title: "Status updated successfully",
-        description: `Order status changed to ${newStatus.toUpperCase()}`,
+        description: toastMessage,
       })
     } catch (error) {
       console.error("Error updating order:", error)
@@ -524,7 +513,7 @@ export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWra
       console.error("Error rejecting payment:", error)
       toast({
         title: "Error",
-        description: "Failed to reject payment. Please try again.",
+        description: "Failed to approve payment. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -682,7 +671,7 @@ export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWra
           <span className="text-sm font-medium text-blue-800">Product Variation</span>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 text-sm">
+        <div className="grid grid-cols-2 gap-3 text-sm text-left">
           {variationData.name && (
             <div>
               <span className="text-gray-600">Name:</span>
@@ -756,7 +745,7 @@ export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWra
               alt={`${variationData.name || "Variation"} image`}
               className="mt-2 w-16 h-16 rounded-lg object-cover border border-gray-200"
               onError={(e) => {
-                e.currentTarget.style.display = "none"
+                e.currentTarget.src = "/placeholder.svg?height=80&width=80"
               }}
             />
           </div>
@@ -975,7 +964,7 @@ export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWra
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-3">
+                    <div className="space-y-3 text-left">
                       <div>
                         <label className="text-sm font-medium text-gray-500">Customer Name</label>
                         <p className="text-base font-medium text-gray-900">{order.customer_name}</p>
@@ -1041,7 +1030,7 @@ export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWra
                       <div key={index} className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg">
                         <div className="flex-shrink-0">
                           <img
-                            src={item.image_url || "/placeholder.svg?height=80&width=80"}
+                            src={item.product_image || "/placeholder.svg?height=80&width=80"}
                             alt={item.product_name}
                             className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg object-cover border border-gray-200"
                             onError={(e) => {
@@ -1127,7 +1116,7 @@ export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWra
                   <CardContent className="space-y-4">
                     <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
+                        <div className="text-left">
                           <label className="text-sm font-medium text-red-700">Cancelled By</label>
                           <p className="text-base font-medium text-red-900">
                             {order.cancelled_by_user ? "Seller" : "Buyer"}
@@ -1140,14 +1129,14 @@ export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWra
                           </div>
                         )}
                       </div>
-                      
+
                       {order.cancellation_reason && (
                         <div className="mt-4">
                           <label className="text-sm font-medium text-red-700">Cancellation Reason</label>
                           <p className="text-base text-red-900 mt-1">{order.cancellation_reason}</p>
                         </div>
                       )}
-                      
+
                       {order.cancellation_message && (
                         <div className="mt-4">
                           <label className="text-sm font-medium text-red-700">Additional Message</label>
@@ -1156,19 +1145,19 @@ export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWra
                           </p>
                         </div>
                       )}
-                      
+
                       {order.refund_status && (
                         <div className="mt-4">
                           <label className="text-sm font-medium text-red-700">Refund Status</label>
                           <div className="mt-1">
-                            <Badge 
+                            <Badge
                               className={`${
-                                order.refund_status === "completed" 
+                                order.refund_status === "completed"
                                   ? "bg-green-100 text-green-800 border-green-200"
                                   : order.refund_status === "processing"
-                                  ? "bg-yellow-100 text-yellow-800 border-yellow-200"
-                                  : "bg-gray-100 text-gray-800 border-gray-200"
-                              }`} 
+                                    ? "bg-yellow-100 text-yellow-800 border-yellow-200"
+                                    : "bg-gray-100 text-gray-800 border-gray-200"
+                              }`}
                               variant="outline"
                             >
                               {order.refund_status.toUpperCase()}
@@ -1197,11 +1186,11 @@ export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWra
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Shipping Fee</span>
-                      <span className="font-medium">{formatCurrency(order.shipping_fee)}</span>
+                      <span className="font-medium">{formatCurrency(order.shipping_fee || 0)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Tax</span>
-                      <span className="font-medium">{formatCurrency(order.tax_amount)}</span>
+                      <span className="font-medium">{formatCurrency(order.tax_amount || 0)}</span>
                     </div>
                     {order.discount_amount && order.discount_amount > 0 && (
                       <div className="flex justify-between text-sm">
@@ -1212,7 +1201,9 @@ export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWra
                     <Separator />
                     <div className="flex justify-between text-lg font-semibold">
                       <span>Total</span>
-                      <span>{formatCurrency(order.total_amount)}</span>
+                      <span>
+                        {formatCurrency(order.subtotal + (order.shipping_fee || 0) + (order.tax_amount || 0))}
+                      </span>
                     </div>
                   </div>
                 </CardContent>
@@ -1371,7 +1362,7 @@ export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWra
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {getDynamicActionButtons()}
-                  
+
                   <Button
                     onClick={() => setShowNoteModal(true)}
                     variant="outline"

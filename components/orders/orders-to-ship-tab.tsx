@@ -46,10 +46,7 @@ export function OrdersToShipTab({
     // For TO SHIP tab, show payment approval status
     if (order.approve_payment === false) {
       return (
-        <Badge
-          variant="secondary"
-          className="bg-blue-100 text-blue-800 hover:bg-blue-100 cursor-pointer"
-        >
+        <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-100 cursor-pointer">
           {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
         </Badge>
       )
@@ -127,12 +124,7 @@ export function OrdersToShipTab({
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 font-medium text-gray-700">
-                    <Checkbox
-                      checked={selectedOrders.length === preparingOrders.length}
-                      onCheckedChange={handleSelectAll}
-                    />
-                  </th>
+                  
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Order</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Customer</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Channel</th>
@@ -148,17 +140,12 @@ export function OrdersToShipTab({
 
                   return (
                     <tr key={order.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-4 px-4">
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={(checked) => handleSelectOrder(order.id, checked)}
-                        />
-                      </td>
+                      
                       <td className="py-4 px-4 text-left text-left">
                         <div className="text-left">
                           <button
                             onClick={() => handleOrderClick(order)}
-                            className="font-medium text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+                            className="font-medium text-blue-600 hover:text-blue-700 hover:underline cursor-pointer text-left"
                           >
                             {order.order_number}
                           </button>

@@ -2,26 +2,14 @@
 
 import type React from "react"
 import type { ReactElement } from "react"
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import {
-  X,
-  ArrowLeft,
-  ArrowRight,
-  Check,
-  Loader2,
-  ImageIcon,
-  FileVideo,
-  Save,
-  UploadIcon,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react"
-import { doc, updateDoc, serverTimestamp } from "firebase/firestore"
+import { X, ArrowLeft, Loader2, ImageIcon, FileVideo, AlertCircle } from "lucide-react"
+import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs, orderBy } from "firebase/firestore"
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"
 import { db } from "@/lib/firebase"
 import DashboardLayout from "./dashboard-layout"
@@ -31,92 +19,78 @@ import { AnimatedSuccessMessage } from "./animated-success-message"
 import { useProducts } from "@/hooks/use-products"
 import { firestoreCache } from "@/hooks/use-firestore-cache"
 import { loggedGetDoc } from "@/lib/firestore-logger"
-import { CategorySelection } from "./product-form-shared"
-
-interface ProductFormData {
-  name: string
-  description: string
-  categories: string[]
-  unit: string
-  delivery_options: {
-    delivery: boolean
-    pickup: boolean
-    delivery_note: string
-    pickup_note: string
-  }
-  product_images: File[]
-  product_video: File | null
-  media: Array<{
-    distance: string
-    isVideo: boolean
-    type: string
-    url: string
-  }>
-  delivery_days: string
-  condition: string
-  is_pre_order: boolean
-  pre_order_days: string
-  payment_methods: {
-    ewallet: boolean
-    bank_transfer: boolean
-    gcash: boolean
-    maya: boolean
-    manual: boolean
-  }
-  variations: Array<{
-    id: string
-    name: string
-    color?: string
-    weight?: string
-    height?: string
-    length?: string
-    price: string
-    stock: string
-    images: File[]
-    media: Array<{
-      distance: string
-      isVideo: boolean
-      type: string
-      url: string
-    }>
-  }>
-}
+import {
+  type ProductFormData,
+  STEPS,
+  UNIT_OPTIONS,
+  validateStep,
+  StepNavigation,
+  CategorySelection,
+  VariationItem,
+  NavigationButtons,
+} from "./product-form-shared"
 
 interface EditProductPageProps {
   productId: string
 }
 
-const STEPS = [
-  { id: 1, title: "Details", description: "Basic product information" },
-  { id: 2, title: "Specification", description: "Product variations and unit" },
-  { id: 3, title: "Sales Information", description: "Pricing and inventory" },
-  { id: 4, title: "Shipping", description: "Delivery options" },
-  { id: 5, title: "Media", description: "Product images and videos" },
-  { id: 6, title: "Others", description: "Additional information" },
-]
+export default function EditProductPage({ productId }: EditProductPageProps): ReactElement {
+  // All state hooks first
+  const [currentStep, setCurrentStep] = useState(1)
+  const [loading, setLoading] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [productLoading, setProductLoading] = useState(true)
+  const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({})
+  const [generalError, setGeneralError] = useState("")
+  const [success, setSuccess] = useState("")
+  const [categoryNames, setCategoryNames] = useState<{ [key: string]: string }>({})
+  const [isInitialized, setIsInitialized] = useState(false)
+  const [collapsedVariations, setCollapsedVariations] = useState<Set<string>>(new Set())
+  const [currentStepValid, setCurrentStepValid] = useState(true)
+  const [categories, setCategories] = useState<any[]>([])
+  const [categoriesLoading, setCategoriesLoading] = useState(true)
+  const [categoriesError, setCategoriesError] = useState<string | null>(null)
 
-const UNIT_OPTIONS = [
-  { value: "per_bottle", label: "Per Bottle" },
-  { value: "per_gallon", label: "Per Gallon" },
-  { value: "per_piece", label: "Per Piece" },
-  { value: "per_set", label: "Per Set" },
-  { value: "per_box", label: "Per Box" },
-  { value: "per_square_foot", label: "Per Square Foot" },
-  { value: "per_square_meter", label: "Per Square Meter" },
-  { value: "per_roll", label: "Per Roll" },
-  { value: "per_dozen", label: "Per Dozen" },
-  { value: "per_hundred", label: "Per Hundred" },
-  { value: "per_unit", label: "Per Unit" },
-  { value: "per_watt", label: "Per Watt" },
-]
+  const [formData, setFormData] = useState<ProductFormData>({
+    name: "",
+    description: "",
+    categories: [],
+    unit: "per_piece",
+    delivery_options: {
+      delivery: false,
+      pickup: false,
+      delivery_note: "",
+      pickup_note: "",
+      couriers: {
+        lalamove: false,
+        transportify: false,
+      },
+    },
+    product_images: [],
+    product_video: null,
+    media: [],
+    delivery_days: "",
+    condition: "",
+    is_pre_order: false,
+    pre_order_days: "",
+    payment_methods: {
+      ewallet: false,
+      bank_transfer: false,
+      gcash: false,
+      maya: false,
+      manual: true,
+    },
+    variations: [],
+  })
 
-// Real Firestore query function for categories
-const useFetchCategories = () => {
-  return useCallback(async () => {
+  // All custom hooks
+  const { currentUser, userData, loading: userLoading, error: userError } = useUserData()
+  const { invalidateProducts } = useProducts(currentUser?.uid)
+  const { showSuccessAnimation, successMessage, isSuccessVisible, showAnimatedSuccess } = useAnimatedSuccess()
+
+  // Memoized fetch categories function
+  const fetchCategories = useCallback(async () => {
     try {
-      const { collection, query, where, getDocs, orderBy } = await import("firebase/firestore")
-      const { db } = await import("@/lib/firebase")
-
       const categoriesRef = collection(db, "categories")
       const q = query(
         categoriesRef,
@@ -125,10 +99,8 @@ const useFetchCategories = () => {
         where("deleted", "==", false),
         orderBy("name", "asc"),
       )
-      console.log(categoriesRef)
       const querySnapshot = await getDocs(q)
       const fetchedCategories: any[] = []
-      console.log(q)
       querySnapshot.forEach((doc) => {
         const data = doc.data()
         fetchedCategories.push({
@@ -148,56 +120,6 @@ const useFetchCategories = () => {
       throw error
     }
   }, [])
-}
-
-export default function EditProductPage({ productId }: EditProductPageProps): ReactElement {
-  const [currentStep, setCurrentStep] = useState(1)
-  const [loading, setLoading] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [productLoading, setProductLoading] = useState(true)
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
-  const [categoryNames, setCategoryNames] = useState<{ [key: string]: string }>({})
-  const [expandedVariations, setExpandedVariations] = useState<{ [key: string]: boolean }>({})
-
-  const [formData, setFormData] = useState<ProductFormData>({
-    name: "",
-    description: "",
-    categories: [],
-    unit: "per_piece",
-    delivery_options: {
-      delivery: false,
-      pickup: false,
-      delivery_note: "",
-      pickup_note: "",
-    },
-    product_images: [],
-    product_video: null,
-    media: [],
-    delivery_days: "",
-    condition: "",
-    is_pre_order: false,
-    pre_order_days: "",
-    payment_methods: {
-      ewallet: false,
-      bank_transfer: false,
-      gcash: false,
-      maya: false,
-      manual: true,
-    },
-    variations: [],
-  })
-
-  const [categories, setCategories] = useState<any[]>([])
-  const [categoriesLoading, setCategoriesLoading] = useState(true)
-  const [categoriesError, setCategoriesError] = useState<string | null>(null)
-
-  // Use custom hooks for data fetching with caching
-  const { currentUser, userData, loading: userLoading, error: userError } = useUserData()
-  const { invalidateProducts } = useProducts(currentUser?.uid)
-
-  // Use the animated success hook
-  const { showSuccessAnimation, successMessage, isSuccessVisible, showAnimatedSuccess } = useAnimatedSuccess()
 
   // Fetch product data for editing
   const fetchProduct = useCallback(async () => {
@@ -209,7 +131,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
       const productSnap = await loggedGetDoc(productRef)
 
       if (!productSnap.exists()) {
-        setError("Product not found.")
+        setGeneralError("Product not found.")
         return
       }
 
@@ -217,7 +139,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
 
       // Check if current user owns this product
       if (productData.seller_id !== currentUser.uid) {
-        setError("You don't have permission to edit this product.")
+        setGeneralError("You don't have permission to edit this product.")
         return
       }
 
@@ -256,7 +178,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
         price: variation.price?.toString() || "",
         stock: variation.stock?.toString() || "",
         images: [], // Will be empty for existing variations
-        media: variation.media || [],
+        media: variation.media || null,
       }))
 
       // Map delivery options
@@ -265,6 +187,10 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
         pickup: productData.delivery_options?.pickup || false,
         delivery_note: productData.delivery_options?.delivery_note || "",
         pickup_note: productData.delivery_options?.pickup_note || "",
+        couriers: {
+          lalamove: productData.delivery_options?.couriers?.lalamove || false,
+          transportify: productData.delivery_options?.couriers?.transportify || false,
+        },
       }
 
       // Map payment methods
@@ -294,58 +220,66 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
       })
 
       // Initialize expanded state for variations
-      const initialExpanded: { [key: string]: boolean } = {}
+      const initialCollapsed: Set<string> = new Set()
       convertedVariations.forEach((variation) => {
-        initialExpanded[variation.id] = false
+        initialCollapsed.add(variation.id)
       })
-      setExpandedVariations(initialExpanded)
+      setCollapsedVariations(initialCollapsed)
+      setIsInitialized(true)
     } catch (error) {
       console.error("Error fetching product:", error)
-      setError("Failed to load product data. Please try again.")
+      setGeneralError("Failed to load product data. Please try again.")
     } finally {
       setProductLoading(false)
     }
   }, [currentUser, productId])
 
-  // Fetch data when user is available
-  useEffect(() => {
-    if (currentUser) {
-      fetchProduct()
+  // Upload file to Firebase Storage
+  const uploadFileToStorage = useCallback(async (file: File, path: string): Promise<string> => {
+    try {
+      const storage = getStorage()
+      const storageRef = ref(storage, path)
+      await uploadBytes(storageRef, file)
+      const downloadURL = await getDownloadURL(storageRef)
+      return downloadURL
+    } catch (error) {
+      console.error("Error uploading file:", error)
+      throw error
     }
-  }, [currentUser, fetchProduct])
+  }, [])
 
-  // Load categories
-  const fetchCategories = useFetchCategories()
-
-  useEffect(() => {
-    const loadCategories = async () => {
-      setCategoriesLoading(true)
-      setCategoriesError(null)
-
-      try {
-        const fetchedCategories = await fetchCategories()
-        setCategories(fetchedCategories)
-      } catch (error) {
-        console.error("Failed to load categories:", error)
-        setCategoriesError("Failed to load categories. Please try again.")
-      } finally {
-        setCategoriesLoading(false)
+  // Extract file path from Firebase Storage URL
+  const getStoragePathFromUrl = useCallback((url: string): string | null => {
+    try {
+      const match = url.match(/\/o\/(.+?)\?/)
+      if (match && match[1]) {
+        return decodeURIComponent(match[1])
       }
+      return null
+    } catch (error) {
+      console.error("Error extracting path from URL:", error)
+      return null
     }
+  }, [])
 
-    loadCategories()
-  }, [fetchCategories])
+  // Delete file from Firebase Storage
+  const deleteFileFromStorage = useCallback(
+    async (url: string): Promise<boolean> => {
+      try {
+        const path = getStoragePathFromUrl(url)
+        if (!path) return false
 
-  // Update the existing useEffect for categories to also store names
-  useEffect(() => {
-    if (categories && categories.length > 0) {
-      const nameMap: { [key: string]: string } = {}
-      categories.forEach((category) => {
-        nameMap[category.id] = category.name
-      })
-      setCategoryNames(nameMap)
-    }
-  }, [categories])
+        const storage = getStorage()
+        const fileRef = ref(storage, path)
+        await deleteObject(fileRef)
+        return true
+      } catch (error) {
+        console.error("Error deleting file:", error)
+        return false
+      }
+    },
+    [getStoragePathFromUrl],
+  )
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -355,9 +289,15 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
         [name]: value,
       }))
       // Clear error when user starts typing
-      if (error) setError("")
+      if (fieldErrors[name]) {
+        setFieldErrors((prev) => {
+          const newErrors = { ...prev }
+          delete newErrors[name]
+          return newErrors
+        })
+      }
     },
-    [error],
+    [fieldErrors],
   )
 
   const handleCategoryChange = useCallback(
@@ -367,24 +307,36 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
         categories: checked ? [...prev.categories, categoryId] : prev.categories.filter((id) => id !== categoryId),
       }))
       // Clear error when user makes selection
-      if (error) setError("")
+      if (generalError) setGeneralError("")
     },
-    [error],
+    [generalError],
   )
 
   const handleDeliveryOptionChange = useCallback(
     (option: string, checked: boolean) => {
-      setFormData((prev) => ({
-        ...prev,
-        delivery_options: {
+      setFormData((prev) => {
+        const newDeliveryOptions = {
           ...prev.delivery_options,
           [option]: checked,
-        },
-      }))
+        }
+
+        // If delivery is being disabled, also disable all courier options
+        if (option === "delivery" && !checked) {
+          newDeliveryOptions.couriers = {
+            lalamove: false,
+            transportify: false,
+          }
+        }
+
+        return {
+          ...prev,
+          delivery_options: newDeliveryOptions,
+        }
+      })
       // Clear error when user makes selection
-      if (error) setError("")
+      if (generalError) setGeneralError("")
     },
-    [error],
+    [generalError],
   )
 
   const handleDeliveryNoteChange = useCallback((option: string, value: string) => {
@@ -407,16 +359,34 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
         },
       }))
       // Clear error when user makes selection
-      if (error) setError("")
+      if (generalError) setGeneralError("")
     },
-    [error],
+    [generalError],
   )
 
-  const toggleVariationExpansion = useCallback((variationId: string) => {
-    setExpandedVariations((prev) => ({
+  const handleCourierChange = useCallback((courier: string, checked: boolean) => {
+    setFormData((prev) => ({
       ...prev,
-      [variationId]: !prev[variationId],
+      delivery_options: {
+        ...prev.delivery_options,
+        couriers: {
+          ...prev.delivery_options.couriers,
+          [courier]: checked,
+        },
+      },
     }))
+  }, [])
+
+  const toggleVariationCollapse = useCallback((variationId: string) => {
+    setCollapsedVariations((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(variationId)) {
+        newSet.delete(variationId)
+      } else {
+        newSet.add(variationId)
+      }
+      return newSet
+    })
   }, [])
 
   const addVariation = useCallback(() => {
@@ -430,17 +400,18 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
       price: "",
       stock: "",
       images: [],
-      media: [],
+      media: null,
     }
     setFormData((prev) => ({
       ...prev,
       variations: [...prev.variations, newVariation],
     }))
     // Auto-expand new variation
-    setExpandedVariations((prev) => ({
-      ...prev,
-      [newVariation.id]: true,
-    }))
+    setCollapsedVariations((prev) => {
+      const newSet = new Set(prev)
+      newSet.delete(newVariation.id)
+      return newSet
+    })
   }, [])
 
   const removeVariation = useCallback((id: string) => {
@@ -448,11 +419,11 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
       ...prev,
       variations: prev.variations.filter((variation) => variation.id !== id),
     }))
-    // Remove from expanded state
-    setExpandedVariations((prev) => {
-      const newState = { ...prev }
-      delete newState[id]
-      return newState
+    // Remove from collapsed state
+    setCollapsedVariations((prev) => {
+      const newSet = new Set(prev)
+      newSet.delete(id)
+      return newSet
     })
   }, [])
 
@@ -474,71 +445,20 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
     }))
   }, [])
 
-  // Upload file to Firebase Storage
-  const uploadFileToStorage = useCallback(async (file: File, path: string): Promise<string> => {
-    try {
-      const storage = getStorage()
-      const storageRef = ref(storage, path)
-      await uploadBytes(storageRef, file)
-      const downloadURL = await getDownloadURL(storageRef)
-      return downloadURL
-    } catch (error) {
-      console.error("Error uploading file:", error)
-      throw error
-    }
-  }, [])
-
-  // Extract file path from Firebase Storage URL
-  const getStoragePathFromUrl = (url: string): string | null => {
-    try {
-      const match = url.match(/\/o\/(.+?)\?/)
-      if (match && match[1]) {
-        return decodeURIComponent(match[1])
-      }
-      return null
-    } catch (error) {
-      console.error("Error extracting path from URL:", error)
-      return null
-    }
-  }
-
-  // Delete file from Firebase Storage
-  const deleteFileFromStorage = async (url: string): Promise<boolean> => {
-    try {
-      const path = getStoragePathFromUrl(url)
-      if (!path) return false
-
-      const storage = getStorage()
-      const fileRef = ref(storage, path)
-      await deleteObject(fileRef)
-      return true
-    } catch (error) {
-      console.error("Error deleting file:", error)
-      return false
-    }
-  }
-
   const handleVariationImageUpload = useCallback(
     async (variationId: string, e: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files || [])
       if (files.length === 0) return
 
+      // Only take the first file for single media
+      const file = files[0]
+
       setUploading(true)
-      setError("")
+      setGeneralError("")
 
       try {
-        const uploadPromises = files.map(async (file, index) => {
-          const path = `products/${currentUser?.uid}/variations/${variationId}/${Date.now()}_${index}.${file.name.split(".").pop()}`
-          const url = await uploadFileToStorage(file, path)
-          return {
-            distance: "",
-            isVideo: false,
-            type: "",
-            url: url,
-          }
-        })
-
-        const mediaObjects = await Promise.all(uploadPromises)
+        const path = `products/${currentUser?.uid}/variations/${variationId}/${Date.now()}_${file.name.split(".").pop()}`
+        const url = await uploadFileToStorage(file, path)
 
         setFormData((prev) => ({
           ...prev,
@@ -546,17 +466,17 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
             variation.id === variationId
               ? {
                   ...variation,
-                  images: [...variation.images, ...files],
-                  media: [...variation.media, ...mediaObjects],
+                  images: [file], // Replace with single file
+                  media: url, // Store just the URL string
                 }
               : variation,
           ),
         }))
 
-        showAnimatedSuccess("Variation images uploaded successfully!")
+        showAnimatedSuccess("Variation image uploaded successfully!")
       } catch (error) {
-        console.error("Error uploading variation images:", error)
-        setError("Failed to upload variation images. Please try again.")
+        console.error("Error uploading variation image:", error)
+        setGeneralError("Failed to upload variation image. Please try again.")
       } finally {
         setUploading(false)
       }
@@ -564,15 +484,15 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
     [currentUser?.uid, uploadFileToStorage, showAnimatedSuccess],
   )
 
-  const removeVariationImage = useCallback((variationId: string, imageIndex: number) => {
+  const removeVariationImage = useCallback((variationId: string) => {
     setFormData((prev) => ({
       ...prev,
       variations: prev.variations.map((variation) =>
         variation.id === variationId
           ? {
               ...variation,
-              images: variation.images.filter((_, index) => index !== imageIndex),
-              media: variation.media.filter((_, index) => index !== imageIndex),
+              images: [],
+              media: null,
             }
           : variation,
       ),
@@ -585,7 +505,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
       if (files.length === 0) return
 
       setUploading(true)
-      setError("")
+      setGeneralError("")
 
       try {
         setFormData((prev) => ({
@@ -614,7 +534,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
         showAnimatedSuccess("Images uploaded successfully!")
       } catch (error) {
         console.error("Error uploading images:", error)
-        setError("Failed to upload images. Please try again.")
+        setGeneralError("Failed to upload images. Please try again.")
       } finally {
         setUploading(false)
       }
@@ -630,12 +550,12 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
       // Check if a video already exists
       const existingVideo = formData.media.find((item) => item.isVideo)
       if (existingVideo) {
-        setError("Only one video can be uploaded per product. Please remove the existing video first.")
+        setGeneralError("Only one video can be uploaded per product. Please remove the existing video first.")
         return
       }
 
       setUploading(true)
-      setError("")
+      setGeneralError("")
 
       try {
         setFormData((prev) => ({
@@ -661,50 +581,53 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
         showAnimatedSuccess("Video uploaded successfully!")
       } catch (error) {
         console.error("Error uploading video:", error)
-        setError("Failed to upload video. Please try again.")
+        setGeneralError("Failed to upload video. Please try again.")
       } finally {
         setUploading(false)
       }
     },
-    [currentUser?.uid, uploadFileToStorage, showAnimatedSuccess],
+    [currentUser?.uid, uploadFileToStorage, showAnimatedSuccess, formData.media],
   )
 
-  const removeImage = useCallback((index: number) => {
-    setFormData((prev) => {
-      const newImages = [...prev.product_images]
-      const newMedia = [...prev.media]
+  const removeImage = useCallback(
+    (index: number) => {
+      setFormData((prev) => {
+        const newImages = [...prev.product_images]
+        const newMedia = [...prev.media]
 
-      // Find the corresponding media item (only images, not videos)
-      let imageIndex = 0
-      let mediaIndexToRemove = -1
+        // Find the corresponding media item (only images, not videos)
+        let imageIndex = 0
+        let mediaIndexToRemove = -1
 
-      for (let i = 0; i < newMedia.length; i++) {
-        if (!newMedia[i].isVideo) {
-          if (imageIndex === index) {
-            mediaIndexToRemove = i
-            break
+        for (let i = 0; i < newMedia.length; i++) {
+          if (!newMedia[i].isVideo) {
+            if (imageIndex === index) {
+              mediaIndexToRemove = i
+              break
+            }
+            imageIndex++
           }
-          imageIndex++
         }
-      }
 
-      if (mediaIndexToRemove !== -1) {
-        // Try to delete from storage
-        deleteFileFromStorage(newMedia[mediaIndexToRemove].url)
-        newMedia.splice(mediaIndexToRemove, 1)
-      }
+        if (mediaIndexToRemove !== -1) {
+          // Try to delete from storage
+          deleteFileFromStorage(newMedia[mediaIndexToRemove].url)
+          newMedia.splice(mediaIndexToRemove, 1)
+        }
 
-      if (index < newImages.length) {
-        newImages.splice(index, 1)
-      }
+        if (index < newImages.length) {
+          newImages.splice(index, 1)
+        }
 
-      return {
-        ...prev,
-        product_images: newImages,
-        media: newMedia,
-      }
-    })
-  }, [])
+        return {
+          ...prev,
+          product_images: newImages,
+          media: newMedia,
+        }
+      })
+    },
+    [deleteFileFromStorage],
+  )
 
   const removeVideo = useCallback(() => {
     setFormData((prev) => {
@@ -722,85 +645,67 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
         media: newMedia,
       }
     })
-  }, [])
-
-  const validateStep = useCallback(
-    (step: number): boolean => {
-      switch (step) {
-        case 1:
-          return formData.name.trim() !== "" && formData.description.trim() !== "" && formData.categories.length > 0
-        case 2:
-          // Check if variations are valid and unit is selected
-          const variationsValid =
-            formData.variations.length === 0 || formData.variations.every((variation) => variation.name.trim() !== "")
-          return variationsValid && formData.unit.trim() !== ""
-        case 3:
-          // If variations exist, check their price and stock, otherwise check main price and stock
-          if (formData.variations.length > 0) {
-            return formData.variations.every(
-              (variation) => variation.price.trim() !== "" && variation.stock.trim() !== "",
-            )
-          }
-          return true // No base price/stock needed if variations exist
-        case 4:
-          return formData.delivery_options.delivery || formData.delivery_options.pickup
-        case 5:
-          // Check if main product has images or all variations have images
-          if (formData.variations.length > 0) {
-            return formData.variations.every((variation) => variation.media.length > 0)
-          }
-          return formData.media.filter((item) => !item.isVideo).length > 0
-        case 6:
-          const availabilityValid =
-            !formData.is_pre_order || (formData.is_pre_order && formData.pre_order_days.trim() !== "")
-          return formData.condition.trim() !== "" && availabilityValid
-        default:
-          return true
-      }
-    },
-    [formData],
-  )
-
-  const nextStep = useCallback(() => {
-    if (validateStep(currentStep)) {
-      setCurrentStep((prev) => Math.min(prev + 1, STEPS.length))
-      setError("")
-    } else {
-      setError("Please fill in all required fields before proceeding.")
-    }
-  }, [currentStep, validateStep])
-
-  const prevStep = useCallback(() => {
-    setCurrentStep((prev) => Math.max(prev - 1, 1))
-    setError("")
-  }, [])
+  }, [deleteFileFromStorage])
 
   const goToStep = useCallback((step: number) => {
     setCurrentStep(step)
-    setError("")
   }, [])
+
+  const prevStep = useCallback(() => {
+    setCurrentStep((prev) => Math.max(prev - 1, 1))
+  }, [])
+
+  // Update the nextStep function to validate before proceeding
+  const nextStep = useCallback(() => {
+    const validation = validateStep(currentStep, formData)
+    if (validation.isValid) {
+      setCurrentStep((prev) => Math.min(prev + 1, STEPS.length))
+      setFieldErrors({}) // Clear errors when moving to next step
+      setGeneralError("") // Clear general error
+    } else {
+      setFieldErrors(validation.errors)
+      setGeneralError("Please fill in all required fields before proceeding.")
+    }
+  }, [currentStep, formData])
 
   const handleSubmit = useCallback(
     async (isDraft = false) => {
       if (!currentUser) {
-        setError("You must be logged in to update a product.")
+        setGeneralError("You must be logged in to update a product.")
         return
       }
 
-      if (!isDraft && !validateStep(6)) {
-        setError("Please fill in all required fields.")
-        return
+      // Validate all steps if submitting (not draft)
+      if (!isDraft) {
+        for (let i = 1; i <= STEPS.length; i++) {
+          const stepValidation = validateStep(i, formData)
+          if (!stepValidation.isValid) {
+            setCurrentStep(i) // Go to the step with errors
+            setFieldErrors(stepValidation.errors)
+            setGeneralError(`Please correct the errors in step ${i} (${STEPS[i - 1].title}) before submitting.`)
+            return
+          }
+        }
       }
 
       if (!userData?.company_id) {
-        setError("Company information is required. Please set up your company profile first.")
+        setGeneralError("Company information is required. Please set up your company profile first.")
         return
       }
 
       setLoading(true)
-      setError("")
+      setGeneralError("")
 
       try {
+        // Prepare delivery options with courier logic
+        const deliveryOptions = {
+          ...formData.delivery_options,
+          // Ensure couriers are false if delivery is disabled
+          couriers: formData.delivery_options.delivery
+            ? formData.delivery_options.couriers
+            : { lalamove: false, transportify: false },
+        }
+
         // Create product data object
         const productData = {
           name: formData.name,
@@ -808,7 +713,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
           categories: formData.categories,
           unit: formData.unit,
           price: formData.variations.length > 0 ? 0 : 0, // Base price is 0 if variations exist
-          delivery_options: formData.delivery_options,
+          delivery_options: deliveryOptions,
           condition: formData.condition,
           is_pre_order: formData.is_pre_order,
           availability_type: formData.is_pre_order ? "pre_order" : "stock",
@@ -871,52 +776,85 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
           errorMessage += "Please try again or contact support if the problem persists."
         }
 
-        setError(errorMessage)
+        setGeneralError(errorMessage)
       } finally {
         setLoading(false)
       }
     },
-    [currentUser, userData, formData, validateStep, showAnimatedSuccess, invalidateProducts, productId],
+    [currentUser, userData, formData, showAnimatedSuccess, invalidateProducts, productId],
   )
 
-  if (userError) {
-    return (
-      <DashboardLayout activeItem="products">
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Authentication Error</h3>
-            <p className="text-gray-500 mb-4">{userError}</p>
-            <Button onClick={() => (window.location.href = "/login")}>Go to Login</Button>
-          </div>
-        </div>
-      </DashboardLayout>
-    )
-  }
+  // All useEffect hooks
+  useEffect(() => {
+    if (currentUser) {
+      fetchProduct()
+    }
+  }, [currentUser, fetchProduct])
 
-  if (productLoading) {
-    return (
-      <DashboardLayout activeItem="products">
-        <div className="flex items-center justify-center min-h-96">
-          <Loader2 className="w-8 h-8 animate-spin text-red-500" />
-          <span className="ml-2 text-gray-600">Loading product...</span>
-        </div>
-      </DashboardLayout>
-    )
-  }
+  useEffect(() => {
+    const loadCategories = async () => {
+      setCategoriesLoading(true)
+      setCategoriesError(null)
 
-  const renderStepContent = () => {
+      try {
+        const fetchedCategories = await fetchCategories()
+        setCategories(fetchedCategories)
+      } catch (error) {
+        console.error("Failed to load categories:", error)
+        setCategoriesError("Failed to load categories. Please try again.")
+      } finally {
+        setCategoriesLoading(false)
+      }
+    }
+
+    loadCategories()
+  }, [fetchCategories])
+
+  useEffect(() => {
+    if (categories && categories.length > 0) {
+      const nameMap: { [key: string]: string } = {}
+      categories.forEach((category) => {
+        nameMap[category.id] = category.name
+      })
+      setCategoryNames(nameMap)
+    }
+  }, [categories])
+
+  useEffect(() => {
+    const validation = validateStep(currentStep, formData)
+    setCurrentStepValid(validation.isValid)
+
+    // Update field errors only if there are validation errors
+    if (!validation.isValid) {
+      setFieldErrors(validation.errors)
+    } else {
+      // Clear field errors when step becomes valid
+      setFieldErrors({})
+    }
+  }, [currentStep, formData])
+
+  // Memoized step content renderer
+  const renderStepContent = useMemo(() => {
+    const validation = validateStep(currentStep, formData)
+    const hasErrors = !validation.isValid
+
     switch (currentStep) {
       case 1:
         return (
-          <div className="space-y-6">
-            <div className="border-b border-gray-200 pb-4">
-              <h2 className="text-xl font-semibold text-gray-900">Product Details</h2>
-              <p className="text-sm text-gray-600 mt-1">Enter the basic information about your product</p>
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4 sm:mb-6">Product Details</h2>
+              {hasErrors && (
+                <div className="flex items-center text-red-600 text-sm">
+                  <AlertCircle className="w-4 h-4 mr-1" />
+                  <span>Required fields missing</span>
+                </div>
+              )}
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               <div>
-                <Label htmlFor="name" className="text-sm font-medium text-gray-700 mb-2 block">
+                <Label htmlFor="name" className="text-sm font-medium text-gray-700 mb-2 block text-left">
                   Product Name <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -925,16 +863,19 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                   value={formData.name}
                   onChange={handleInputChange}
                   placeholder="Enter product name"
-                  className={`w-full ${error && !formData.name.trim() ? "border-red-300 focus:border-red-500 focus:ring-red-500" : ""}`}
+                  className={`w-full text-sm sm:text-base ${fieldErrors.name ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}`}
                   required
                 />
-                {error && !formData.name.trim() && (
-                  <p className="text-red-500 text-xs mt-1">Product name is required</p>
+                {fieldErrors.name && (
+                  <p className="mt-1 text-sm text-red-600 flex items-center">
+                    <AlertCircle className="w-4 h-4 mr-1 flex-shrink-0" />
+                    {fieldErrors.name}
+                  </p>
                 )}
               </div>
 
               <div>
-                <Label htmlFor="description" className="text-sm font-medium text-gray-700 mb-2 block">
+                <Label htmlFor="description" className="text-sm font-medium text-gray-700 mb-2 block text-left">
                   Product Description <span className="text-red-500">*</span>
                 </Label>
                 <Textarea
@@ -942,13 +883,16 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                   name="description"
                   value={formData.description}
                   onChange={handleInputChange}
-                  placeholder="Describe your product in detail..."
-                  rows={4}
-                  className={`w-full resize-none ${error && !formData.description.trim() ? "border-red-300 focus:border-red-500 focus:ring-red-500" : ""}`}
+                  placeholder="Enter product description"
+                  rows={3}
+                  className={`w-full text-sm sm:text-base resize-none sm:resize-y ${fieldErrors.description ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}`}
                   required
                 />
-                {error && !formData.description.trim() && (
-                  <p className="text-red-500 text-xs mt-1">Product description is required</p>
+                {fieldErrors.description && (
+                  <p className="mt-1 text-sm text-red-600 flex items-center">
+                    <AlertCircle className="w-4 h-4 mr-1 flex-shrink-0" />
+                    {fieldErrors.description}
+                  </p>
                 )}
               </div>
 
@@ -958,9 +902,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                 onCategoryChange={handleCategoryChange}
                 loading={categoriesLoading}
                 error={categoriesError}
-                fieldError={
-                  error && formData.categories.length === 0 ? "Please select at least one category" : undefined
-                }
+                fieldError={fieldErrors.categories}
               />
             </div>
           </div>
@@ -969,22 +911,26 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
       case 2:
         return (
           <div className="space-y-6">
-            <div className="border-b border-gray-200 pb-4">
-              <h2 className="text-xl font-semibold text-gray-900">Specification</h2>
-              <p className="text-sm text-gray-600 mt-1">Define product variations and unit of measurement</p>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-800">Specification</h2>
+              {hasErrors && (
+                <div className="flex items-center text-red-600 text-sm">
+                  <AlertCircle className="w-4 h-4 mr-1" />
+                  <span>Required fields missing</span>
+                </div>
+              )}
             </div>
 
-            {/* Unit Selection */}
             <div>
-              <Label htmlFor="unit" className="text-sm font-medium text-gray-700 mb-2 block">
-                Unit <span className="text-red-500">*</span>
-              </Label>
+              <Label htmlFor="unit">Unit *</Label>
               <select
                 id="unit"
                 name="unit"
                 value={formData.unit}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                  fieldErrors.unit ? "border-red-500" : ""
+                }`}
                 required
               >
                 {UNIT_OPTIONS.map((option) => (
@@ -993,14 +939,21 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                   </option>
                 ))}
               </select>
+              {fieldErrors.unit && (
+                <p className="mt-1 text-sm text-red-600 flex items-center">
+                  <AlertCircle className="w-4 h-4 mr-1 flex-shrink-0" />
+                  {fieldErrors.unit}
+                </p>
+              )}
             </div>
 
-            {/* Variations Section */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-base font-medium text-gray-900">Product Variations</Label>
-                  <p className="text-sm text-gray-600 mt-1">Add different versions of your product (optional)</p>
+                  <Label className="text-base font-medium">
+                    Product Variations <span className="text-red-500">*</span>
+                  </Label>
+                  <p className="text-sm text-gray-600 mt-1">Add at least one variation to proceed</p>
                 </div>
                 <Button
                   type="button"
@@ -1013,150 +966,32 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                 </Button>
               </div>
 
-              {formData.variations.length > 0 && (
-                <div className="space-y-4">
-                  {formData.variations.map((variation, index) => (
-                    <div key={variation.id} className="border border-gray-200 rounded-lg overflow-hidden">
-                      <div
-                        className="flex items-center justify-between p-4 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
-                        onClick={() => toggleVariationExpansion(variation.id)}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                            <span className="text-sm font-medium text-blue-600">{index + 1}</span>
-                          </div>
-                          <div>
-                            <h4 className="font-medium text-gray-900">{variation.name || `Variation ${index + 1}`}</h4>
-                            <p className="text-sm text-gray-500">
-                              {variation.color && `Color: ${variation.color}`}
-                              {variation.price && ` • Price: ₱${variation.price}`}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              removeVariation(variation.id)
-                            }}
-                            variant="ghost"
-                            size="sm"
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                          {expandedVariations[variation.id] ? (
-                            <ChevronUp className="w-5 h-5 text-gray-400" />
-                          ) : (
-                            <ChevronDown className="w-5 h-5 text-gray-400" />
-                          )}
-                        </div>
-                      </div>
-
-                      {expandedVariations[variation.id] && (
-                        <div className="p-4 space-y-4 border-t border-gray-200">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                              <Label
-                                htmlFor={`variation-name-${variation.id}`}
-                                className="text-sm font-medium text-gray-700 mb-1 block"
-                              >
-                                Variation Name <span className="text-red-500">*</span>
-                              </Label>
-                              <Input
-                                id={`variation-name-${variation.id}`}
-                                value={variation.name}
-                                onChange={(e) => updateVariation(variation.id, "name", e.target.value)}
-                                placeholder="e.g., Small, Large, Red, Blue"
-                                className={
-                                  error && !variation.name.trim()
-                                    ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                                    : ""
-                                }
-                                required
-                              />
-                              {error && !variation.name.trim() && (
-                                <p className="text-red-500 text-xs mt-1">Variation name is required</p>
-                              )}
-                            </div>
-
-                            <div>
-                              <Label
-                                htmlFor={`variation-color-${variation.id}`}
-                                className="text-sm font-medium text-gray-700 mb-1 block"
-                              >
-                                Color
-                              </Label>
-                              <Input
-                                id={`variation-color-${variation.id}`}
-                                value={variation.color}
-                                onChange={(e) => updateVariation(variation.id, "color", e.target.value)}
-                                placeholder="e.g., Red, Blue, Green"
-                              />
-                            </div>
-
-                            <div>
-                              <Label
-                                htmlFor={`variation-weight-${variation.id}`}
-                                className="text-sm font-medium text-gray-700 mb-1 block"
-                              >
-                                Weight (kg)
-                              </Label>
-                              <Input
-                                id={`variation-weight-${variation.id}`}
-                                type="number"
-                                step="0.01"
-                                value={variation.weight}
-                                onChange={(e) => updateVariation(variation.id, "weight", e.target.value)}
-                                placeholder="0.00"
-                              />
-                            </div>
-
-                            <div>
-                              <Label
-                                htmlFor={`variation-height-${variation.id}`}
-                                className="text-sm font-medium text-gray-700 mb-1 block"
-                              >
-                                Height (cm)
-                              </Label>
-                              <Input
-                                id={`variation-height-${variation.id}`}
-                                type="number"
-                                value={variation.height}
-                                onChange={(e) => updateVariation(variation.id, "height", e.target.value)}
-                                placeholder="0"
-                              />
-                            </div>
-
-                            <div className="sm:col-span-2">
-                              <Label
-                                htmlFor={`variation-length-${variation.id}`}
-                                className="text-sm font-medium text-gray-700 mb-1 block"
-                              >
-                                Length (cm)
-                              </Label>
-                              <Input
-                                id={`variation-length-${variation.id}`}
-                                type="number"
-                                value={variation.length}
-                                onChange={(e) => updateVariation(variation.id, "length", e.target.value)}
-                                placeholder="0"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+              {fieldErrors.variations && (
+                <div className="flex items-center space-x-2 text-red-600 text-sm">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>{fieldErrors.variations}</span>
                 </div>
               )}
 
-              {formData.variations.length === 0 && (
-                <div className="text-center py-8 text-gray-500 border border-dashed border-gray-300 rounded-lg">
-                  <p>No variations added yet. Click "Add Variation" to create different versions of your product.</p>
-                </div>
-              )}
+              {formData.variations.map((variation, index) => (
+                <VariationItem
+                  key={variation.id}
+                  variation={variation}
+                  index={index}
+                  isCollapsed={collapsedVariations.has(variation.id)}
+                  onToggleCollapse={() => toggleVariationCollapse(variation.id)}
+                  onRemove={() => removeVariation(variation.id)}
+                  onUpdate={(field, value) => updateVariation(variation.id, field, value)}
+                  onUpdatePriceStock={(field, value) => updateVariationPriceStock(variation.id, field, value)}
+                  onImageUpload={(e) => handleVariationImageUpload(variation.id, e)}
+                  onRemoveImage={() => removeVariationImage(variation.id)}
+                  uploading={uploading}
+                  fieldErrors={fieldErrors}
+                  showPricing={currentStep === 3}
+                  showMedia={currentStep === 5}
+                  unit={formData.unit}
+                />
+              ))}
             </div>
           </div>
         )
@@ -1164,25 +999,20 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
       case 3:
         return (
           <div className="space-y-6">
-            <div className="border-b border-gray-200 pb-4">
-              <h2 className="text-xl font-semibold text-gray-900">Sales Information</h2>
-              <p className="text-sm text-gray-600 mt-1">Set pricing and inventory for your product</p>
-            </div>
+            <h2 className="text-xl font-semibold text-gray-800">Sales Information</h2>
 
             {formData.variations.length > 0 ? (
               <div className="space-y-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h3 className="text-lg font-medium text-blue-900 mb-2">Variation Pricing & Stock</h3>
-                  <p className="text-sm text-blue-700">Set the price and stock quantity for each variation.</p>
-                </div>
+                <h3 className="text-lg font-medium text-gray-700">Variation Pricing & Stock</h3>
+                <p className="text-sm text-gray-600">Set the price and stock quantity for each variation.</p>
 
                 <div className="space-y-4">
                   {formData.variations.map((variation, index) => (
                     <div key={variation.id} className="border border-gray-200 rounded-lg p-4">
                       <div className="flex items-center justify-between mb-4">
                         <div>
-                          <h4 className="font-medium text-gray-900">{variation.name || `Variation ${index + 1}`}</h4>
-                          <p className="text-sm text-gray-500 mt-1">
+                          <h4 className="font-medium text-gray-800">{variation.name || `Variation ${index + 1}`}</h4>
+                          <p className="text-sm text-gray-500">
                             {formData.unit.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
                             {variation.color && ` • Color: ${variation.color}`}
                             {variation.weight && ` • Weight: ${variation.weight}kg`}
@@ -1192,14 +1022,9 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <Label
-                            htmlFor={`variation-price-${variation.id}`}
-                            className="text-sm font-medium text-gray-700 mb-1 block"
-                          >
-                            Price (₱) <span className="text-red-500">*</span>
-                          </Label>
+                          <Label htmlFor={`variation-price-${variation.id}`}>Price (₱) *</Label>
                           <Input
                             id={`variation-price-${variation.id}`}
                             type="number"
@@ -1207,41 +1032,20 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                             value={variation.price}
                             onChange={(e) => updateVariationPriceStock(variation.id, "price", e.target.value)}
                             placeholder="0.00"
-                            className={
-                              error && !variation.price.trim()
-                                ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                                : ""
-                            }
                             required
                           />
-                          {error && !variation.price.trim() && (
-                            <p className="text-red-500 text-xs mt-1">Price is required</p>
-                          )}
                         </div>
 
                         <div>
-                          <Label
-                            htmlFor={`variation-stock-${variation.id}`}
-                            className="text-sm font-medium text-gray-700 mb-1 block"
-                          >
-                            Stock Quantity <span className="text-red-500">*</span>
-                          </Label>
+                          <Label htmlFor={`variation-stock-${variation.id}`}>Stock Quantity *</Label>
                           <Input
                             id={`variation-stock-${variation.id}`}
                             type="number"
                             value={variation.stock}
                             onChange={(e) => updateVariationPriceStock(variation.id, "stock", e.target.value)}
                             placeholder="0"
-                            className={
-                              error && !variation.stock.trim()
-                                ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                                : ""
-                            }
                             required
                           />
-                          {error && !variation.stock.trim() && (
-                            <p className="text-red-500 text-xs mt-1">Stock quantity is required</p>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -1249,9 +1053,8 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                 </div>
               </div>
             ) : (
-              <div className="text-center py-12 text-gray-500 border border-dashed border-gray-300 rounded-lg">
-                <p className="text-lg font-medium mb-2">No variations added</p>
-                <p className="text-sm">Pricing will be handled in the final step if no variations are created.</p>
+              <div className="text-center py-8 text-gray-500">
+                <p>No variations added. Pricing will be handled in the final step.</p>
               </div>
             )}
           </div>
@@ -1260,120 +1063,131 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
       case 4:
         return (
           <div className="space-y-6">
-            <div className="border-b border-gray-200 pb-4">
-              <h2 className="text-xl font-semibold text-gray-900">Shipping</h2>
-              <p className="text-sm text-gray-600 mt-1">Configure delivery and pickup options</p>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-800">Shipping</h2>
+              {hasErrors && (
+                <div className="flex items-center text-red-600 text-sm">
+                  <AlertCircle className="w-4 h-4 mr-1" />
+                  <span>Required fields missing</span>
+                </div>
+              )}
             </div>
 
             <div className="space-y-4">
-              <Label className="text-base font-medium text-gray-900 block">
-                Delivery Options <span className="text-red-500">*</span>
-              </Label>
-              <p className="text-sm text-gray-600 mb-4">Select at least one delivery option</p>
+              <Label className="text-base font-medium">Delivery Options * (Select at least one)</Label>
 
               <div className="space-y-4">
-                <div
-                  className={`border rounded-lg p-4 ${error && !formData.delivery_options.delivery && !formData.delivery_options.pickup ? "border-red-300" : "border-gray-200"}`}
-                >
-                  <label className="flex items-center space-x-3 cursor-pointer mb-3 select-none">
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <label className="flex items-center space-x-2 cursor-pointer mb-3 select-none">
                     <input
                       type="checkbox"
                       checked={formData.delivery_options.delivery}
                       onChange={(e) => handleDeliveryOptionChange("delivery", e.target.checked)}
-                      className="rounded border-gray-300 text-red-500 focus:ring-red-500 h-4 w-4 flex-shrink-0"
+                      className="rounded border-gray-300 text-red-500 focus:ring-red-500"
                     />
-                    <div>
-                      <span className="font-medium text-gray-900">Delivery</span>
-                      <p className="text-sm text-gray-500">Ship products to customer's address</p>
-                    </div>
+                    <span className="font-medium text-gray-700">Delivery</span>
                   </label>
+
                   {formData.delivery_options.delivery && (
-                    <div className="ml-7">
-                      <Label htmlFor="delivery_note" className="text-sm font-medium text-gray-700 mb-1 block">
-                        Delivery Note
-                      </Label>
-                      <Textarea
-                        id="delivery_note"
-                        value={formData.delivery_options.delivery_note}
-                        onChange={(e) => handleDeliveryNoteChange("delivery", e.target.value)}
-                        placeholder="Add delivery instructions, fees, or special conditions..."
-                        rows={3}
-                        className="resize-none"
-                      />
+                    <div className="ml-6 space-y-4">
+                      <div>
+                        <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                          Select Courier * (Choose at least one)
+                        </Label>
+                        <div className="space-y-2">
+                          <label className="flex items-center space-x-2 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={formData.delivery_options.couriers?.lalamove || false}
+                              onChange={(e) => handleCourierChange("lalamove", e.target.checked)}
+                              className="rounded border-gray-300 text-red-500 focus:ring-red-500"
+                            />
+                            <span className="text-sm text-gray-700">Lalamove</span>
+                          </label>
+                          <label className="flex items-center space-x-2 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={formData.delivery_options.couriers?.transportify || false}
+                              onChange={(e) => handleCourierChange("transportify", e.target.checked)}
+                              className="rounded border-gray-300 text-red-500 focus:ring-red-500"
+                            />
+                            <span className="text-sm text-gray-700">Transportify</span>
+                          </label>
+                        </div>
+                        {fieldErrors.couriers && (
+                          <p className="mt-1 text-sm text-red-600 flex items-center">
+                            <AlertCircle className="w-4 h-4 mr-1 flex-shrink-0" />
+                            {fieldErrors.couriers}
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <Label htmlFor="delivery_note">Delivery Note</Label>
+                        <Textarea
+                          id="delivery_note"
+                          value={formData.delivery_options.delivery_note}
+                          onChange={(e) => handleDeliveryNoteChange("delivery", e.target.value)}
+                          placeholder="Add delivery instructions, fees, or special conditions..."
+                          rows={3}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
 
-                <div
-                  className={`border rounded-lg p-4 ${error && !formData.delivery_options.delivery && !formData.delivery_options.pickup ? "border-red-300" : "border-gray-200"}`}
-                >
-                  <label className="flex items-center space-x-3 cursor-pointer mb-3 select-none">
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <label className="flex items-center space-x-2 cursor-pointer mb-3 select-none">
                     <input
                       type="checkbox"
                       checked={formData.delivery_options.pickup}
                       onChange={(e) => handleDeliveryOptionChange("pickup", e.target.checked)}
-                      className="rounded border-gray-300 text-red-500 focus:ring-red-500 h-4 w-4 flex-shrink-0"
+                      className="rounded border-gray-300 text-red-500 focus:ring-red-500"
                     />
-                    <div>
-                      <span className="font-medium text-gray-900">Pick up</span>
-                      <p className="text-sm text-gray-500">Customer picks up from your location</p>
-                    </div>
+                    <span className="font-medium text-gray-700">Pick up</span>
                   </label>
                   {formData.delivery_options.pickup && (
-                    <div className="ml-7">
-                      <Label htmlFor="pickup_note" className="text-sm font-medium text-gray-700 mb-1 block">
-                        Pickup Note
-                      </Label>
+                    <div className="ml-6">
+                      <Label htmlFor="pickup_note">Pickup Note</Label>
                       <Textarea
                         id="pickup_note"
                         value={formData.delivery_options.pickup_note}
                         onChange={(e) => handleDeliveryNoteChange("pickup", e.target.value)}
                         placeholder="Add pickup location, hours, or special instructions..."
                         rows={3}
-                        className="resize-none"
                       />
                     </div>
                   )}
                 </div>
               </div>
-
-              {error && !formData.delivery_options.delivery && !formData.delivery_options.pickup && (
-                <p className="text-red-500 text-sm">Please select at least one delivery option</p>
-              )}
             </div>
           </div>
         )
 
       case 5:
         return (
-          <div className="space-y-6">
-            <div className="border-b border-gray-200 pb-4">
-              <h2 className="text-xl font-semibold text-gray-900">Media</h2>
-              <p className="text-sm text-gray-600 mt-1">Upload images and videos for your product</p>
-            </div>
+          <div className="space-y-4 sm:space-y-6">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-800">Media</h2>
 
-            {/* Responsive Media Layout */}
-            <div className="flex flex-col xl:flex-row gap-8">
-              {/* Main Media Section */}
-              <div className="flex-1 space-y-6">
-                {/* Product Images */}
+            <div className="flex flex-col xl:flex-row gap-6 xl:gap-8">
+              <div className="flex-1 space-y-4 sm:space-y-6">
                 <div>
-                  <Label className="text-base font-medium text-gray-900 mb-3 block">
-                    Product Images <span className="text-red-500">*</span>
+                  <Label className="text-sm sm:text-base font-medium mb-2 sm:mb-3 block">
+                    Product Images <span className="text-red-500">*</span> (At least one image required)
                   </Label>
-                  <p className="text-sm text-gray-600 mb-4">Upload high-quality images of your product</p>
-
                   <div
-                    className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
-                      error && formData.media.filter((item) => !item.isVideo).length === 0
-                        ? "border-red-300 bg-red-50"
-                        : "border-gray-300 hover:border-gray-400"
+                    className={`border-2 border-dashed rounded-lg p-6 sm:p-12 text-center ${
+                      fieldErrors.product_images ? "border-red-300 bg-red-50" : "border-gray-300"
                     }`}
                   >
-                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-lg flex items-center justify-center">
-                      <ImageIcon className="w-8 h-8 text-gray-400" />
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 bg-gray-100 rounded-lg flex items-center justify-center">
+                      <ImageIcon className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
                     </div>
-                    <p className="text-gray-600 mb-4">Drag and drop images here, or click to select</p>
+                    <p className="text-gray-600 mb-3 sm:mb-4 text-sm sm:text-base">
+                      <span className="hidden sm:inline">Drag and drop images here, or </span>
+                      <span className="sm:hidden">Tap to </span>
+                      <span>click to select</span>
+                    </p>
                     <input
                       type="file"
                       multiple
@@ -1387,7 +1201,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                       variant="outline"
                       onClick={() => document.getElementById("image-upload")?.click()}
                       disabled={uploading}
-                      className="bg-white border-gray-300"
+                      className="bg-white border-gray-300 text-sm sm:text-base"
                     >
                       {uploading ? (
                         <>
@@ -1400,14 +1214,17 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                     </Button>
                   </div>
 
-                  {error && formData.media.filter((item) => !item.isVideo).length === 0 && (
-                    <p className="text-red-500 text-sm mt-2">At least one product image is required</p>
+                  {fieldErrors.product_images && (
+                    <p className="mt-2 text-sm text-red-600 flex items-center">
+                      <AlertCircle className="w-4 h-4 mr-1 flex-shrink-0" />
+                      {fieldErrors.product_images}
+                    </p>
                   )}
 
                   {formData.media.filter((item) => !item.isVideo).length > 0 && (
-                    <div className="mt-6">
-                      <h3 className="text-base font-medium text-gray-900 mb-3">Uploaded Images</h3>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <div className="mt-4 sm:mt-6">
+                      <h3 className="text-sm sm:text-base font-medium text-gray-800 mb-3">Uploaded Images:</h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
                         {formData.media
                           .filter((item) => !item.isVideo)
                           .map((mediaItem, index) => (
@@ -1415,7 +1232,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                               <img
                                 src={mediaItem.url || "/placeholder.svg"}
                                 alt={`Product ${index + 1}`}
-                                className="w-full h-32 object-cover rounded-lg border"
+                                className="w-full h-24 sm:h-32 object-cover rounded-lg border"
                                 onError={(e) => {
                                   e.currentTarget.src = "/placeholder.svg?height=128&width=128"
                                 }}
@@ -1427,7 +1244,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                                 onClick={() => removeImage(index)}
                                 className="absolute -top-2 -right-2 w-6 h-6 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                               >
-                                <X className="w-4 h-4" />
+                                <X className="w-3 h-3 sm:w-4 sm:h-4" />
                               </Button>
                             </div>
                           ))}
@@ -1436,9 +1253,8 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                   )}
                 </div>
 
-                {/* Product Video */}
                 <div>
-                  <Label className="text-base font-medium text-gray-900 mb-3 block">Product Video</Label>
+                  <Label className="text-base font-medium mb-2 sm:mb-3 block">Product Video (Optional)</Label>
                   <p className="text-sm text-gray-600 mb-4">
                     Upload one video to showcase your product (maximum 1 video allowed)
                   </p>
@@ -1496,12 +1312,14 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                     </div>
                   ) : (
                     // Show upload area when no video exists
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-gray-400 transition-colors">
-                      <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-lg flex items-center justify-center">
-                        <FileVideo className="w-8 h-8 text-gray-400" />
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 sm:p-12 text-center hover:border-gray-400 transition-colors">
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 bg-gray-100 rounded-lg flex items-center justify-center">
+                        <FileVideo className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
                       </div>
-                      <p className="text-gray-600 mb-2">Upload a product video (optional)</p>
-                      <p className="text-xs text-gray-500 mb-4">Maximum 1 video • Supported formats: MP4, MOV, AVI</p>
+                      <p className="text-gray-600 mb-2 text-sm sm:text-base">Upload a product video (optional)</p>
+                      <p className="text-xs text-gray-500 mb-3 sm:mb-4">
+                        Maximum 1 video • Supported formats: MP4, MOV, AVI
+                      </p>
                       <input
                         type="file"
                         accept="video/*"
@@ -1514,7 +1332,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                         variant="outline"
                         onClick={() => document.getElementById("video-upload")?.click()}
                         disabled={uploading}
-                        className="bg-white border-gray-300"
+                        className="bg-white border-gray-300 text-sm sm:text-base"
                       >
                         {uploading ? (
                           <>
@@ -1530,65 +1348,41 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                 </div>
               </div>
 
-              {/* Variation Photos Sidebar */}
               {formData.variations.length > 0 && (
-                <div className="w-full xl:w-80 bg-gray-50 rounded-lg p-6">
-                  <h3 className="text-base font-medium text-gray-900 mb-4">Variation Photos</h3>
-                  <p className="text-sm text-gray-600 mb-4">Upload specific images for each variation</p>
-
+                <div className="w-full xl:w-80 bg-gray-50 rounded-lg p-4 sm:p-6">
+                  <h3 className="text-sm sm:text-base font-medium text-gray-800 mb-4">Variation Photos</h3>
                   <div className="space-y-4">
                     {formData.variations.map((variation, index) => (
-                      <div key={variation.id} className="bg-white rounded-lg p-4 border">
+                      <div key={variation.id} className="bg-white rounded-lg p-3 sm:p-4 border">
                         <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-sm font-medium text-gray-900 truncate">
-                            {variation.name || `Variation ${index + 1}`}
+                          <h4 className="text-xs sm:text-sm font-medium text-gray-700 truncate">
+                            Variation {index + 1} - {variation.name || "Unnamed"}
                           </h4>
                         </div>
 
-                        {(Array.isArray(variation.media) ? variation.media.length > 0 : !!variation.media) ? (
+                        {variation.media ? (
                           <div className="space-y-3">
-                            <div className="grid grid-cols-2 gap-2">
-                              {(Array.isArray(variation.media)
-                                ? variation.media
-                                : variation.media
-                                  ? [{ distance: "", isVideo: false, type: "", url: variation.media }]
-                                  : []
-                              )
-                                .slice(0, 4)
-                                .map((mediaItem, mediaIndex) => (
-                                  <div key={mediaIndex} className="relative group">
-                                    <img
-                                      src={mediaItem.url || "/placeholder.svg"}
-                                      alt={`${variation.name} ${mediaIndex + 1}`}
-                                      className="w-full h-16 object-cover rounded border"
-                                      onError={(e) => {
-                                        e.currentTarget.src = "/placeholder.svg?height=64&width=64"
-                                      }}
-                                    />
-                                    <Button
-                                      type="button"
-                                      variant="destructive"
-                                      size="sm"
-                                      onClick={() => removeVariationImage(variation.id, mediaIndex)}
-                                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    >
-                                      <X className="w-2 h-2" />
-                                    </Button>
-                                  </div>
-                                ))}
+                            <div className="relative group">
+                              <img
+                                src={variation.media || "/placeholder.svg"}
+                                alt={`${variation.name} image`}
+                                className="w-full h-16 sm:h-20 object-cover rounded border"
+                                onError={(e) => {
+                                  e.currentTarget.src = "/placeholder.svg?height=80&width=80"
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => removeVariationImage(variation.id)}
+                                className="absolute -top-1 -right-1 w-4 h-4 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <X className="w-2 h-2" />
+                              </Button>
                             </div>
-                            {(Array.isArray(variation.media) ? variation.media.length : variation.media ? 1 : 0) >
-                              4 && (
-                              <p className="text-xs text-gray-500">
-                                +
-                                {(Array.isArray(variation.media) ? variation.media.length : variation.media ? 1 : 0) -
-                                  4}{" "}
-                                more images
-                              </p>
-                            )}
                             <input
                               type="file"
-                              multiple
                               accept="image/*"
                               onChange={(e) => handleVariationImageUpload(variation.id, e)}
                               className="hidden"
@@ -1602,17 +1396,16 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                               disabled={uploading}
                               className="w-full text-xs"
                             >
-                              Add More Images
+                              Replace Image
                             </Button>
                           </div>
                         ) : (
                           <div className="text-center">
-                            <div className="w-12 h-12 mx-auto mb-2 bg-gray-100 rounded-lg flex items-center justify-center">
-                              <ImageIcon className="w-6 h-6 text-gray-400" />
+                            <div className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-2 bg-gray-100 rounded-lg flex items-center justify-center">
+                              <ImageIcon className="w-4 h-4 sm:w-6 sm:h-6 text-gray-400" />
                             </div>
                             <input
                               type="file"
-                              multiple
                               accept="image/*"
                               onChange={(e) => handleVariationImageUpload(variation.id, e)}
                               className="hidden"
@@ -1652,16 +1445,10 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
       case 6:
         return (
           <div className="space-y-6">
-            <div className="border-b border-gray-200 pb-4">
-              <h2 className="text-xl font-semibold text-gray-900">Others</h2>
-              <p className="text-sm text-gray-600 mt-1">Additional product information and settings</p>
-            </div>
+            <h2 className="text-xl font-semibold text-gray-800">Others</h2>
 
-            {/* Availability Type */}
             <div className="space-y-4">
-              <Label className="text-base font-medium">
-                Availability <span className="text-red-500">*</span>
-              </Label>
+              <Label className="text-base font-medium">Availability *</Label>
               <div className="space-y-3">
                 <label className="flex items-center space-x-2 cursor-pointer select-none">
                   <input
@@ -1672,9 +1459,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                     onChange={() => setFormData((prev) => ({ ...prev, is_pre_order: false }))}
                     className="text-red-500 focus:ring-red-500"
                   />
-                  <div>
-                    <span className="text-gray-700">In Stock</span>
-                  </div>
+                  <span className="text-gray-700">In Stock</span>
                 </label>
                 <label className="flex items-center space-x-2 cursor-pointer select-none">
                   <input
@@ -1685,17 +1470,13 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                     onChange={() => setFormData((prev) => ({ ...prev, is_pre_order: true }))}
                     className="text-red-500 focus:ring-red-500"
                   />
-                  <div>
-                    <span className="text-gray-700">Pre-Order</span>
-                  </div>
+                  <span className="text-gray-700">Pre-Order</span>
                 </label>
               </div>
 
               {formData.is_pre_order && (
                 <div>
-                  <Label htmlFor="pre_order_days">
-                    Delivery Days for Pre-Order <span className="text-red-500">*</span>
-                  </Label>
+                  <Label htmlFor="pre_order_days">Delivery Days for Pre-Order *</Label>
                   <Input
                     id="pre_order_days"
                     name="pre_order_days"
@@ -1703,49 +1484,83 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                     value={formData.pre_order_days}
                     onChange={handleInputChange}
                     placeholder="Number of days to deliver"
-                    className={
-                      error && formData.is_pre_order && !formData.pre_order_days.trim()
-                        ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                        : ""
-                    }
                     required
                   />
-                  {error && formData.is_pre_order && !formData.pre_order_days.trim() && (
-                    <p className="text-red-500 text-xs mt-1">Delivery days is required for pre-order items</p>
-                  )}
                 </div>
               )}
             </div>
 
-            {/* Condition */}
             <div>
-              <Label htmlFor="condition" className="text-sm font-medium text-gray-700 mb-2 block">
-                Condition <span className="text-red-500">*</span>
-              </Label>
+              <Label htmlFor="condition">Condition *</Label>
               <select
                 id="condition"
                 name="condition"
                 value={formData.condition}
                 onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
-                  error && !formData.condition.trim() ? "border-red-300" : "border-gray-300"
-                }`}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
                 required
               >
                 <option value="">Select condition</option>
                 <option value="new">New</option>
                 <option value="used">Used</option>
               </select>
-              {error && !formData.condition.trim() && (
-                <p className="text-red-500 text-xs mt-1">Please select a condition</p>
-              )}
             </div>
           </div>
         )
 
       default:
-        return null
+        return <div>Step content for step {currentStep}</div>
     }
+  }, [
+    currentStep,
+    formData,
+    fieldErrors,
+    handleInputChange,
+    handleCategoryChange,
+    categories,
+    categoriesLoading,
+    categoriesError,
+    addVariation,
+    collapsedVariations,
+    toggleVariationCollapse,
+    removeVariation,
+    updateVariation,
+    updateVariationPriceStock,
+    handleVariationImageUpload,
+    removeVariationImage,
+    uploading,
+    handleDeliveryOptionChange,
+    handleCourierChange,
+    handleDeliveryNoteChange,
+    handleImageUpload,
+    removeImage,
+    handleVideoUpload,
+    removeVideo,
+  ])
+
+  if (userError) {
+    return (
+      <DashboardLayout activeItem="products">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Authentication Error</h3>
+            <p className="text-gray-500 mb-4">{userError}</p>
+            <Button onClick={() => (window.location.href = "/login")}>Go to Login</Button>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  if (productLoading) {
+    return (
+      <DashboardLayout activeItem="products">
+        <div className="flex items-center justify-center min-h-96">
+          <Loader2 className="w-8 h-8 animate-spin text-red-500" />
+          <span className="ml-2 text-gray-600">Loading product...</span>
+        </div>
+      </DashboardLayout>
+    )
   }
 
   return (
@@ -1753,212 +1568,54 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
       {/* Animated Success Message */}
       <AnimatedSuccessMessage show={showSuccessAnimation} message={successMessage} isVisible={isSuccessVisible} />
 
-      <div className="max-w-7xl mx-auto space-y-6 p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center space-x-4">
           <Button variant="ghost" onClick={() => window.history.back()} className="p-2">
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h1 className="text-3xl font-bold text-gray-900">Edit Product</h1>
+          <h1 className="text-3xl font-bold text-gray-800">Edit Product</h1>
         </div>
 
         {/* Main Content - Responsive Layout */}
-        <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
           {/* Left Sidebar - Steps */}
           <div className="w-full lg:w-80 xl:w-96">
-            {/* Mobile: Horizontal scrollable steps */}
-            <div className="lg:hidden bg-white rounded-lg shadow-sm border p-4 mb-4">
-              <div className="flex space-x-4 overflow-x-auto pb-2">
-                {STEPS.map((step) => (
-                  <button
-                    key={step.id}
-                    onClick={() => goToStep(step.id)}
-                    className={`flex-shrink-0 flex flex-col items-center space-y-1 p-3 rounded-lg transition-colors min-w-[80px] ${
-                      currentStep === step.id ? "bg-red-50 border border-red-200" : "hover:bg-gray-50"
-                    }`}
-                  >
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                        currentStep > step.id
-                          ? "bg-green-500 text-white"
-                          : currentStep === step.id
-                            ? "bg-red-500 text-white"
-                            : "bg-gray-200 text-gray-600"
-                      }`}
-                    >
-                      {currentStep > step.id ? <Check className="w-4 h-4" /> : step.id}
-                    </div>
-                    <span
-                      className={`text-xs font-medium text-center ${
-                        currentStep === step.id ? "text-red-600" : "text-gray-700"
-                      }`}
-                    >
-                      {step.title}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              {/* Mobile Progress Bar */}
-              <div className="mt-4">
-                <div className="flex justify-between text-xs text-gray-600 mb-2">
-                  <span>
-                    Step {currentStep} of {STEPS.length}
-                  </span>
-                  <span>{Math.round((currentStep / STEPS.length) * 100)}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-red-500 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${(currentStep / STEPS.length) * 100}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Desktop: Vertical sidebar */}
-            <div className="hidden lg:block bg-white rounded-lg shadow-sm border p-6 sticky top-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6">Product Update Steps</h3>
-
-              <div className="space-y-3">
-                {STEPS.map((step, index) => (
-                  <div key={step.id} className="relative">
-                    <button
-                      onClick={() => goToStep(step.id)}
-                      className={`w-full text-left p-3 rounded-lg transition-colors ${
-                        currentStep === step.id ? "bg-red-50 border border-red-200" : "hover:bg-gray-50"
-                      }`}
-                    >
-                      <div className="flex items-start space-x-3">
-                        <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0 ${
-                            currentStep > step.id
-                              ? "bg-green-500 text-white"
-                              : currentStep === step.id
-                                ? "bg-red-500 text-white"
-                                : "bg-gray-200 text-gray-600"
-                          }`}
-                        >
-                          {currentStep > step.id ? <Check className="w-4 h-4" /> : step.id}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p
-                            className={`text-sm font-medium ${
-                              currentStep === step.id ? "text-red-600" : "text-gray-900"
-                            }`}
-                          >
-                            {step.title}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1 hidden xl:block">{step.description}</p>
-                        </div>
-                      </div>
-                    </button>
-                    {/* Connector line for desktop */}
-                    {index < STEPS.length - 1 && <div className="absolute left-7 top-14 w-0.5 h-4 bg-gray-200" />}
-                  </div>
-                ))}
-              </div>
-
-              {/* Desktop Progress Summary */}
-              <div className="mt-6 pt-4 border-t">
-                <div className="text-sm text-gray-600">
-                  <p className="font-medium mb-2">
-                    Progress: {currentStep} of {STEPS.length}
-                  </p>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-red-500 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${(currentStep / STEPS.length) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
+            <StepNavigation currentStep={currentStep} steps={STEPS} onStepClick={goToStep} />
           </div>
 
           {/* Right Content - Form */}
           <div className="flex-1 bg-white rounded-lg shadow-sm border">
-            <div className="p-6 text-left">
+            <div className="p-4 sm:p-6 text-left">
               {/* Error and Success Messages */}
-              {error && (
-                <Alert variant="destructive" className="mb-6">
-                  <AlertDescription>{error}</AlertDescription>
+              {generalError && (
+                <Alert variant="destructive" className="mb-4 sm:mb-6">
+                  <AlertDescription className="text-sm">{generalError}</AlertDescription>
                 </Alert>
               )}
 
               {success && (
-                <Alert className="mb-6 border-green-200 bg-green-50">
-                  <AlertDescription className="text-green-800">{success}</AlertDescription>
+                <Alert className="mb-4 sm:mb-6 border-green-200 bg-green-50">
+                  <AlertDescription className="text-green-800 text-sm">{success}</AlertDescription>
                 </Alert>
               )}
 
               {/* Step Content */}
-              <div className="min-h-[500px]">{renderStepContent()}</div>
+              <div className="min-h-[400px] sm:min-h-[500px]">{renderStepContent}</div>
             </div>
 
-            {/* Navigation Buttons */}
-            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center p-6 lg:p-8 border-t bg-gray-50 rounded-b-lg gap-3 sm:gap-0">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={prevStep}
-                disabled={currentStep === 1}
-                className="flex items-center justify-center space-x-2 text-gray-600 hover:text-gray-800 order-2 sm:order-1"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Previous</span>
-              </Button>
-
-              {currentStep < STEPS.length ? (
-                <Button
-                  type="button"
-                  onClick={nextStep}
-                  className="bg-red-500 hover:bg-red-600 text-white flex items-center justify-center space-x-2 px-6 order-1 sm:order-2"
-                >
-                  <span>Next</span>
-                  <ArrowRight className="w-4 h-4" />
-                </Button>
-              ) : (
-                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 order-1 sm:order-2">
-                  <Button
-                    type="button"
-                    onClick={() => handleSubmit(true)}
-                    disabled={loading}
-                    variant="outline"
-                    className="flex items-center justify-center space-x-2"
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Saving...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4" />
-                        <span>Save as Draft</span>
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => handleSubmit(false)}
-                    disabled={loading}
-                    className="bg-green-500 hover:bg-green-600 text-white flex items-center justify-center space-x-2 px-6"
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Updating...</span>
-                      </>
-                    ) : (
-                      <>
-                        <UploadIcon className="w-4 h-4" />
-                        <span>Update Product</span>
-                      </>
-                    )}
-                  </Button>
-                </div>
-              )}
-            </div>
+            <NavigationButtons
+              currentStep={currentStep}
+              totalSteps={STEPS.length}
+              loading={loading}
+              canProceed={currentStepValid}
+              onPrevious={prevStep}
+              onNext={nextStep}
+              onSaveDraft={() => handleSubmit(true)}
+              onSubmit={() => handleSubmit(false)}
+              submitLabel="Update & Publish"
+              isEdit={true}
+            />
           </div>
         </div>
       </div>

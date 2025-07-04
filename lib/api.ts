@@ -1,6 +1,8 @@
 import { doc, updateDoc, serverTimestamp, getDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { createOrderActivity } from "@/lib/order-activity"
+import { updateOrderStatusWithStockManagement } from "./order-status-handler"
+import { formatOrderItemsForStock } from "./stock-management"
 
 export const updateOrderStatus = async (
   orderId: string,
@@ -39,9 +41,22 @@ export const updateOrderStatus = async (
       newStatus,
     })
 
-    // Prepare update data
+    // Use the new stock management function
+    const result = await updateOrderStatusWithStockManagement(
+      orderId,
+      newStatus,
+      userId,
+      currentStatus,
+      userName || "System",
+      currentOrderData,
+    )
+
+    if (!result.success) {
+      throw new Error(result.error || "Failed to update order status")
+    }
+
+    // Prepare update data for additional fields
     const updateData: any = {
-      status: newStatus,
       updated_at: serverTimestamp(),
     }
 
@@ -59,34 +74,12 @@ export const updateOrderStatus = async (
       )
     }
 
-    // Prepare metadata for order activity - filter out undefined values
-    const metadata: Record<string, any> = {
-      oldStatus: currentStatus,
-      newStatus,
+    // Update additional fields if needed
+    if (Object.keys(updateData).length > 1) {
+      await updateDoc(orderRef, updateData)
     }
 
-    // Only add approve_payment to metadata if it's defined
-    if (updateData.approve_payment !== undefined) {
-      metadata.approve_payment = updateData.approve_payment
-    }
-
-    console.log("📝 Creating order activity with metadata:", metadata)
-    // Create order activity
-    await createOrderActivity({
-      orderId,
-      type: "status_change",
-      description: `Order status changed from "${currentStatus}" to "${newStatus}"`,
-      userId,
-      userName: userName || "System",
-      metadata,
-    })
-
-    console.log("📄 Updating order document with:", updateData)
-    // Update the order document
-    await updateDoc(orderRef, updateData)
-
-    console.log("✅ Order document updated successfully")
-    return { success: true }
+    return result
   } catch (error) {
     console.error("❌ Error updating order status:", error)
     throw error
@@ -115,7 +108,7 @@ export const updateOrderApprovePayment = async (orderId: string, userId: string,
       updated_at: serverTimestamp(),
     }
 
-    // Create order activity with clean metadata
+    // Create order activity with clean metadata using correct parameters
     await createOrderActivity({
       orderId,
       type: "payment_approved",
@@ -176,7 +169,7 @@ export const updateOrderOutForDelivery = async (orderId: string, userId: string,
       updated_at: serverTimestamp(),
     }
 
-    // Create order activity with clean metadata
+    // Create order activity with clean metadata using correct parameters
     await createOrderActivity({
       orderId,
       type: "out_for_delivery",
@@ -208,5 +201,33 @@ export const updateOrderOutForDelivery = async (orderId: string, userId: string,
   } catch (error) {
     console.error("❌ Error updating order out_of_delivery:", error)
     throw error
+  }
+}
+
+export async function checkOrderStockAvailability(orderId: string): Promise<{
+  available: boolean
+  insufficientItems: any[]
+}> {
+  try {
+    const orderRef = doc(db, "orders", orderId)
+    const orderDoc = await getDoc(orderRef)
+
+    if (!orderDoc.exists()) {
+      throw new Error("Order not found")
+    }
+
+    const orderData = orderDoc.data()
+    const { stockManagementService } = await import("./stock-management")
+
+    const orderItems = formatOrderItemsForStock(orderData.items || [])
+    const stockCheck = await stockManagementService.checkStockAvailability(orderItems)
+
+    return stockCheck
+  } catch (error) {
+    console.error("Error checking order stock availability:", error)
+    return {
+      available: false,
+      insufficientItems: [],
+    }
   }
 }

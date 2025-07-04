@@ -7,6 +7,7 @@ import { FileText, MapPin, Package, User, Calendar, CreditCard } from "lucide-re
 import { OrderSummaryModal } from "@/components/order-summary-modal"
 import { useCompanyData } from "@/hooks/use-company-data"
 import { useUserData } from "@/hooks/use-user-data"
+import { formatDate } from "@/lib/utils" // Corrected import path
 
 interface OrdersCompletedTabProps {
   orders: any[]
@@ -18,20 +19,6 @@ export function OrdersCompletedTab({ orders, loading }: OrdersCompletedTabProps)
   const [showSummaryModal, setShowSummaryModal] = useState(false)
   const { userData } = useUserData()
   const { company } = useCompanyData(userData?.company_id || null)
-
-  const formatDate = (timestamp: any) => {
-    if (!timestamp) return "N/A"
-    try {
-      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
-      return date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      })
-    } catch (error) {
-      return "N/A"
-    }
-  }
 
   const formatCurrency = (amount: number) => {
     return `₱${amount.toFixed(2)}`
@@ -126,14 +113,15 @@ export function OrdersCompletedTab({ orders, loading }: OrdersCompletedTabProps)
                           <>
                             <Package className="h-4 w-4 text-blue-500" />
                             <span className="text-sm text-gray-700 text-left">
-                              Pick-up <br/>  {order.pickup_info?.pickup_address || "Store"}
+                              Pick-up <br /> {order.pickup_info?.pickup_address || "Store"}
                             </span>
                           </>
                         ) : (
                           <>
                             <MapPin className="h-4 w-4 text-green-500" />
                             <span className="text-sm text-gray-700 text-left">
-                               Delivery <br /> {`${order.shipping_address?.street}, ${order.shipping_address.city}` || "N/A"}
+                              Delivery <br />{" "}
+                              {`${order.shipping_address?.street}, ${order.shipping_address.city}` || "N/A"}
                             </span>
                           </>
                         )}

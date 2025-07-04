@@ -13,6 +13,7 @@ import DashboardLayout from "./dashboard-layout"
 import { useAnimatedSuccess } from "@/hooks/use-animated-success"
 import { AnimatedSuccessMessage } from "./animated-success-message"
 import { useUserData } from "@/hooks/use-user-data"
+import { useCompanyData } from "@/hooks/use-company-data"
 import {
   type ProductFormData,
   type CompanyData,
@@ -85,6 +86,7 @@ export default function AddProductPage(): ReactElement {
 
   // Use real authentication and data hooks
   const { currentUser, userData, loading: userLoading } = useUserData()
+  const { company, loading: companyLoading, error: companyError } = useCompanyData(userData?.company_id || null)
   const [categories, setCategories] = useState<any[]>([])
   const [categoriesLoading, setCategoriesLoading] = useState(true)
   const [categoriesError, setCategoriesError] = useState<string | null>(null)
@@ -99,22 +101,27 @@ export default function AddProductPage(): ReactElement {
       pickup: false,
       delivery_note: "",
       pickup_note: "",
+      couriers: {
+        lalamove: false,
+        transportify: false,
+      },
     },
     product_images: [],
     product_video: null,
     media: [],
     delivery_days: "",
     condition: "",
-    is_pre_order: false,
+    availability_type: "stock",
     pre_order_days: "",
     payment_methods: {
       ewallet: false,
       bank_transfer: false,
       gcash: false,
       maya: false,
-      manual: true, // Add this line
+      manual: true,
     },
     variations: [],
+    location: null,
   })
 
   const [companyData, setCompanyData] = useState<CompanyData>({
@@ -129,6 +136,7 @@ export default function AddProductPage(): ReactElement {
   const { showSuccessAnimation, successMessage, isSuccessVisible, showAnimatedSuccess } = useAnimatedSuccess()
 
   const router = useRouter()
+  const fetchCategories = useFetchCategories()
 
   // Initialize component
   useEffect(() => {
@@ -149,8 +157,6 @@ export default function AddProductPage(): ReactElement {
       setCategoryNames(nameMap)
     }
   }, [categories])
-
-  const fetchCategories = useFetchCategories()
 
   // Add this useEffect after the existing useEffects:
   useEffect(() => {
@@ -222,13 +228,25 @@ export default function AddProductPage(): ReactElement {
   }, [])
 
   const handleDeliveryOptionChange = useCallback((option: string, checked: boolean) => {
-    setFormData((prev) => ({
-      ...prev,
-      delivery_options: {
+    setFormData((prev) => {
+      const newDeliveryOptions = {
         ...prev.delivery_options,
         [option]: checked,
-      },
-    }))
+      }
+
+      // If delivery is being disabled, also disable all courier options
+      if (option === "delivery" && !checked) {
+        newDeliveryOptions.couriers = {
+          lalamove: false,
+          transportify: false,
+        }
+      }
+
+      return {
+        ...prev,
+        delivery_options: newDeliveryOptions,
+      }
+    })
   }, [])
 
   const handleDeliveryNoteChange = useCallback((option: string, value: string) => {
@@ -237,6 +255,20 @@ export default function AddProductPage(): ReactElement {
       delivery_options: {
         ...prev.delivery_options,
         [`${option}_note`]: value,
+      },
+    }))
+  }, [])
+
+  // Move handleCourierChange to top level - this was the issue!
+  const handleCourierChange = useCallback((courier: string, checked: boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      delivery_options: {
+        ...prev.delivery_options,
+        couriers: {
+          ...prev.delivery_options.couriers,
+          [courier]: checked,
+        },
       },
     }))
   }, [])
@@ -262,7 +294,7 @@ export default function AddProductPage(): ReactElement {
       price: "",
       stock: "",
       images: [],
-      media: null, // Initialize as null string
+      media: null,
     }
     setFormData((prev) => ({
       ...prev,
@@ -433,7 +465,7 @@ export default function AddProductPage(): ReactElement {
         setUploading(false)
       }
     },
-    [showAnimatedSuccess],
+    [formData.media, showAnimatedSuccess],
   )
 
   const removeImage = useCallback((index: number) => {
@@ -479,21 +511,6 @@ export default function AddProductPage(): ReactElement {
       }
     })
   }, [])
-
-  const retryLoadCategories = useCallback(async () => {
-    setCategoriesLoading(true)
-    setCategoriesError(null)
-
-    try {
-      const fetchedCategories = await fetchCategories()
-      setCategories(fetchedCategories)
-    } catch (error) {
-      console.error("Failed to retry loading categories:", error)
-      setCategoriesError("Failed to load categories. Please try again.")
-    } finally {
-      setCategoriesLoading(false)
-    }
-  }, [fetchCategories])
 
   const uploadFileToFirebaseStorage = async (file: File): Promise<string> => {
     try {
@@ -578,11 +595,32 @@ export default function AddProductPage(): ReactElement {
         return
       }
 
-      if (!userData?.company_id) {
-        setGeneralError("Company information is required to add products. Please complete your company profile first.")
+      if (!userData?.company_id || !company) {
+        setGeneralError(
+          "Company information is required to add products. Please complete your company profile first and ensure it is loaded.",
+        )
         setShowCompanyModal(true)
         return
       }
+
+      // Prepare delivery options with courier logic
+      const deliveryOptions = {
+        ...formData.delivery_options,
+        // Ensure couriers are false if delivery is disabled
+        couriers: formData.delivery_options.delivery
+          ? formData.delivery_options.couriers
+          : { lalamove: false, transportify: false },
+      }
+
+      // Automatically populate location from company data
+      const productLocation = company.address
+        ? {
+            street: company.address.street || "",
+            city: company.address.city || "",
+            province: company.address.province || "",
+            postal_code: company.address.postal_code || "",
+          }
+        : null
 
       // Prepare product data for Firestore
       const productData = {
@@ -590,12 +628,11 @@ export default function AddProductPage(): ReactElement {
         description: formData.description,
         categories: formData.categories,
         unit: formData.unit,
-        delivery_options: formData.delivery_options,
+        delivery_options: deliveryOptions,
         media: formData.media,
         delivery_days: formData.delivery_days || "",
         condition: formData.condition,
-        is_pre_order: formData.is_pre_order,
-        availability_type: formData.is_pre_order ? "pre_order" : "stock",
+        availability_type: formData.availability_type,
         pre_order_days: formData.pre_order_days || "",
         payment_methods: {
           ...formData.payment_methods,
@@ -616,6 +653,7 @@ export default function AddProductPage(): ReactElement {
         seller_id: currentUser.uid,
         created_by: currentUser.uid,
         company_id: userData.company_id, // Add company_id from user data
+        location: productLocation, // Add the automatically populated location
         type: "MERCHANDISE",
         status: isDraft ? "draft" : "published",
         active: !isDraft,
@@ -631,6 +669,7 @@ export default function AddProductPage(): ReactElement {
       const docRef = await addDoc(collection(db, "products"), productData)
       console.log("Product saved with ID: ", docRef.id)
       console.log("Company ID included: ", userData.company_id)
+      console.log("Product location saved:", productLocation)
 
       // Show success message
       if (!isDraft) {
@@ -652,13 +691,17 @@ export default function AddProductPage(): ReactElement {
             pickup: false,
             delivery_note: "",
             pickup_note: "",
+            couriers: {
+              lalamove: false,
+              transportify: false,
+            },
           },
           product_images: [],
           product_video: null,
           media: [],
           delivery_days: "",
           condition: "",
-          is_pre_order: false,
+          availability_type: "stock",
           pre_order_days: "",
           payment_methods: {
             ewallet: false,
@@ -668,6 +711,7 @@ export default function AddProductPage(): ReactElement {
             manual: true,
           },
           variations: [],
+          location: null, // Reset location
         })
         setCurrentStep(1)
       }
@@ -699,7 +743,7 @@ export default function AddProductPage(): ReactElement {
   }
 
   // Show loading state while initializing
-  if (!isInitialized) {
+  if (!isInitialized || userLoading || companyLoading) {
     return (
       <DashboardLayout activeItem="products">
         <div className="flex items-center justify-center min-h-screen">
@@ -942,7 +986,15 @@ export default function AddProductPage(): ReactElement {
       case 4:
         return (
           <div className="space-y-6">
-            <h2 className="text-xl font-semibold text-gray-800">Shipping</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-800">Shipping</h2>
+              {hasErrors && (
+                <div className="flex items-center text-red-600 text-sm">
+                  <AlertCircle className="w-4 h-4 mr-1" />
+                  <span>Required fields missing</span>
+                </div>
+              )}
+            </div>
 
             <div className="space-y-4">
               <Label className="text-base font-medium">Delivery Options * (Select at least one)</Label>
@@ -958,16 +1010,51 @@ export default function AddProductPage(): ReactElement {
                     />
                     <span className="font-medium text-gray-700">Delivery</span>
                   </label>
+
                   {formData.delivery_options.delivery && (
-                    <div>
-                      <Label htmlFor="delivery_note">Delivery Note</Label>
-                      <Textarea
-                        id="delivery_note"
-                        value={formData.delivery_options.delivery_note}
-                        onChange={(e) => handleDeliveryNoteChange("delivery", e.target.value)}
-                        placeholder="Add delivery instructions, fees, or special conditions..."
-                        rows={3}
-                      />
+                    <div className="ml-6 space-y-4">
+                      <div>
+                        <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                          Select Courier * (Choose at least one)
+                        </Label>
+                        <div className="space-y-2">
+                          <label className="flex items-center space-x-2 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={formData.delivery_options.couriers?.lalamove || false}
+                              onChange={(e) => handleCourierChange("lalamove", e.target.checked)}
+                              className="rounded border-gray-300 text-red-500 focus:ring-red-500"
+                            />
+                            <span className="text-sm text-gray-700">Lalamove</span>
+                          </label>
+                          <label className="flex items-center space-x-2 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={formData.delivery_options.couriers?.transportify || false}
+                              onChange={(e) => handleCourierChange("transportify", e.target.checked)}
+                              className="rounded border-gray-300 text-red-500 focus:ring-red-500"
+                            />
+                            <span className="text-sm text-gray-700">Transportify</span>
+                          </label>
+                        </div>
+                        {fieldErrors.couriers && (
+                          <p className="mt-1 text-sm text-red-600 flex items-center">
+                            <AlertCircle className="w-4 h-4 mr-1 flex-shrink-0" />
+                            {fieldErrors.couriers}
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <Label htmlFor="delivery_note">Delivery Note</Label>
+                        <Textarea
+                          id="delivery_note"
+                          value={formData.delivery_options.delivery_note}
+                          onChange={(e) => handleDeliveryNoteChange("delivery", e.target.value)}
+                          placeholder="Add delivery instructions, fees, or special conditions..."
+                          rows={3}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -983,7 +1070,7 @@ export default function AddProductPage(): ReactElement {
                     <span className="font-medium text-gray-700">Pick up</span>
                   </label>
                   {formData.delivery_options.pickup && (
-                    <div>
+                    <div className="ml-6">
                       <Label htmlFor="pickup_note">Pickup Note</Label>
                       <Textarea
                         id="pickup_note"
@@ -1289,10 +1376,10 @@ export default function AddProductPage(): ReactElement {
                 <label className="flex items-center space-x-2 cursor-pointer select-none">
                   <input
                     type="radio"
-                    name="is_pre_order"
-                    value="false"
-                    checked={!formData.is_pre_order}
-                    onChange={() => setFormData((prev) => ({ ...prev, is_pre_order: false }))}
+                    name="availability_type"
+                    value="stock"
+                    checked={formData.availability_type === "stock"}
+                    onChange={() => setFormData((prev) => ({ ...prev, availability_type: "stock" }))}
                     className="text-red-500 focus:ring-red-500"
                   />
                   <span className="text-gray-700">In Stock</span>
@@ -1300,17 +1387,17 @@ export default function AddProductPage(): ReactElement {
                 <label className="flex items-center space-x-2 cursor-pointer select-none">
                   <input
                     type="radio"
-                    name="is_pre_order"
-                    value="true"
-                    checked={formData.is_pre_order}
-                    onChange={() => setFormData((prev) => ({ ...prev, is_pre_order: true }))}
+                    name="availability_type"
+                    value="pre_order"
+                    checked={formData.availability_type === "pre_order"}
+                    onChange={() => setFormData((prev) => ({ ...prev, availability_type: "pre_order" }))}
                     className="text-red-500 focus:ring-red-500"
                   />
                   <span className="text-gray-700">Pre-Order</span>
                 </label>
               </div>
 
-              {formData.is_pre_order && (
+              {formData.availability_type === "pre_order" && (
                 <div>
                   <Label htmlFor="pre_order_days">Delivery Days for Pre-Order *</Label>
                   <Input
@@ -1367,7 +1454,7 @@ export default function AddProductPage(): ReactElement {
         <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
           {/* Left Sidebar - Steps */}
           <div className="w-full lg:w-80 xl:w-96">
-            <StepNavigation currentStep={currentStep} steps={STEPS} />
+            <StepNavigation currentStep={currentStep} steps={STEPS} onStepClick={goToStep} />
           </div>
 
           {/* Right Content - Form */}
@@ -1394,7 +1481,7 @@ export default function AddProductPage(): ReactElement {
               currentStep={currentStep}
               totalSteps={STEPS.length}
               loading={loading}
-              canProceed={currentStepValid} // Add this prop
+              canProceed={currentStepValid}
               onPrevious={prevStep}
               onNext={nextStep}
               onSaveDraft={() => handleSubmit(true)}

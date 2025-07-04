@@ -109,7 +109,7 @@ export function OrdersCancelledTab({
               <tbody>
                 {orders.map((order) => (
                   <tr key={order.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-4 px-4">
+                    <td className="py-4 px-4 text-left">
                       <div>
                         <button
                           onClick={() => handleOrderClick(order)}

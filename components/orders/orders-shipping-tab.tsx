@@ -3,8 +3,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { User, MapPin, Package, Calendar, CreditCard, Truck, CheckCircle } from "lucide-react"
-import { OrderDetailsModal } from "../order-details-modal"
 import { useState } from "react"
+import { OrderDetailsModal } from "@/components/order-details-modal"
+import { formatDate } from "@/lib/utils" // Corrected import path
 
 interface OrdersShippingTabProps {
   orders: any[]
@@ -12,7 +13,6 @@ interface OrdersShippingTabProps {
   error: string | null
   onViewOrder: (orderId: string) => void
   onRefresh: () => void
-  formatDate: (timestamp: any) => string
   onOutForDelivery?: (order: any) => void
   onPickedUpByBuyer?: (order: any) => void
 }
@@ -23,7 +23,6 @@ export function OrdersShippingTab({
   error,
   onViewOrder,
   onRefresh,
-  formatDate,
   onOutForDelivery,
   onPickedUpByBuyer,
 }: OrdersShippingTabProps) {
@@ -299,3 +298,5 @@ export function OrdersShippingTab({
     </>
   )
 }
+
+export default OrdersShippingTab

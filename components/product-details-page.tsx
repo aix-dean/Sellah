@@ -21,6 +21,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Info,
+  LinkIcon,
 } from "lucide-react"
 import { doc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
@@ -29,6 +30,7 @@ import { loggedGetDoc } from "@/lib/firestore-logger"
 import { DeleteProductDialog } from "./delete-product-dialog"
 import { deleteProduct } from "@/lib/product-service"
 import { useToast } from "@/hooks/use-toast"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 interface ProductDetailsPageProps {
   productId: string
@@ -52,8 +54,8 @@ interface Product {
     price: number
     stock: number
     sku?: string
-    images?: string[] // Add this line
-    attributes?: Record<string, string> // e.g., { color: "Red", size: "Large" }
+    images?: string[]
+    attributes?: Record<string, string>
   }>
   photo_url: string[]
   media_url?: string
@@ -64,7 +66,16 @@ interface Product {
     url: string
   }>
   categories: string[]
-  delivery_option: string
+  delivery_option: {
+    delivery: boolean
+    delivery_note: string
+    pickup: boolean
+    pickup_note: string
+    couriers: {
+      lalamove: boolean
+      transportify: boolean
+    }
+  }
   delivery_days: number
   condition: string
   status: string
@@ -74,6 +85,16 @@ interface Product {
   created_at: any
   updated: any
   sku?: string
+  shipping_methods?: Array<{
+    name: string
+    cost: number
+    description?: string
+  }>
+  tracking_info?: {
+    number: string
+    carrier: string
+    url?: string
+  }
 }
 
 export default function ProductDetailsPage({ productId }: ProductDetailsPageProps) {
@@ -138,7 +159,17 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
           media_url: mediaUrl,
           media: productData.media || [],
           categories: productData.categories || [],
-          delivery_option: productData.delivery_option || "",
+          // Correctly initialize delivery_option as an object
+          delivery_option: productData.delivery_option || {
+            delivery: false,
+            delivery_note: "",
+            pickup: false,
+            pickup_note: "",
+            couriers: {
+              lalamove: false,
+              transportify: false,
+            },
+          },
           delivery_days: productData.delivery_days || 0,
           condition: productData.condition || "",
           status: productData.status || "unpublished",
@@ -148,6 +179,8 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
           created_at: productData.created_at,
           updated: productData.updated,
           sku: productData.sku,
+          shipping_methods: productData.shipping_methods || [],
+          tracking_info: productData.tracking_info || null,
         })
 
         // Fetch category names
@@ -218,6 +251,8 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
         year: "numeric",
         month: "long",
         day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
       })
     } catch (error) {
       return "Invalid Date"
@@ -308,9 +343,11 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
           <div className="flex space-x-2">
             <Button onClick={handleEdit} className="bg-blue-500 hover:bg-blue-600 text-white">
               <Edit className="w-4 h-4 mr-2" />
+              Edit
             </Button>
             <Button onClick={handleDelete} variant="destructive">
               <Trash2 className="w-4 h-4 mr-2" />
+              Delete
             </Button>
           </div>
         </div>
@@ -410,47 +447,6 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
               className="bg-white rounded-lg shadow-sm border overflow-hidden"
               key={`images-${selectedVariationIndex}`}
             >
-              {/* Image Display Logic */}
-              {/* Replace the existing img element and surrounding logic with the following: */}
-              {/* <div className="relative h-96">
-                {product.photo_url && product.photo_url.length > 0 ? (
-                  <>
-                    <img
-                      src={product.photo_url[currentImageIndex] || "/placeholder.svg"}
-                      alt={product.name}
-                      className="w-full h-full object-contain"
-                      onError={(e) => {
-                        e.currentTarget.src = "/placeholder.svg?height=384&width=600"
-                      }}
-                    />
-                    {product.photo_url.length > 1 && (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white rounded-full"
-                          onClick={prevImage}
-                        >
-                          <ChevronLeft className="w-5 h-5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white rounded-full"
-                          onClick={nextImage}
-                        >
-                          <ChevronRight className="w-5 h-5" />
-                        </Button>
-                      </>
-                    )}
-                  </>
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                    <Package className="w-16 h-16 text-gray-400" />
-                    <span className="ml-2 text-gray-500">No image available</span>
-                  </div>
-                )}
-              </div> */}
               <div className="relative h-96">
                 {(() => {
                   const currentImages = getCurrentImages()
@@ -686,17 +682,50 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
             <div className="bg-white rounded-lg shadow-sm border p-6">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 text-left">Shipping Information</h2>
               <div className="space-y-4">
-                <div className="flex items-start">
-                  <Truck className="w-5 h-5 text-gray-400 mr-3 mt-0.5" />
-                  <div>
-                    <div className="text-sm text-gray-500">Delivery Option</div>
-                    <div className="font-medium capitalize">{product.delivery_option || "Not specified"}</div>
+                {product.delivery_option.delivery && (
+                  <div className="flex items-start">
+                    <Truck className="w-5 h-5 text-gray-400 mr-3 mt-0.5" />
+                    <div>
+                      <div className="text-sm text-gray-500">Delivery Available</div>
+                      <div className="font-medium">Yes</div>
+                      {product.delivery_option.delivery_note && (
+                        <p className="text-sm text-gray-600 mt-1">{product.delivery_option.delivery_note}</p>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
+                {product.delivery_option.pickup && (
+                  <div className="flex items-start">
+                    <Package className="w-5 h-5 text-gray-400 mr-3 mt-0.5" />
+                    <div>
+                      <div className="text-sm text-gray-500">Pickup Available</div>
+                      <div className="font-medium">Yes</div>
+                      {product.delivery_option.pickup_note && (
+                        <p className="text-sm text-gray-600 mt-1">{product.delivery_option.pickup_note}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {(product.delivery_option.couriers.lalamove || product.delivery_option.couriers.transportify) && (
+                  <div className="flex items-start">
+                    <Truck className="w-5 h-5 text-gray-400 mr-3 mt-0.5" />
+                    <div>
+                      <div className="text-sm text-gray-500">Supported Couriers</div>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {product.delivery_option.couriers.lalamove && <Badge variant="secondary">Lalamove</Badge>}
+                        {product.delivery_option.couriers.transportify && (
+                          <Badge variant="secondary">Transportify</Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-start">
                   <Calendar className="w-5 h-5 text-gray-400 mr-3 mt-0.5" />
                   <div>
-                    <div className="text-sm text-gray-500">Delivery Time</div>
+                    <div className="text-sm text-gray-500">Estimated Delivery Time</div>
                     <div className="font-medium text-left">
                       {product.delivery_days === 1
                         ? "1 day"
@@ -710,11 +739,86 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
                     </div>
                   </div>
                 </div>
+
+                {product.shipping_methods && product.shipping_methods.length > 0 && (
+                  <>
+                    <Separator />
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500 mb-2">Available Shipping Methods</h3>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Method</TableHead>
+                            <TableHead className="text-right">Cost</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {product.shipping_methods.map((method, index) => (
+                            <TableRow key={index}>
+                              <TableCell className="font-medium">{method.name}</TableCell>
+                              <TableCell className="text-right">₱{method.cost.toLocaleString()}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </>
+                )}
+
+                {product.tracking_info && product.tracking_info.number && (
+                  <>
+                    <Separator />
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500 mb-2">Tracking Information</h3>
+                      <div className="space-y-2">
+                        <div className="flex items-center">
+                          <span className="text-gray-700 font-medium mr-2">Tracking Number:</span>
+                          <span className="font-mono text-gray-900">{product.tracking_info.number}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <span className="text-gray-700 font-medium mr-2">Carrier:</span>
+                          <span className="text-gray-900 capitalize">{product.tracking_info.carrier}</span>
+                        </div>
+                        {product.tracking_info.url && (
+                          <div className="flex items-center">
+                            <span className="text-gray-700 font-medium mr-2">Track Link:</span>
+                            <a
+                              href={product.tracking_info.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline flex items-center"
+                            >
+                              View Tracking <LinkIcon className="w-4 h-4 ml-1" />
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
             {/* Product Info */}
-            
+            <div className="bg-white rounded-lg shadow-sm border p-6">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4 text-left">Product Info</h2>
+              <div className="space-y-4">
+                <div className="flex items-center">
+                  <Calendar className="w-5 h-5 text-gray-400 mr-3" />
+                  <div>
+                    <div className="text-sm text-gray-500">Created At</div>
+                    <div className="font-medium">{formatDate(product.created_at)}</div>
+                  </div>
+                </div>
+                <div className="flex items-center">
+                  <Calendar className="w-5 h-5 text-gray-400 mr-3" />
+                  <div>
+                    <div className="text-sm text-gray-500">Last Updated</div>
+                    <div className="font-medium">{formatDate(product.updated)}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         {/* Delete Product Dialog */}

@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Eye, User, MapPin, Package, Calendar, CreditCard } from "lucide-react"
 import { getStatusDisplay } from "@/lib/status-utils"
+import { formatDate } from "@/lib/utils" // Corrected import path
 
 interface OrdersAllTabProps {
   orders: any[]
@@ -11,10 +12,10 @@ interface OrdersAllTabProps {
   error: string | null
   onViewOrder: (orderId: string) => void
   onRefresh: () => void
-  formatDate: (timestamp: any) => string
+  formatDate: (timestamp: any) => string // This prop is now redundant if using the imported one
 }
 
-export function OrdersAllTab({ orders, loading, error, onViewOrder, onRefresh, formatDate }: OrdersAllTabProps) {
+export function OrdersAllTab({ orders, loading, error, onViewOrder, onRefresh }: OrdersAllTabProps) {
   const formatCurrency = (amount: number) => {
     return `₱${amount.toFixed(2)}`
   }
@@ -102,14 +103,15 @@ export function OrdersAllTab({ orders, loading, error, onViewOrder, onRefresh, f
                           <>
                             <Package className="h-4 w-4 text-blue-500" />
                             <span className="text-sm text-gray-700 text-left">
-                              Pick-up <br/> {order.pickup_info?.pickup_address || "Store"}
+                              Pick-up <br /> {order.pickup_info?.pickup_address || "Store"}
                             </span>
                           </>
                         ) : (
                           <>
                             <MapPin className="h-4 w-4 text-green-500" />
                             <span className="text-sm text-gray-700 text-left">
-                              Delivery <br /> {`${order.shipping_address?.street}, ${order.shipping_address.city}` || "N/A"}
+                              Delivery <br />{" "}
+                              {`${order.shipping_address?.street}, ${order.shipping_address.city}` || "N/A"}
                             </span>
                           </>
                         )}
@@ -167,7 +169,7 @@ export function OrdersAllTab({ orders, loading, error, onViewOrder, onRefresh, f
                       <>
                         <Package className="h-4 w-4 text-blue-500" />
                         <span className="text-sm text-gray-700">
-                          Pick-up <br/>  {order.pickup_info?.company_name || "Store"}
+                          Pick-up <br /> {order.pickup_info?.company_name || "Store"}
                         </span>
                       </>
                     ) : (

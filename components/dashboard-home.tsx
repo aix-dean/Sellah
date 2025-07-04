@@ -176,9 +176,6 @@ export default function DashboardHome() {
               ))}
             </div>
           </div>
-          <div className="text-center py-8">
-            <p className="text-gray-500">Loading dashboard data...</p>
-          </div>
         </div>
       </DashboardLayout>
     )

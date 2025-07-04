@@ -7,10 +7,62 @@ import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
 import { useToast } from "@/hooks/use-toast"
 
+interface OrderItem {
+  product_id: string
+  product_name: string
+  quantity: number
+  unit_price: number
+  total_price: number
+  seller_id: string
+  specifications?: any
+  product_image?: string // Changed from image_url to product_image
+  sku?: string
+  variation_data?: {
+    color?: string
+    height?: string
+    id?: string
+    length?: string
+    media?: string
+    name?: string
+    price?: number
+    sku?: string
+    stock?: number
+    weight?: string
+    [key: string]: any
+  }
+  variation_id?: string
+  variation_name?: string
+}
+
 interface OrderSummaryModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  order: any
+  order: {
+    id: string
+    order_number: string
+    customer_name: string
+    items: OrderItem[]
+    subtotal: number
+    shipping_fee: number
+    tax_amount: number
+    total_amount: number
+    payment_method: string
+    is_pickup?: boolean
+    pickup_info?: {
+      pickup_location?: string
+      pickup_address?: string
+      company_name?: string
+    }
+    shipping_address: {
+      street?: string
+      barangay?: string
+      city?: string
+      province?: string
+      postal_code?: string
+    }
+    created_at: any
+    updated_at: any
+  }
   userData?: any
   companyData?: any
 }
@@ -112,6 +164,7 @@ export function OrderSummaryModal({ open, onOpenChange, order, userData, company
   }
 
   const totalQuantity = order.items.reduce((sum: number, item: any) => sum + item.quantity, 0)
+  const grandTotal = order.subtotal + (order.shipping_fee || 0) + (order.tax_amount || 0)
 
   // Get seller name from user data
   const sellerName = userData?.display_name || userData?.first_name + " " + userData?.last_name || "VRC Store"
@@ -544,10 +597,20 @@ export function OrderSummaryModal({ open, onOpenChange, order, userData, company
                       <tr key={index}>
                         <td className="border border-gray-300 px-1 sm:px-3 py-2">{index + 1}</td>
                         <td className="border border-gray-300 px-1 sm:px-3 py-2">
-                          <div className="break-words">
-                            {item.product_name}
-                            <div className="sm:hidden text-xs text-gray-500 mt-1">
-                              {item.variation_data?.name || item.variation_name || "-"}
+                          <div className="flex items-center space-x-2">
+                            <img
+                              src={item.product_image || "/placeholder.svg?height=40&width=40"}
+                              alt={item.product_name}
+                              className="w-10 h-10 rounded-md object-cover"
+                              onError={(e) => {
+                                e.currentTarget.src = "/placeholder.svg?height=40&width=40"
+                              }}
+                            />
+                            <div className="break-words">
+                              {item.product_name}
+                              <div className="sm:hidden text-xs text-gray-500 mt-1">
+                                {item.variation_data?.name || item.variation_name || "-"}
+                              </div>
                             </div>
                           </div>
                         </td>
@@ -571,6 +634,9 @@ export function OrderSummaryModal({ open, onOpenChange, order, userData, company
                       >
                         <span className="hidden sm:inline">Subtotal</span>
                         <span className="sm:hidden">Sub</span>
+                      </td>
+                      <td className="border border-gray-300 px-1 sm:px-3 py-2 font-semibold text-right hidden sm:table-cell">
+                        {formatCurrency(order.subtotal)}
                       </td>
                       <td className="border border-gray-300 px-1 sm:px-3 py-2 font-semibold text-center hidden sm:table-cell">
                         {totalQuantity}
@@ -605,19 +671,21 @@ export function OrderSummaryModal({ open, onOpenChange, order, userData, company
           <div className="flex justify-end mb-6">
             <div className="w-full sm:w-auto sm:max-w-sm space-y-2">
               <div className="flex justify-between py-1">
-                <span className="font-semibold text-sm sm:text-base">Merchandise Subtotal</span>
+                <span className="font-semibold text-sm sm:text-base">Item Subtotal</span>
                 <span className="font-semibold text-sm sm:text-base">{formatCurrency(order.subtotal)}</span>
               </div>
               <div className="flex justify-between py-1">
                 <span className="font-semibold text-sm sm:text-base">Shipping Fee</span>
-                <span className="font-semibold text-sm sm:text-base">{formatCurrency(order.shipping_fee)}</span>
+                <span className="font-semibold text-sm sm:text-base">{formatCurrency(order.shipping_fee || 0)}</span>
+              </div>
+              <div className="flex justify-between py-1">
+                <span className="font-semibold text-sm sm:text-base">Tax Amount</span>
+                <span className="font-semibold text-sm sm:text-base">{formatCurrency(order.tax_amount || 0)}</span>
               </div>
               <div className="border-t border-gray-300 pt-2">
                 <div className="flex justify-between py-1">
                   <span className="font-bold text-base sm:text-lg">Grand Total</span>
-                  <span className="font-bold text-base sm:text-lg">
-                    {formatCurrency(order.subtotal + (order.shipping_fee || 0))}
-                  </span>
+                  <span className="font-bold text-base sm:text-lg">{formatCurrency(grandTotal)}</span>
                 </div>
               </div>
             </div>
@@ -626,9 +694,7 @@ export function OrderSummaryModal({ open, onOpenChange, order, userData, company
           {/* Total in Words */}
           <div className="text-center pt-4 border-t border-gray-300">
             <p className="font-semibold text-sm sm:text-base">Total amount in words</p>
-            <p className="text-xs sm:text-sm text-gray-700 mt-1 break-words">
-              {numberToWords(Math.floor(order.subtotal + (order.shipping_fee || 0)))}
-            </p>
+            <p className="text-xs sm:text-sm text-gray-700 mt-1 break-words">{numberToWords(Math.floor(grandTotal))}</p>
           </div>
         </div>
 
@@ -720,7 +786,16 @@ export function OrderSummaryModal({ open, onOpenChange, order, userData, company
               {order.items.map((item: any, index: number) => (
                 <tr key={index}>
                   <td>{index + 1}</td>
-                  <td>{item.product_name}</td>
+                  <td>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <img
+                        src={item.product_image || "/placeholder.svg?height=40&width=40"}
+                        alt={item.product_name}
+                        style={{ width: "40px", height: "40px", borderRadius: "4px", objectFit: "cover" }}
+                      />
+                      {item.product_name}
+                    </div>
+                  </td>
                   <td>{item.variation_data?.name || item.variation_name || "-"}</td>
                   <td className="text-right">{formatCurrency(item.unit_price)}</td>
                   <td className="text-center">{item.quantity}</td>
@@ -754,17 +829,20 @@ export function OrderSummaryModal({ open, onOpenChange, order, userData, company
               <span>Merchandise Subtotal:</span> <span>{formatCurrency(order.subtotal)}</span>
             </div>
             <div>
-              <span>Shipping Fee:</span> <span>{formatCurrency(order.shipping_fee)}</span>
+              <span>Shipping Fee:</span> <span>{formatCurrency(order.shipping_fee || 0)}</span>
+            </div>
+            <div>
+              <span>Tax Amount:</span> <span>{formatCurrency(order.tax_amount || 0)}</span>
             </div>
             <div className="grand-total">
-              <span>Grand Total:</span> <span>{formatCurrency(order.subtotal + (order.shipping_fee || 0))}</span>
+              <span>Grand Total:</span> <span>{formatCurrency(grandTotal)}</span>
             </div>
           </div>
 
           <div className="words">
             <strong>Total amount in words:</strong>
             <br />
-            {numberToWords(Math.floor(order.subtotal + (order.shipping_fee || 0)))}
+            {numberToWords(Math.floor(grandTotal))}
           </div>
         </div>
       </DialogContent>

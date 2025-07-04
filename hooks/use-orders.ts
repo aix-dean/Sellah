@@ -6,6 +6,7 @@ import { useFirestoreQuery, firestoreCache } from "./use-firestore-cache"
 interface OrderItem {
   product_id: string
   product_name: string
+  product_image: string
   quantity: number
   unit_price: number
   total_price: number
@@ -147,6 +148,7 @@ export function useOrders(userId: string | null) {
           ? data.items.map((item: any) => ({
               product_id: item.product_id || "",
               product_name: item.product_name || "Legacy Product",
+              product_image: item.product_image || "",
               quantity: item.quantity || 1,
               unit_price: item.unit_price || item.cost || 0,
               total_price: item.total_price || item.total_cost || 0,

@@ -1,109 +1,350 @@
-import { doc, updateDoc, serverTimestamp, getDoc } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  getDocs,
+  getDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  startAfter,
+  serverTimestamp,
+  type QueryDocumentSnapshot,
+  type DocumentData,
+} from "firebase/firestore"
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"
+import { db, storage } from "@/lib/firebase"
 
-export async function deleteProduct(productId: string, userId: string): Promise<void> {
+export enum ProductStatus {
+  Draft = "draft",
+  Published = "published",
+  Archived = "archived",
+}
+
+export interface Product {
+  id: string
+  name: string
+  description: string
+  price: number
+  category: string
+  stock: number
+  sku: string
+  weight: number
+  dimensions: string
+  location: string // Changed from object to string
+  status: ProductStatus
+  isFeatured: boolean
+  imageUrls: string[]
+  courier: string
+  shippingFee: number
+  companyId: string
+  userId: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface CreateProductData {
+  name: string
+  description: string
+  price: number
+  category: string
+  stock: number
+  sku: string
+  weight: number
+  dimensions: string
+  location:
+    | {
+        street: string
+        city: string
+        province: string
+        postal_code: string
+      }
+    | string // Accept both object and string
+  status: ProductStatus
+  isFeatured: boolean
+  imageUrls: string[]
+  courier: string
+  shippingFee: number
+  companyId: string
+  userId: string
+}
+
+export interface UpdateProductData extends Partial<CreateProductData> {
+  id: string
+}
+
+export interface ProductFilters {
+  category?: string
+  status?: ProductStatus
+  companyId?: string
+  userId?: string
+  isFeatured?: boolean
+  searchTerm?: string
+}
+
+export interface PaginationOptions {
+  limit?: number
+  lastDoc?: QueryDocumentSnapshot<DocumentData>
+}
+
+export interface ProductsResponse {
+  products: Product[]
+  lastDoc?: QueryDocumentSnapshot<DocumentData>
+  hasMore: boolean
+  total: number
+}
+
+// Helper function to convert location object to string
+function formatLocationString(location: any): string {
+  if (typeof location === "string") {
+    return location
+  }
+
+  if (typeof location === "object" && location !== null) {
+    const { street = "", city = "", province = "", postal_code = "" } = location
+    return [street, city, province, postal_code].filter(Boolean).join(", ")
+  }
+
+  return ""
+}
+
+export async function createProduct(productData: CreateProductData): Promise<string> {
   try {
-    // First, verify the product exists and belongs to the user
-    const productRef = doc(db, "products", productId)
-    const productDoc = await getDoc(productRef)
+    // Convert location object to string if it's an object
+    const locationString = formatLocationString(productData.location)
 
-    if (!productDoc.exists()) {
-      throw new Error("Product not found")
+    const docData = {
+      ...productData,
+      location: locationString, // Store as string in Firestore
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     }
 
-    const productData = productDoc.data()
+    const docRef = await addDoc(collection(db, "products"), docData)
+    return docRef.id
+  } catch (error) {
+    console.error("Error creating product:", error)
+    throw new Error("Failed to create product")
+  }
+}
 
-    // Check if the current user owns this product (check both seller_id and created_by)
-    if (productData.seller_id !== userId && productData.created_by !== userId) {
-      throw new Error("You don't have permission to delete this product")
+export async function updateProduct(productData: UpdateProductData): Promise<void> {
+  try {
+    const { id, ...updateData } = productData
+
+    // Convert location object to string if it's an object
+    if (updateData.location) {
+      updateData.location = formatLocationString(updateData.location)
     }
 
-    // Soft delete: update active and deleted fields
-    await updateDoc(productRef, {
-      active: false, // Set active to false
-      deleted: true, // Set deleted to true
-      deleted_at: serverTimestamp(),
-      deleted_by: userId,
-      updated_at: serverTimestamp(),
+    const docRef = doc(db, "products", id)
+    await updateDoc(docRef, {
+      ...updateData,
+      updatedAt: serverTimestamp(),
     })
+  } catch (error) {
+    console.error("Error updating product:", error)
+    throw new Error("Failed to update product")
+  }
+}
 
-    console.log("Product successfully soft deleted:", productId)
-  } catch (error: any) {
+export async function deleteProduct(productId: string): Promise<void> {
+  try {
+    const docRef = doc(db, "products", productId)
+    await deleteDoc(docRef)
+  } catch (error) {
     console.error("Error deleting product:", error)
-
-    // Provide user-friendly error messages
-    if (error.code === "permission-denied") {
-      throw new Error("You don't have permission to delete this product")
-    } else if (error.code === "not-found") {
-      throw new Error("Product not found")
-    } else if (error.message) {
-      throw new Error(error.message)
-    } else {
-      throw new Error("Failed to delete product. Please try again.")
-    }
+    throw new Error("Failed to delete product")
   }
 }
 
-export async function restoreProduct(productId: string, userId: string): Promise<void> {
+export async function getProduct(productId: string): Promise<Product | null> {
   try {
-    const productRef = doc(db, "products", productId)
-    const productDoc = await getDoc(productRef)
+    const docRef = doc(db, "products", productId)
+    const docSnap = await getDoc(docRef)
 
-    if (!productDoc.exists()) {
-      throw new Error("Product not found")
+    if (docSnap.exists()) {
+      const data = docSnap.data()
+      return {
+        id: docSnap.id,
+        ...data,
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate() || new Date(),
+      } as Product
     }
 
-    const productData = productDoc.data()
-
-    // Check if the current user owns this product
-    if (productData.seller_id !== userId && productData.created_by !== userId) {
-      throw new Error("You don't have permission to restore this product")
-    }
-
-    // Restore the product by setting active back to true and deleted to false
-    await updateDoc(productRef, {
-      active: true, // Set active back to true
-      deleted: false, // Set deleted back to false
-      deleted_at: null,
-      deleted_by: null,
-      restored_at: serverTimestamp(),
-      restored_by: userId,
-      updated_at: serverTimestamp(),
-    })
-
-    console.log("Product successfully restored:", productId)
-  } catch (error: any) {
-    console.error("Error restoring product:", error)
-    throw new Error(error.message || "Failed to restore product. Please try again.")
+    return null
+  } catch (error) {
+    console.error("Error getting product:", error)
+    throw new Error("Failed to get product")
   }
 }
 
-// Helper function to get deleted products (for admin or recovery purposes)
-export async function getDeletedProducts(userId: string) {
+export async function getProducts(
+  filters: ProductFilters = {},
+  pagination: PaginationOptions = {},
+): Promise<ProductsResponse> {
   try {
-    const { collection, query, where, getDocs } = await import("firebase/firestore")
+    const { limit: pageLimit = 10, lastDoc } = pagination
+    const { category, status, companyId, userId, isFeatured, searchTerm } = filters
 
-    const productsRef = collection(db, "products")
+    let q = query(collection(db, "products"))
+
+    // Apply filters
+    if (category) {
+      q = query(q, where("category", "==", category))
+    }
+    if (status) {
+      q = query(q, where("status", "==", status))
+    }
+    if (companyId) {
+      q = query(q, where("companyId", "==", companyId))
+    }
+    if (userId) {
+      q = query(q, where("userId", "==", userId))
+    }
+    if (isFeatured !== undefined) {
+      q = query(q, where("isFeatured", "==", isFeatured))
+    }
+
+    // Add ordering and pagination
+    q = query(q, orderBy("createdAt", "desc"))
+
+    if (lastDoc) {
+      q = query(q, startAfter(lastDoc))
+    }
+
+    q = query(q, limit(pageLimit + 1)) // Get one extra to check if there are more
+
+    const querySnapshot = await getDocs(q)
+    const products: Product[] = []
+    const docs = querySnapshot.docs
+
+    // Process documents
+    for (let i = 0; i < Math.min(docs.length, pageLimit); i++) {
+      const doc = docs[i]
+      const data = doc.data()
+
+      // Filter by search term if provided (client-side filtering)
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase()
+        const nameMatch = data.name?.toLowerCase().includes(searchLower)
+        const descMatch = data.description?.toLowerCase().includes(searchLower)
+        const skuMatch = data.sku?.toLowerCase().includes(searchLower)
+
+        if (!nameMatch && !descMatch && !skuMatch) {
+          continue
+        }
+      }
+
+      products.push({
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate() || new Date(),
+      } as Product)
+    }
+
+    const hasMore = docs.length > pageLimit
+    const newLastDoc = docs.length > 0 ? docs[Math.min(docs.length - 1, pageLimit - 1)] : undefined
+
+    return {
+      products,
+      lastDoc: newLastDoc,
+      hasMore,
+      total: products.length, // This is just the current page count
+    }
+  } catch (error) {
+    console.error("Error getting products:", error)
+    throw new Error("Failed to get products")
+  }
+}
+
+export async function uploadProductImage(file: File): Promise<string> {
+  try {
+    const timestamp = Date.now()
+    const fileName = `${timestamp}-${file.name}`
+    const storageRef = ref(storage, `products/${fileName}`)
+
+    await uploadBytes(storageRef, file)
+    const downloadURL = await getDownloadURL(storageRef)
+
+    return downloadURL
+  } catch (error) {
+    console.error("Error uploading product image:", error)
+    throw new Error("Failed to upload image")
+  }
+}
+
+export async function deleteProductImage(imageUrl: string): Promise<void> {
+  try {
+    const imageRef = ref(storage, imageUrl)
+    await deleteObject(imageRef)
+  } catch (error) {
+    console.error("Error deleting product image:", error)
+    throw new Error("Failed to delete image")
+  }
+}
+
+export async function getFeaturedProducts(limit = 10): Promise<Product[]> {
+  try {
     const q = query(
-      productsRef,
-      where("seller_id", "==", userId),
-      where("active", "==", false),
-      where("deleted", "==", true),
+      collection(db, "products"),
+      where("isFeatured", "==", true),
+      where("status", "==", ProductStatus.Published),
+      orderBy("createdAt", "desc"),
+      limit(limit),
     )
 
     const querySnapshot = await getDocs(q)
-    const deletedProducts: any[] = []
+    const products: Product[] = []
 
     querySnapshot.forEach((doc) => {
-      deletedProducts.push({
+      const data = doc.data()
+      products.push({
         id: doc.id,
-        ...doc.data(),
-      })
+        ...data,
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate() || new Date(),
+      } as Product)
     })
 
-    return deletedProducts
-  } catch (error: any) {
-    console.error("Error fetching deleted products:", error)
-    throw new Error("Failed to fetch deleted products")
+    return products
+  } catch (error) {
+    console.error("Error getting featured products:", error)
+    throw new Error("Failed to get featured products")
+  }
+}
+
+export async function getProductsByCategory(category: string, limit = 10): Promise<Product[]> {
+  try {
+    const q = query(
+      collection(db, "products"),
+      where("category", "==", category),
+      where("status", "==", ProductStatus.Published),
+      orderBy("createdAt", "desc"),
+      limit(limit),
+    )
+
+    const querySnapshot = await getDocs(q)
+    const products: Product[] = []
+
+    querySnapshot.forEach((doc) => {
+      const data = doc.data()
+      products.push({
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate() || new Date(),
+      } as Product)
+    })
+
+    return products
+  } catch (error) {
+    console.error("Error getting products by category:", error)
+    throw new Error("Failed to get products by category")
   }
 }

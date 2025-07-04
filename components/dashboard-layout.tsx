@@ -11,7 +11,7 @@ import FirestoreDebugPanel from "./firestore-debug-panel"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Home, Package, ShoppingCart, Users, Bell, MessageSquare, ChevronDown, LogOut, X } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { signOut } from "@/lib/auth"
 
 interface DashboardLayoutProps {
@@ -20,11 +20,12 @@ interface DashboardLayoutProps {
   userName?: string
 }
 
-export default function DashboardLayout({ children, activeItem = "home", userName = "" }: DashboardLayoutProps) {
+export default function DashboardLayout({ children, activeItem, userName = "" }: DashboardLayoutProps) {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const router = useRouter()
+  const pathname = usePathname()
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [displayName, setDisplayName] = useState(userName)
   const [userData, setUserData] = useState<any>(null)
@@ -36,6 +37,20 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
     { id: "orders", label: "Orders", icon: ShoppingCart, href: "/dashboard/orders" },
     { id: "account", label: "Account", icon: Users, href: "/dashboard/account" },
   ]
+
+  // Determine active item based on current pathname if not explicitly provided
+  const getActiveItem = () => {
+    if (activeItem) return activeItem
+
+    if (pathname === "/dashboard") return "home"
+    if (pathname.startsWith("/dashboard/products")) return "inventory"
+    if (pathname.startsWith("/dashboard/orders")) return "orders"
+    if (pathname.startsWith("/dashboard/account")) return "account"
+
+    return "home" // default fallback
+  }
+
+  const currentActiveItem = getActiveItem()
 
   const handleNavigation = (href: string) => {
     router.push(href)
@@ -167,7 +182,6 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
                     currentUser?.photoURL ||
                     "/placeholder.svg?height=32&width=32&query=user profile" ||
                     "/placeholder.svg" ||
-                    "/placeholder.svg" ||
                     "/placeholder.svg"
                   }
                   alt="Profile"
@@ -217,7 +231,7 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
             <nav className="space-y-2">
               {menuItems.map((item) => {
                 const Icon = item.icon
-                const isActive = activeItem === item.id
+                const isActive = currentActiveItem === item.id
 
                 return (
                   <Button
@@ -238,7 +252,7 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
         </aside>
 
         {/* Main Content Area */}
-        <main className="flex-1 pt-3 pb-20 md:pb-6 overflow-y-auto text-center lg:ml-64 ml-2 mr-2 lg:mr-2.5 md:ml-36 md:pt-2.5">
+        <main className="flex-1 pt-3 pb-20 md:pb-6 overflow-y-auto text-center mr-2 lg:mr-2.5 md:pt-2.5 ml-2 md:ml-[144px]">
           <div className="max-w-full">{children}</div>
 
           {/* Firestore Debug Panel - only in development */}
@@ -251,13 +265,13 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
         <div className="flex justify-around items-center max-w-md mx-auto">
           {menuItems.map((item) => {
             const Icon = item.icon
-            const isActive = activeItem === item.id
+            const isActive = currentActiveItem === item.id
 
             return (
               <button
                 key={item.id}
                 onClick={() => handleNavigation(item.href)}
-                className={`flex flex-col items-center space-y-1 p-2 rounded-lg transition-colors text-gray-600 hover:text-red-500 hover:bg-gray-50 ${
+                className={`flex flex-col items-center space-y-1 p-2 rounded-lg transition-colors ${
                   isActive ? "text-red-500 bg-red-50" : "text-gray-600 hover:text-red-500 hover:bg-gray-50"
                 }`}
               >
@@ -268,6 +282,7 @@ export default function DashboardLayout({ children, activeItem = "home", userNam
           })}
         </div>
       </nav>
+
       {/* Logout Confirmation Modal */}
       {showLogoutModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">

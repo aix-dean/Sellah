@@ -10,7 +10,7 @@ interface OrdersUnpaidTabProps {
   orders: any[]
   loading: boolean
   error: string | null
-  onViewPaymentProof: (order: any) => void    
+  onViewPaymentProof: (order: any) => void
   onApprove: (order: any) => void
   onReject: (order: any) => void
   onViewOrder: (orderId: string) => void
@@ -36,7 +36,6 @@ export function OrdersUnpaidTab({
   const [selectedOrder, setSelectedOrder] = useState<any>(null)
   const [showOrderModal, setShowOrderModal] = useState(false)
 
-
   const getStatusBadge = (order: any) => {
     if (order.approve_payment === false) {
       return (
@@ -61,8 +60,6 @@ export function OrdersUnpaidTab({
     setSelectedOrder(order)
     setShowOrderModal(true)
   }
-
-
 
   if (loading) {
     return (
@@ -172,7 +169,6 @@ export function OrdersUnpaidTab({
                         <Button
                           size="sm"
                           onClick={() => onApprove(order)}
-                          disabled={!order.approve_payment}
                           className="bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105"
                         >
                           <CheckCircle className="h-4 w-4 mr-1" />
