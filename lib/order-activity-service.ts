@@ -1,55 +1,49 @@
-import { collection, addDoc, query, where, getDocs, Timestamp, orderBy, doc, writeBatch } from "firebase/firestore"
+import {
+  collection,
+  doc,
+  addDoc,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  serverTimestamp,
+  updateDoc,
+  Timestamp,
+  writeBatch,
+  limit,
+} from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
 export interface OrderActivity {
   id?: string
-  order_id: string
-  user_id: string
-  activity_type:
-    | "order_created"
-    | "status_change"
-    | "payment_update"
-    | "shipping_update"
-    | "note_added"
-    | "order_updated"
-    | "item_added"
-    | "item_removed"
-    | "address_updated"
-    | "refund_processed"
-    | "cancellation_requested"
-  old_value?: string
-  new_value: string
+  orderId: string
+  type: "status_change" | "note" | "payment" | "shipping" | "refund" | "cancellation" | "other"
   description: string
-  timestamp: Timestamp // Using Firestore Timestamp type
+  details?: Record<string, any>
+  userId: string
+  userName?: string
+  timestamp: any
   metadata?: {
-    ip_address?: string
-    user_agent?: string
-    location?: string
-    user_name?: string
-    order_number?: string
-    total_amount?: number
-    item_count?: number
-    customer_name?: string
-    tracking_number?: string
-    payment_method?: string
-    refund_amount?: number
-    cancellation_reason?: string
-    created_at?: Timestamp // Using Firestore Timestamp type
-    [key: string]: any
+    previousStatus?: string
+    newStatus?: string
+    amount?: number
+    paymentMethod?: string
+    trackingNumber?: string
+    reason?: string
   }
 }
 
 export interface OrderLifecycleEvent {
   status: string
-  timestamp: Timestamp // Using Firestore Timestamp type
+  timestamp: Timestamp
   description: string
-  user_id: string
+  userId: string
   user_name: string
   metadata?: Record<string, any>
 }
 
 class OrderActivityService {
-  private collectionName = "order_activity"
+  private collectionName = "order_activities"
   private initialized = false
 
   // Helper function to ensure we have a Firestore Timestamp
@@ -59,7 +53,6 @@ class OrderActivityService {
     }
 
     if (value && typeof value.toDate === "function") {
-      // Already a Firestore Timestamp-like object
       return value as Timestamp
     }
 
@@ -68,16 +61,13 @@ class OrderActivityService {
     }
 
     if (typeof value === "number") {
-      // Convert Unix timestamp (seconds since epoch) to Timestamp
       return Timestamp.fromMillis(value * 1000)
     }
 
     if (typeof value === "string") {
-      // Parse date string to Timestamp
       return Timestamp.fromDate(new Date(value))
     }
 
-    // Default to current time
     return Timestamp.now()
   }
 
@@ -86,8 +76,7 @@ class OrderActivityService {
     if (this.initialized) return
 
     try {
-      // Check if collection exists by trying to read from it
-      const testQuery = query(collection(db, this.collectionName), where("order_id", "==", "test"))
+      const testQuery = query(collection(db, this.collectionName), where("orderId", "==", "test"))
       await getDocs(testQuery)
 
       this.initialized = true
@@ -95,119 +84,58 @@ class OrderActivityService {
     } catch (error) {
       console.log("Initializing order activity collection...")
 
-      // Create a sample document to initialize the collection
-      const sampleActivity: Omit<OrderActivity, "id"> = {
-        order_id: "INIT_SAMPLE",
-        user_id: "system",
-        activity_type: "order_created",
-        new_value: "initialized",
+      const sampleActivity: Omit<OrderActivity, "id" | "timestamp"> = {
+        orderId: "INIT_SAMPLE",
+        type: "other",
         description: "Order activity collection initialized",
-        timestamp: Timestamp.now(),
+        details: {},
+        userId: "system",
         metadata: {
           user_name: "System",
           initialization: true,
-          created_at: Timestamp.now(),
         },
       }
 
-      await addDoc(collection(db, this.collectionName), sampleActivity)
+      await addDoc(collection(db, this.collectionName), {
+        ...sampleActivity,
+        timestamp: serverTimestamp(),
+      })
       this.initialized = true
       console.log("Order activity collection created successfully")
     }
   }
 
   // Create a new order activity record
-  async createActivity(activity: Omit<OrderActivity, "id" | "timestamp">): Promise<OrderActivity> {
-    await this.initializeCollection()
-
-    try {
-      const now = Timestamp.now()
-
-      const activityData: Omit<OrderActivity, "id"> = {
-        ...activity,
-        timestamp: now,
-        metadata: {
-          ...activity.metadata,
-          created_at: now,
-          source: "order_activity_service",
-        },
-      }
-
-      const docRef = await addDoc(collection(db, this.collectionName), activityData)
-      const createdActivity = { id: docRef.id, ...activityData }
-
-      console.log(`Created activity: ${activity.activity_type} for order ${activity.order_id}`)
-      return createdActivity
-    } catch (error) {
-      console.error("Error creating order activity:", error)
-      throw new Error(`Failed to create order activity: ${error}`)
-    }
-  }
-
-  // Get all activities for a specific order
-  async getOrderActivities(orderId: string): Promise<OrderActivity[]> {
+  async createActivity(activity: Omit<OrderActivity, "id" | "timestamp">): Promise<string> {
     await this.initializeCollection()
 
     try {
       const activitiesRef = collection(db, this.collectionName)
+      const docRef = await addDoc(activitiesRef, {
+        ...activity,
+        timestamp: serverTimestamp(),
+      })
+      console.log(`Created activity: ${activity.type} for order ${activity.orderId}`)
+      return docRef.id
+    } catch (error) {
+      console.error("Error creating order activity:", error)
+      throw error
+    }
+  }
 
-      // Try to use orderBy first
-      try {
-        const q = query(activitiesRef, where("order_id", "==", orderId), orderBy("timestamp", "desc"))
+  // Get all activities for a specific order
+  async getOrderActivities(orderId: string, limitCount = 50): Promise<OrderActivity[]> {
+    await this.initializeCollection()
 
-        const querySnapshot = await getDocs(q)
-        const activities: OrderActivity[] = []
+    try {
+      const activitiesRef = collection(db, this.collectionName)
+      const q = query(activitiesRef, where("orderId", "==", orderId), orderBy("timestamp", "desc"), limit(limitCount))
 
-        querySnapshot.forEach((doc) => {
-          const data = doc.data()
-          // Filter out initialization sample
-          if (data.order_id !== "INIT_SAMPLE") {
-            // Ensure timestamp is a Firestore Timestamp
-            const activity = {
-              id: doc.id,
-              ...data,
-              timestamp: this.ensureTimestamp(data.timestamp),
-              metadata: {
-                ...data.metadata,
-                created_at: data.metadata?.created_at ? this.ensureTimestamp(data.metadata.created_at) : undefined,
-              },
-            } as OrderActivity
-            activities.push(activity)
-          }
-        })
-
-        return activities
-      } catch (orderByError) {
-        // Fallback to client-side sorting if orderBy fails
-        console.log("Using client-side sorting for activities")
-
-        const q = query(activitiesRef, where("order_id", "==", orderId))
-        const querySnapshot = await getDocs(q)
-        const activities: OrderActivity[] = []
-
-        querySnapshot.forEach((doc) => {
-          const data = doc.data()
-          if (data.order_id !== "INIT_SAMPLE") {
-            const activity = {
-              id: doc.id,
-              ...data,
-              timestamp: this.ensureTimestamp(data.timestamp),
-              metadata: {
-                ...data.metadata,
-                created_at: data.metadata?.created_at ? this.ensureTimestamp(data.metadata.created_at) : undefined,
-              },
-            } as OrderActivity
-            activities.push(activity)
-          }
-        })
-
-        // Sort by timestamp (newest first)
-        activities.sort((a, b) => {
-          return b.timestamp.toMillis() - a.timestamp.toMillis()
-        })
-
-        return activities
-      }
+      const querySnapshot = await getDocs(q)
+      return querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as OrderActivity[]
     } catch (error) {
       console.error("Error fetching order activities:", error)
       return []
@@ -215,31 +143,24 @@ class OrderActivityService {
   }
 
   // Get activities by type
-  async getActivitiesByType(orderId: string, activityType: OrderActivity["activity_type"]): Promise<OrderActivity[]> {
+  async getActivitiesByType(orderId: string, activityType: string, limitCount = 50): Promise<OrderActivity[]> {
     await this.initializeCollection()
 
     try {
       const activitiesRef = collection(db, this.collectionName)
-      const q = query(activitiesRef, where("order_id", "==", orderId), where("activity_type", "==", activityType))
+      const q = query(
+        activitiesRef,
+        where("orderId", "==", orderId),
+        where("type", "==", activityType),
+        orderBy("timestamp", "desc"),
+        limit(limitCount),
+      )
 
       const querySnapshot = await getDocs(q)
-      const activities: OrderActivity[] = []
-
-      querySnapshot.forEach((doc) => {
-        const data = doc.data()
-        const activity = {
-          id: doc.id,
-          ...data,
-          timestamp: this.ensureTimestamp(data.timestamp),
-          metadata: {
-            ...data.metadata,
-            created_at: data.metadata?.created_at ? this.ensureTimestamp(data.metadata.created_at) : undefined,
-          },
-        } as OrderActivity
-        activities.push(activity)
-      })
-
-      return activities.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis())
+      return querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as OrderActivity[]
     } catch (error) {
       console.error("Error fetching activities by type:", error)
       return []
@@ -247,20 +168,42 @@ class OrderActivityService {
   }
 
   // Create order lifecycle tracking
-  async trackOrderLifecycle(orderId: string, event: OrderLifecycleEvent): Promise<void> {
-    await this.createActivity({
-      order_id: orderId,
-      user_id: event.user_id,
-      activity_type: "status_change",
-      old_value: event.metadata?.old_status,
-      new_value: event.status,
-      description: event.description,
-      metadata: {
-        user_name: event.user_name,
-        lifecycle_event: true,
-        ...event.metadata,
-      },
-    })
+  async trackOrderLifecycle(orderId: string, event: OrderLifecycleEvent): Promise<string> {
+    await this.initializeCollection()
+
+    try {
+      const activitiesRef = collection(db, this.collectionName)
+      const docRef = await addDoc(activitiesRef, {
+        orderId: orderId,
+        type: "status_change",
+        description: event.description,
+        details: {
+          old_status: event.metadata?.old_status,
+          new_status: event.status,
+        },
+        userId: event.userId,
+        userName: event.user_name,
+        timestamp: serverTimestamp(),
+        metadata: {
+          user_name: event.user_name,
+          lifecycle_event: true,
+          ...event.metadata,
+        },
+      })
+
+      // Update the order's last activity timestamp
+      const orderRef = doc(db, "orders", orderId)
+      await updateDoc(orderRef, {
+        lastActivityAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      })
+
+      console.log(`Tracked lifecycle event: ${event.status} for order ${orderId}`)
+      return docRef.id
+    } catch (error) {
+      console.error("Error tracking order lifecycle:", error)
+      throw error
+    }
   }
 
   // Batch create activities for order initialization
@@ -270,51 +213,54 @@ class OrderActivityService {
     const batch = writeBatch(db)
     const activitiesRef = collection(db, this.collectionName)
 
-    // Convert order creation timestamp to Firestore Timestamp
     const creationTimestamp = this.ensureTimestamp(orderData.created_at)
 
-    // Create order creation activity
-    const creationActivity: Omit<OrderActivity, "id"> = {
-      order_id: orderId,
-      user_id: userId,
-      activity_type: "order_created",
-      new_value: orderData.status || "pending",
+    const creationActivity: Omit<OrderActivity, "id" | "timestamp"> = {
+      orderId: orderId,
+      type: "other",
       description: `Order #${orderData.order_number} created with ${orderData.items?.length || 0} item(s)`,
-      timestamp: creationTimestamp,
-      metadata: {
+      details: {
+        status: orderData.status || "pending",
         order_number: orderData.order_number,
         total_amount: orderData.total_amount,
         item_count: orderData.items?.length || 0,
         customer_name: orderData.customer_name,
         payment_method: orderData.payment_method,
-        user_name: "System",
+      },
+      userId: userId,
+      userName: "System",
+      metadata: {
         initialization: true,
-        created_at: creationTimestamp,
       },
     }
 
     const creationDocRef = doc(activitiesRef)
-    batch.set(creationDocRef, creationActivity)
+    batch.set(creationDocRef, {
+      ...creationActivity,
+      timestamp: creationTimestamp,
+    })
 
-    // Create initial status activity if different from creation
     if (orderData.status && orderData.status !== "pending") {
-      const statusActivity: Omit<OrderActivity, "id"> = {
-        order_id: orderId,
-        user_id: userId,
-        activity_type: "status_change",
-        old_value: "pending",
-        new_value: orderData.status,
+      const statusActivity: Omit<OrderActivity, "id" | "timestamp"> = {
+        orderId: orderId,
+        type: "status_change",
         description: `Order status set to ${orderData.status}`,
-        timestamp: creationTimestamp,
+        details: {
+          old_status: "pending",
+          new_status: orderData.status,
+        },
+        userId: userId,
+        userName: "System",
         metadata: {
-          user_name: "System",
           initialization: true,
-          created_at: creationTimestamp,
         },
       }
 
       const statusDocRef = doc(activitiesRef)
-      batch.set(statusDocRef, statusActivity)
+      batch.set(statusDocRef, {
+        ...statusActivity,
+        timestamp: creationTimestamp,
+      })
     }
 
     await batch.commit()
@@ -323,24 +269,123 @@ class OrderActivityService {
 
   // Get order lifecycle summary
   async getOrderLifecycleSummary(orderId: string): Promise<{
-    created_at: Date | null
-    current_status: string | null
-    status_changes: number
-    total_activities: number
-    last_activity: Date | null
+    createdAt: Date | null
+    currentStatus: string | null
+    statusChanges: number
+    totalActivities: number
+    lastActivity: Date | null
   }> {
     const activities = await this.getOrderActivities(orderId)
 
-    const creationActivity = activities.find((a) => a.activity_type === "order_created")
-    const statusChanges = activities.filter((a) => a.activity_type === "status_change")
+    const creationActivity = activities.find((a) => a.type === "other")
+    const statusChanges = activities.filter((a) => a.type === "status_change")
     const lastActivity = activities.length > 0 ? activities[0] : null
 
     return {
-      created_at: creationActivity?.timestamp?.toDate() || null,
-      current_status: statusChanges.length > 0 ? statusChanges[0].new_value : null,
-      status_changes: statusChanges.length,
-      total_activities: activities.length,
-      last_activity: lastActivity?.timestamp?.toDate() || null,
+      createdAt: creationActivity?.timestamp?.toDate() || null,
+      currentStatus: statusChanges.length > 0 ? statusChanges[0].details?.new_status : null,
+      statusChanges: statusChanges.length,
+      totalActivities: activities.length,
+      lastActivity: lastActivity?.timestamp?.toDate() || null,
+    }
+  }
+
+  // Get all activities for a specific user
+  async getUserActivities(userId: string, limitCount = 50): Promise<OrderActivity[]> {
+    await this.initializeCollection()
+
+    try {
+      const activitiesRef = collection(db, this.collectionName)
+      const q = query(activitiesRef, where("userId", "==", userId), orderBy("timestamp", "desc"), limit(limitCount))
+
+      const querySnapshot = await getDocs(q)
+      return querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as OrderActivity[]
+    } catch (error) {
+      console.error("Error fetching user activities:", error)
+      return []
+    }
+  }
+
+  // Get activities for multiple orders
+  async getOrdersActivities(orderIds: string[], limitCount = 100): Promise<Record<string, OrderActivity[]>> {
+    try {
+      if (orderIds.length === 0) return {}
+
+      const q = query(
+        collection(db, this.collectionName),
+        where("orderId", "in", orderIds),
+        orderBy("timestamp", "desc"),
+        limit(limitCount),
+      )
+
+      const querySnapshot = await getDocs(q)
+      const activitiesByOrder: Record<string, OrderActivity[]> = {}
+
+      // Initialize empty arrays for each order
+      orderIds.forEach((orderId) => {
+        activitiesByOrder[orderId] = []
+      })
+
+      querySnapshot.forEach((doc) => {
+        const activity = {
+          id: doc.id,
+          ...doc.data(),
+        } as OrderActivity
+
+        if (activitiesByOrder[activity.orderId]) {
+          activitiesByOrder[activity.orderId].push(activity)
+        }
+      })
+
+      return activitiesByOrder
+    } catch (error) {
+      console.error("Error getting orders activities:", error)
+      throw error
+    }
+  }
+
+  // Update activity (for corrections or additional details)
+  async updateOrderActivity(activityId: string, updates: Partial<OrderActivity>): Promise<void> {
+    try {
+      const activityRef = doc(db, this.collectionName, activityId)
+      await updateDoc(activityRef, {
+        ...updates,
+        updatedAt: serverTimestamp(),
+      })
+
+      console.log("Order activity updated:", activityId)
+    } catch (error) {
+      console.error("Error updating order activity:", error)
+      throw error
+    }
+  }
+
+  // Get activity statistics for an order
+  async getOrderActivityStats(orderId: string): Promise<{
+    totalActivities: number
+    statusChanges: number
+    payments: number
+    notes: number
+    lastActivity?: OrderActivity
+  }> {
+    try {
+      const activities = await this.getOrderActivities(orderId, 100)
+
+      const stats = {
+        totalActivities: activities.length,
+        statusChanges: activities.filter((a) => a.type === "status_change").length,
+        payments: activities.filter((a) => a.type === "payment").length,
+        notes: activities.filter((a) => a.type === "note").length,
+        lastActivity: activities[0], // Most recent activity
+      }
+
+      return stats
+    } catch (error) {
+      console.error("Error getting order activity stats:", error)
+      throw error
     }
   }
 }
@@ -349,55 +394,43 @@ class OrderActivityService {
 export const orderActivityService = new OrderActivityService()
 
 // Helper functions for activity types
-export const getActivityIcon = (activityType: OrderActivity["activity_type"]): string => {
+export const getActivityIcon = (activityType: string): string => {
   const icons = {
-    order_created: "🆕",
+    other: "🆕",
     status_change: "📋",
-    payment_update: "💳",
-    shipping_update: "🚚",
-    note_added: "📝",
-    order_updated: "✏️",
-    item_added: "��",
-    item_removed: "➖",
-    address_updated: "📍",
-    refund_processed: "💰",
-    cancellation_requested: "❌",
+    payment: "💳",
+    shipping: "🚚",
+    refund: "💰",
+    cancellation: "🚫",
+    note: "📝",
   }
   return icons[activityType] || "📌"
 }
 
-export const getActivityColor = (activityType: OrderActivity["activity_type"]): string => {
+export const getActivityColor = (activityType: string): string => {
   const colors = {
-    order_created: "bg-blue-100 text-blue-800",
+    other: "bg-gray-100 text-gray-800",
     status_change: "bg-purple-100 text-purple-800",
-    payment_update: "bg-green-100 text-green-800",
-    shipping_update: "bg-orange-100 text-orange-800",
-    note_added: "bg-gray-100 text-gray-800",
-    order_updated: "bg-yellow-100 text-yellow-800",
-    item_added: "bg-emerald-100 text-emerald-800",
-    item_removed: "bg-red-100 text-red-800",
-    address_updated: "bg-indigo-100 text-indigo-800",
-    refund_processed: "bg-green-100 text-green-800",
-    cancellation_requested: "bg-red-100 text-red-800",
+    payment: "bg-green-100 text-green-800",
+    shipping: "bg-orange-100 text-orange-800",
+    refund: "bg-green-100 text-green-800",
+    cancellation: "bg-red-100 text-red-800",
+    note: "bg-gray-100 text-gray-800",
   }
   return colors[activityType] || "bg-gray-100 text-gray-800"
 }
 
-export const getActivityPriority = (activityType: OrderActivity["activity_type"]): number => {
+export const getActivityPriority = (activityType: string): number => {
   const priorities = {
-    order_created: 1,
+    other: 1,
     status_change: 2,
-    payment_update: 3,
-    shipping_update: 4,
-    cancellation_requested: 5,
-    refund_processed: 6,
-    order_updated: 7,
-    item_added: 8,
-    item_removed: 8,
-    address_updated: 9,
-    note_added: 10,
+    payment: 3,
+    shipping: 4,
+    refund: 5,
+    cancellation: 6,
+    note: 7,
   }
-  return priorities[activityType] || 10
+  return priorities[activityType] || 7
 }
 
 // Utility functions for timestamp conversion
@@ -449,4 +482,260 @@ export const getStatusBadgeColor = (status: string): string => {
 
   const normalizedStatus = status?.toLowerCase() || ""
   return statusColors[normalizedStatus as keyof typeof statusColors] || "bg-gray-100 text-gray-800 border-gray-200"
+}
+
+// Log status change activity
+export async function logOrderStatusChange(
+  orderId: string,
+  previousStatus: string,
+  newStatus: string,
+  userId: string,
+  userName?: string,
+  reason?: string,
+): Promise<string> {
+  const description = `Order status changed from ${previousStatus} to ${newStatus}`
+  const details = {
+    previousStatus,
+    newStatus,
+    reason: reason || "Status updated",
+  }
+
+  return orderActivityService.createActivity({
+    orderId,
+    type: "status_change",
+    description,
+    details,
+    userId,
+    userName,
+    metadata: {
+      previousStatus,
+      newStatus,
+      reason,
+    },
+  })
+}
+
+// Log payment activity
+export async function logPaymentReceived(
+  orderId: string,
+  amount: number,
+  paymentMethod: string,
+  userId: string,
+  userName?: string,
+  transactionId?: string,
+): Promise<string> {
+  const description = `Payment of $${amount.toFixed(2)} received via ${paymentMethod}`
+  const details = {
+    amount,
+    paymentMethod,
+    transactionId: transactionId || "",
+  }
+
+  return orderActivityService.createActivity({
+    orderId,
+    type: "payment",
+    description,
+    details,
+    userId,
+    userName,
+    metadata: {
+      amount,
+      paymentMethod,
+      transactionId,
+    },
+  })
+}
+
+// Log shipping activity
+export async function logItemShipped(
+  orderId: string,
+  trackingNumber: string,
+  carrier: string,
+  userId: string,
+  userName?: string,
+): Promise<string> {
+  const description = `Order shipped via ${carrier} (Tracking: ${trackingNumber})`
+  const details = {
+    trackingNumber,
+    carrier,
+    shippedAt: new Date().toISOString(),
+  }
+
+  return orderActivityService.createActivity({
+    orderId,
+    type: "shipping",
+    description,
+    details,
+    userId,
+    userName,
+    metadata: {
+      trackingNumber,
+      carrier,
+    },
+  })
+}
+
+// Log delivery activity
+export async function logItemDelivered(
+  orderId: string,
+  userId: string,
+  userName?: string,
+  deliveryNotes?: string,
+): Promise<string> {
+  const description = "Order delivered successfully"
+  const details = {
+    deliveredAt: new Date().toISOString(),
+    deliveryNotes: deliveryNotes || "",
+  }
+
+  return orderActivityService.createActivity({
+    orderId,
+    type: "shipping",
+    description,
+    details,
+    userId,
+    userName,
+    metadata: {
+      deliveryNotes,
+    },
+  })
+}
+
+// Log refund activity
+export async function logRefundIssued(
+  orderId: string,
+  amount: number,
+  reason: string,
+  userId: string,
+  userName?: string,
+  refundMethod?: string,
+): Promise<string> {
+  const description = `Refund of $${amount.toFixed(2)} issued - ${reason}`
+  const details = {
+    amount,
+    reason,
+    refundMethod: refundMethod || "Original payment method",
+    refundedAt: new Date().toISOString(),
+  }
+
+  return orderActivityService.createActivity({
+    orderId,
+    type: "refund",
+    description,
+    details,
+    userId,
+    userName,
+    metadata: {
+      amount,
+      reason,
+      refundMethod,
+    },
+  })
+}
+
+// Log cancellation activity
+export async function logOrderCancellation(
+  orderId: string,
+  reason: string,
+  userId: string,
+  userName?: string,
+  refundAmount?: number,
+): Promise<string> {
+  const description = `Order cancelled - ${reason}`
+  const details = {
+    reason,
+    cancelledAt: new Date().toISOString(),
+    refundAmount: refundAmount || 0,
+  }
+
+  return orderActivityService.createActivity({
+    orderId,
+    type: "cancellation",
+    description,
+    details,
+    userId,
+    userName,
+    metadata: {
+      reason,
+      refundAmount,
+    },
+  })
+}
+
+// Log note activity
+export async function logOrderNote(
+  orderId: string,
+  note: string,
+  userId: string,
+  userName?: string,
+  isInternal = false,
+): Promise<string> {
+  const description = isInternal ? `Internal note: ${note}` : `Note: ${note}`
+  const details = {
+    note,
+    isInternal,
+  }
+
+  return orderActivityService.createActivity({
+    orderId,
+    type: "note",
+    description,
+    details,
+    userId,
+    userName,
+    metadata: {
+      note,
+      isInternal,
+    },
+  })
+}
+
+// Get recent activities across all orders for a user
+export async function getRecentOrderActivities(userId: string, limitCount = 20): Promise<OrderActivity[]> {
+  try {
+    const q = query(
+      collection(db, "order_activities"),
+      where("userId", "==", userId),
+      orderBy("timestamp", "desc"),
+      limit(limitCount),
+    )
+
+    const querySnapshot = await getDocs(q)
+    const activities: OrderActivity[] = []
+
+    querySnapshot.forEach((doc) => {
+      activities.push({
+        id: doc.id,
+        ...doc.data(),
+      } as OrderActivity)
+    })
+
+    return activities
+  } catch (error) {
+    console.error("Error getting recent order activities:", error)
+    throw error
+  }
+}
+
+// Bulk add activities (for migrations or batch operations)
+export async function bulkAddOrderActivities(activities: Omit<OrderActivity, "id" | "timestamp">[]): Promise<string[]> {
+  try {
+    const addedIds: string[] = []
+
+    for (const activity of activities) {
+      const activityWithTimestamp = {
+        ...activity,
+        timestamp: serverTimestamp(),
+      }
+
+      const docRef = await addDoc(collection(db, "order_activities"), activityWithTimestamp)
+      addedIds.push(docRef.id)
+    }
+
+    console.log(`Bulk added ${addedIds.length} order activities`)
+    return addedIds
+  } catch (error) {
+    console.error("Error bulk adding order activities:", error)
+    throw error
+  }
 }

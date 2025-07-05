@@ -113,7 +113,7 @@ export function OrdersCancelledTab({
                       <div>
                         <button
                           onClick={() => handleOrderClick(order)}
-                          className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                          className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-left"
                         >
                           {order.order_number}
                         </button>

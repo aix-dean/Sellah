@@ -6,26 +6,13 @@ import { doc, getDoc, updateDoc, arrayUnion, Timestamp } from "firebase/firestor
 import { db } from "@/lib/firebase"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
+import { Card, CardContent } from "@/components/ui/card"
 import {
   ArrowLeft,
-  Package,
-  User,
-  MapPin,
-  CreditCard,
-  Truck,
-  Phone,
-  Mail,
   CheckCircle,
-  X,
   Edit3,
   Loader2,
-  Calendar,
-  Receipt,
   AlertCircle,
-  Copy,
-  ExternalLink,
   RefreshCw,
   Tag,
   Palette,
@@ -35,13 +22,10 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { toast } from "@/hooks/use-toast"
 import { useUserData } from "@/hooks/use-user-data"
-import { createOrderActivity } from "@/lib/order-activity"
 import DashboardLayout from "./dashboard-layout"
-import OrderActivityModal from "./order-activity-modal"
-import { PaymentProofModal } from "./payment-proof-modal"
-import { OrderApprovalDialog } from "./order-approval-dialog"
-import { OrderRejectionDialog } from "./order-rejection-dialog"
 import { updateOrderStatusWithStockManagement } from "@/lib/order-status-handler"
+import { useAuth } from "@/hooks/use-auth"
+import { OrderDetailsPage } from "./order-details-page"
 
 interface OrderDetailsPageWrapperProps {
   orderId: string
@@ -54,7 +38,7 @@ interface OrderItem {
   unit_price: number
   total_price: number
   specifications?: any
-  product_image?: string // Changed from image_url to product_image
+  product_image?: string
   sku?: string
   variation_data?: {
     color?: string
@@ -74,14 +58,14 @@ interface OrderItem {
 }
 
 interface ShippingAddress {
-  recipient_name: string
-  street: string
-  barangay?: string
-  city: string
-  province: string
-  postal_code: string
+  recipient_name?: string
+  phone_number?: string
+  street?: string
+  city?: string
+  province?: string
+  postal_code?: string
   country?: string
-  phone?: string
+  notes?: string
 }
 
 interface Order {
@@ -100,7 +84,7 @@ interface Order {
   total_amount: number
   payment_method: string
   payment_reference?: string
-  shipping_address: ShippingAddress
+  shipping_address?: ShippingAddress
   billing_address?: ShippingAddress
   delivery_method: string
   tracking_number?: string
@@ -133,6 +117,35 @@ interface Order {
   refund_status?: string
 }
 
+interface OrderData {
+  id: string
+  order_number: string
+  customer_name?: string
+  customer_phone?: string
+  customer_email?: string
+  shipping_address?: ShippingAddress | null
+  status: string
+  total_amount: number
+  created_at: any
+  updated_at: any
+  items: any[]
+  payment_method?: string
+  payment_status?: string
+  tracking_number?: string
+  courier?: string
+  notes?: string
+  cancellation_reason?: string
+  cancelled_at?: any
+  cancelled_by?: string
+}
+
+// Helper function to safely mask strings
+const maskString = (str: string | undefined | null, visibleChars = 3): string => {
+  if (!str || typeof str !== "string") return "***"
+  if (str.length <= visibleChars) return str
+  return str.substring(0, visibleChars) + "*".repeat(Math.max(0, str.length - visibleChars))
+}
+
 export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWrapperProps) {
   const router = useRouter()
   const { currentUser } = useUserData()
@@ -143,6 +156,7 @@ export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWra
   const [newNote, setNewNote] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
+  const { user } = useAuth()
 
   const [approvalDialog, setApprovalDialog] = useState<{ open: boolean; order: any }>({ open: false, order: null })
   const [rejectionDialog, setRejectionDialog] = useState<{ open: boolean; order: any }>({ open: false, order: null })
@@ -195,8 +209,29 @@ export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWra
   }, [orderId])
 
   useEffect(() => {
+    const fetchOrder = async () => {
+      if (!user || !orderId) return
+
+      try {
+        setLoading(true)
+        const orderDoc = await getDoc(doc(db, "orders", orderId))
+
+        if (orderDoc.exists()) {
+          const orderData = { id: orderDoc.id, ...orderDoc.data() } as OrderData
+          setOrder(orderData as any)
+        } else {
+          setError("Order not found")
+        }
+      } catch (err) {
+        console.error("Error fetching order:", err)
+        setError("Failed to load order details")
+      } finally {
+        setLoading(false)
+      }
+    }
+
     fetchOrder()
-  }, [fetchOrder, retryCount])
+  }, [user, orderId])
 
   const handleRetry = () => {
     setRetryCount((prev) => prev + 1)
@@ -239,46 +274,11 @@ export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWra
         await updateDoc(orderRef, {
           payment_status: "paid",
         })
-
-        // Create payment update activity
-        await createOrderActivity({
-          order_id: orderId,
-          user_id: currentUser.uid,
-          activity_type: "payment_update",
-          old_value: order.payment_status,
-          new_value: "paid",
-          description: `Payment status updated to paid due to order ${newStatus}`,
-          metadata: {
-            user_name: currentUser.displayName || currentUser.email,
-            order_number: order.order_number,
-            total_amount: order.total_amount,
-            customer_name: order.customer_name,
-            payment_method: order.payment_method,
-            status_change: newStatus,
-          },
-        })
       } else if (newStatus === "cancelled") {
         await updateDoc(orderRef, {
           payment_status: "cancelled",
           cancelled_at: Timestamp.now(),
           cancelled_by: currentUser.uid,
-        })
-
-        // Create payment update activity
-        await createOrderActivity({
-          order_id: orderId,
-          user_id: currentUser.uid,
-          activity_type: "payment_update",
-          old_value: order.payment_status,
-          new_value: "cancelled",
-          description: `Payment status updated to cancelled due to order cancellation`,
-          metadata: {
-            user_name: currentUser.displayName || currentUser.email,
-            order_number: order.order_number,
-            total_amount: order.total_amount,
-            customer_name: order.customer_name,
-            payment_method: order.payment_method,
-          },
         })
       }
 
@@ -337,23 +337,6 @@ export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWra
           user_name: currentUser.displayName || currentUser.email,
         }),
         updated_at: now,
-      })
-
-      // Create activity record
-      await createOrderActivity({
-        order_id: orderId,
-        user_id: currentUser.uid,
-        activity_type: "note_added",
-        new_value: newNote.trim(),
-        description: `Note added: ${newNote.trim().substring(0, 50)}${newNote.length > 50 ? "..." : ""}`,
-        metadata: {
-          user_name: currentUser.displayName || currentUser.email,
-          full_note: newNote.trim(),
-          note_length: newNote.trim().length,
-          order_number: order.order_number,
-          customer_name: order.customer_name,
-          timestamp_iso: new Date().toISOString(),
-        },
       })
 
       setNewNote("")
@@ -754,6 +737,15 @@ export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWra
     )
   }
 
+  // Helper function to mask sensitive information
+  const maskStringOld = (str: string, visibleStart = 1, visibleEnd = 1) => {
+    if (!str || str.length <= visibleStart + visibleEnd) return str
+    const start = str.substring(0, visibleStart)
+    const end = str.substring(str.length - visibleEnd)
+    const middle = "*".repeat(Math.max(6, str.length - visibleStart - visibleEnd))
+    return start + middle + end
+  }
+
   // Error State
   if (error) {
     return (
@@ -786,698 +778,106 @@ export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWra
   // Loading State
   if (loading) {
     return (
-      <DashboardLayout activeItem="orders">
-        <div className="min-h-screen bg-gray-50">
-          {/* Loading Header */}
-          <div className="bg-white border-b border-gray-200 px-4 py-6">
-            <div className="max-w-7xl mx-auto">
-              <div className="flex items-center space-x-4">
-                <div className="w-8 h-8 bg-gray-200 rounded animate-pulse"></div>
-                <div className="flex-1">
-                  <div className="h-6 bg-gray-200 rounded w-48 mb-2 animate-pulse"></div>
-                  <div className="h-4 bg-gray-200 rounded w-32 animate-pulse"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Loading Content */}
-          <div className="max-w-7xl mx-auto px-4 py-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-6">
-                {[1, 2, 3].map((i) => (
-                  <Card key={i}>
-                    <CardHeader>
-                      <div className="h-6 bg-gray-200 rounded w-48 animate-pulse"></div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
-                        <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse"></div>
-                        <div className="h-4 bg-gray-200 rounded w-1/2 animate-pulse"></div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-              <div className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <div className="h-6 bg-gray-200 rounded w-32 animate-pulse"></div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
-                      <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
-                      <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center space-y-4">
+          <Loader2 className="w-8 h-8 animate-spin text-red-500" />
+          <p className="text-gray-600">Loading order details...</p>
         </div>
-      </DashboardLayout>
+      </div>
     )
   }
 
-  if (!order) {
+  if (error || !order) {
     return (
-      <DashboardLayout activeItem="orders">
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-          <Card className="max-w-md w-full">
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Order Not Found</h3>
-                <p className="text-gray-600 mb-6">The requested order could not be found in our system.</p>
-                <Button onClick={() => router.push("/dashboard/orders")} className="w-full">
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Orders
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Order Not Found</h2>
+          <p className="text-gray-600">{error || "The requested order could not be found."}</p>
         </div>
-      </DashboardLayout>
+      </div>
     )
   }
 
-  return (
-    <DashboardLayout activeItem="orders">
-      <div className="min-h-screen bg-gray-50">
+  // For cancelled orders, show simplified layout with masked information
+  if (order.status === "cancelled") {
+    return (
+      <div className="max-w-4xl mx-auto p-6 space-y-6">
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 z-10">
-          <div className="max-w-7xl mx-auto px-4 py-4 sm:py-6">
-            {/* Mobile Header */}
-            <div className="md:hidden">
-              <div className="flex items-center space-x-3 mb-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => router.push("/dashboard/orders")}
-                  className="p-2"
-                  aria-label="Back to orders"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </Button>
-                <div className="flex-1 min-w-0">
-                  <h1 className="text-lg font-semibold text-gray-900 truncate">#{order.order_number}</h1>
-                  <p className="text-sm text-gray-500">{formatDate(order.created_at)}</p>
-                </div>
-
-                {/* Mobile Status Display */}
-                {getDynamicStatusDisplay()}
-              </div>
-            </div>
-
-            {/* Desktop Header */}
-            <div className="hidden md:block">
-              <div className="flex items-center space-x-4 mb-4">
-                <Button
-                  variant="outline"
-                  onClick={() => router.push("/dashboard/orders")}
-                  className="flex items-center space-x-2"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  <span>Back to Orders</span>
-                </Button>
-              </div>
-
-              <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Order #{order.order_number}</h1>
-                  </div>
-                  <div className="flex items-center space-x-4 text-sm text-gray-600">
-                    <div className="flex items-center space-x-1">
-                      <Calendar className="w-4 h-4" />
-                      <span>Placed on {formatDate(order.created_at)}</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Receipt className="w-4 h-4" />
-                      <span>
-                        {order.items.length} item{order.items.length !== 1 ? "s" : ""}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 lg:gap-4">
-                  <div className="flex flex-wrap gap-2">{getDynamicStatusDisplay()}</div>
-
-                  {/* Desktop Activity History Button */}
-                  <OrderActivityModal
-                    orderId={orderId}
-                    orderNumber={order.order_number}
-                    onStatusUpdate={(newStatus) => {
-                      setOrder({
-                        ...order,
-                        status: newStatus,
-                        updated_at: Timestamp.now(),
-                        payment_status:
-                          newStatus === "completed" || newStatus === "delivered"
-                            ? "paid"
-                            : newStatus === "cancelled"
-                              ? "cancelled"
-                              : order.payment_status,
-                      })
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+            <h1 className="text-xl font-bold text-red-800">Order Cancelled</h1>
           </div>
+          <p className="text-red-600 mt-1">This order has been cancelled and is no longer active.</p>
         </div>
-        {/* Main Content */}
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left Column - Order Details */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Customer Information */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <User className="w-5 h-5 text-gray-500" />
-                    <span>Customer Information</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-3 text-left">
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Customer Name</label>
-                        <p className="text-base font-medium text-gray-900">{order.customer_name}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Email Address</label>
-                        <div className="flex items-center space-x-2">
-                          <Mail className="w-4 h-4 text-gray-400" />
-                          <a
-                            href={`mailto:${order.customer_email}`}
-                            className="text-blue-600 hover:text-blue-700 hover:underline"
-                          >
-                            {order.customer_email}
-                          </a>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => copyToClipboard(order.customer_email, "Email address")}
-                            className="p-1"
-                            aria-label="Copy email address"
-                          >
-                            <Copy className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Phone Number</label>
-                        <div className="flex items-center space-x-2">
-                          <Phone className="w-4 h-4 text-gray-400" />
-                          <a
-                            href={`tel:${order.customer_phone}`}
-                            className="text-blue-600 hover:text-blue-700 hover:underline"
-                          >
-                            {order.customer_phone}
-                          </a>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => copyToClipboard(order.customer_phone, "Phone number")}
-                            className="p-1"
-                            aria-label="Copy phone number"
-                          >
-                            <Copy className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
 
-              {/* Order Items */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Package className="w-5 h-5 text-gray-500" />
-                    <span>Order Items ({order.items.length})</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {order.items.map((item, index) => (
-                      <div key={index} className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg">
-                        <div className="flex-shrink-0">
-                          <img
-                            src={item.product_image || "/placeholder.svg?height=80&width=80"}
-                            alt={item.product_name}
-                            className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg object-cover border border-gray-200"
-                            onError={(e) => {
-                              e.currentTarget.src = "/placeholder.svg?height=80&width=80"
-                            }}
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <h4 className="text-base font-medium text-gray-900 truncate">{item.product_name}</h4>
-                              {item.sku && (
-                                <p className="text-sm text-gray-500 mt-1">
-                                  SKU: <span className="font-mono">{item.sku}</span>
-                                </p>
-                              )}
-                              {item.specifications && (
-                                <div className="mt-2">
-                                  <p className="text-sm text-gray-500">Specifications:</p>
-                                  <div className="text-sm text-gray-700 mt-1">
-                                    {typeof item.specifications === "object"
-                                      ? Object.entries(item.specifications).map(([key, value]) => (
-                                          <span key={key} className="inline-block mr-4">
-                                            {key}: {String(value)}
-                                          </span>
-                                        ))
-                                      : String(item.specifications)}
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Render variation data */}
-                              {renderVariationData(item)}
-                            </div>
-                            <div className="text-right flex-shrink-0">
-                              <p className="text-sm text-gray-600">
-                                Qty: {item.quantity} × {formatCurrency(item.unit_price)}
-                              </p>
-                              <p className="text-lg font-semibold text-gray-900 mt-1">
-                                {formatCurrency(item.total_price)}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Order Notes */}
-              {order.notes && order.notes.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Order Notes</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {order.notes.map((note, index) => (
-                        <div key={index} className="border-l-4 border-blue-200 pl-4 py-2">
-                          <p className="text-sm text-gray-700">{note.note}</p>
-                          <div className="flex items-center space-x-2 mt-2 text-xs text-gray-500">
-                            <span>Added by {note.user_name}</span>
-                            <span>•</span>
-                            <span>{formatDate(note.timestamp)}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Cancellation Information */}
-              {order.status?.toLowerCase() === "cancelled" && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center space-x-2 text-red-600">
-                      <X className="w-5 h-5" />
-                      <span>Cancellation Information</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="text-left">
-                          <label className="text-sm font-medium text-red-700">Cancelled By</label>
-                          <p className="text-base font-medium text-red-900">
-                            {order.cancelled_by_user ? "Seller" : "Buyer"}
-                          </p>
-                        </div>
-                        {order.cancelled_at && (
-                          <div>
-                            <label className="text-sm font-medium text-red-700">Cancelled Date</label>
-                            <p className="text-base text-red-900">{formatDate(order.cancelled_at)}</p>
-                          </div>
-                        )}
-                      </div>
-
-                      {order.cancellation_reason && (
-                        <div className="mt-4">
-                          <label className="text-sm font-medium text-red-700">Cancellation Reason</label>
-                          <p className="text-base text-red-900 mt-1">{order.cancellation_reason}</p>
-                        </div>
-                      )}
-
-                      {order.cancellation_message && (
-                        <div className="mt-4">
-                          <label className="text-sm font-medium text-red-700">Additional Message</label>
-                          <p className="text-sm text-red-800 bg-red-100 p-3 rounded-md mt-1">
-                            {order.cancellation_message}
-                          </p>
-                        </div>
-                      )}
-
-                      {order.refund_status && (
-                        <div className="mt-4">
-                          <label className="text-sm font-medium text-red-700">Refund Status</label>
-                          <div className="mt-1">
-                            <Badge
-                              className={`${
-                                order.refund_status === "completed"
-                                  ? "bg-green-100 text-green-800 border-green-200"
-                                  : order.refund_status === "processing"
-                                    ? "bg-yellow-100 text-yellow-800 border-yellow-200"
-                                    : "bg-gray-100 text-gray-800 border-gray-200"
-                              }`}
-                              variant="outline"
-                            >
-                              {order.refund_status.toUpperCase()}
-                            </Badge>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+        {/* Order ID */}
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Order Information</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-gray-600">Order ID</label>
+              <p className="text-gray-800 font-mono">{order.order_number || order.id}</p>
             </div>
-
-            {/* Right Column - Order Summary & Actions */}
-            <div className="space-y-6">
-              {/* Order Summary */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Order Summary</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Subtotal</span>
-                      <span className="font-medium">{formatCurrency(order.subtotal)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Shipping Fee</span>
-                      <span className="font-medium">{formatCurrency(order.shipping_fee || 0)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Tax</span>
-                      <span className="font-medium">{formatCurrency(order.tax_amount || 0)}</span>
-                    </div>
-                    {order.discount_amount && order.discount_amount > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Discount</span>
-                        <span className="font-medium text-green-600">-{formatCurrency(order.discount_amount)}</span>
-                      </div>
-                    )}
-                    <Separator />
-                    <div className="flex justify-between text-lg font-semibold">
-                      <span>Total</span>
-                      <span>
-                        {formatCurrency(order.subtotal + (order.shipping_fee || 0) + (order.tax_amount || 0))}
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Payment Information */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <CreditCard className="w-5 h-5 text-gray-500" />
-                    <span>Payment Information</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Payment Method</label>
-                    <p className="text-base font-medium text-gray-900 capitalize">
-                      {order.payment_method ? order.payment_method.replace("_", " ") : "N/A"}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Payment Status</label>
-                    <div className="mt-1">
-                      <Badge className={getStatusBadge(order.payment_status, "payment")} variant="outline">
-                        {order.payment_status.toUpperCase()}
-                      </Badge>
-                    </div>
-                  </div>
-                  {order.payment_reference && (
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Payment Reference</label>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <p className="text-base font-mono text-gray-900">{order.payment_reference}</p>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => copyToClipboard(order.payment_reference!, "Payment reference")}
-                          className="p-1"
-                          aria-label="Copy payment reference"
-                        >
-                          <Copy className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Shipping/Pickup Information */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Truck className="w-5 h-5 text-gray-500" />
-                    <span>{order.is_pickup ? "Pickup Information" : "Shipping Information"}</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Delivery Method</label>
-                    <p className="text-base font-medium text-gray-900">
-                      {order.is_pickup ? "For Pickup" : "For Delivery"}
-                    </p>
-                  </div>
-
-                  {/* Address Information */}
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">
-                      {order.is_pickup ? "Pickup Address" : "Shipping Address"}
-                    </label>
-                    <div className="flex items-start space-x-2 mt-1">
-                      <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                      <div className="text-sm text-gray-900">
-                        {order.is_pickup ? (
-                          // Pickup Information
-                          <>
-                            {order.pickup_info?.pickup_location && (
-                              <p className="font-medium">{order.pickup_info.pickup_location}</p>
-                            )}
-                            {order.pickup_info?.pickup_address && <p>{order.pickup_info.pickup_address}</p>}
-                            {order.pickup_info?.pickup_contact && <p>Contact: {order.pickup_info.pickup_contact}</p>}
-                            {order.pickup_info?.pickup_hours && <p>Hours: {order.pickup_info.pickup_hours}</p>}
-                            {order.pickup_info?.pickup_instructions && (
-                              <p className="text-xs text-gray-600 mt-1">
-                                Instructions: {order.pickup_info.pickup_instructions}
-                              </p>
-                            )}
-                          </>
-                        ) : (
-                          // Shipping Address
-                          <>
-                            <p className="font-medium">{order.shipping_address.recipient_name}</p>
-                            <p>{order.shipping_address.street}</p>
-                            {order.shipping_address.barangay && <p>{order.shipping_address.barangay}</p>}
-                            <p>
-                              {order.shipping_address.city}, {order.shipping_address.province}
-                            </p>
-                            <p>{order.shipping_address.postal_code}</p>
-                            {order.shipping_address.country && <p>{order.shipping_address.country}</p>}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {order.tracking_number && (
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Tracking Number</label>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <p className="text-base font-mono text-gray-900">{order.tracking_number}</p>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => copyToClipboard(order.tracking_number!, "Tracking number")}
-                          className="p-1"
-                          aria-label="Copy tracking number"
-                        >
-                          <Copy className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            window.open(`https://www.google.com/search?q=${order.tracking_number}`, "_blank")
-                          }
-                          className="p-1"
-                          aria-label="Track package"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                  {order.estimated_delivery && (
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">
-                        {order.is_pickup ? "Estimated Pickup Date" : "Estimated Delivery"}
-                      </label>
-                      <p className="text-base text-gray-900">{formatDate(order.estimated_delivery)}</p>
-                    </div>
-                  )}
-                  {order.special_instructions && (
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Special Instructions</label>
-                      <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-md mt-1">
-                        {order.special_instructions}
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Action Buttons */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Actions</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {getDynamicActionButtons()}
-
-                  <Button
-                    onClick={() => setShowNoteModal(true)}
-                    variant="outline"
-                    className="w-full"
-                    disabled={updating}
-                  >
-                    Add Note
-                  </Button>
-
-                  {/* Mobile Activity History Button */}
-                  <div className="md:hidden">
-                    <OrderActivityModal
-                      orderId={orderId}
-                      orderNumber={order.order_number}
-                      onStatusUpdate={(newStatus) => {
-                        setOrder({
-                          ...order,
-                          status: newStatus,
-                          updated_at: Timestamp.now(),
-                          payment_status:
-                            newStatus === "completed" || newStatus === "delivered"
-                              ? "paid"
-                              : newStatus === "cancelled"
-                                ? "cancelled"
-                                : order.payment_status,
-                        })
-                      }}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+            <div>
+              <label className="text-sm font-medium text-gray-600">Status</label>
+              <p className="text-red-600 font-medium capitalize">{order.status}</p>
             </div>
           </div>
         </div>
 
-        {/* Add Note Modal */}
-        {showNoteModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-md w-full p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Add Note to Order</h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowNoteModal(false)}
-                  className="p-1"
-                  aria-label="Close modal"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="note" className="block text-sm font-medium text-gray-700 mb-2">
-                    Note
-                  </label>
-                  <textarea
-                    id="note"
-                    value={newNote}
-                    onChange={(e) => setNewNote(e.target.value)}
-                    placeholder="Enter your note here..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    rows={4}
-                  />
-                </div>
-                <div className="flex space-x-3">
-                  <Button onClick={addNote} disabled={!newNote.trim() || updating} className="flex-1">
-                    {updating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : "Add Note"}
-                  </Button>
-                  <Button variant="outline" onClick={() => setShowNoteModal(false)} className="flex-1">
-                    Cancel
-                  </Button>
-                </div>
-              </div>
+        {/* Masked Delivery Address */}
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Delivery Address (Masked)</h2>
+          <div className="space-y-2 text-gray-600">
+            <p>
+              <span className="font-medium">Recipient:</span>{" "}
+              {maskString(order.shipping_address?.recipient_name || order.customer_name, 2)}
+            </p>
+            <p>
+              <span className="font-medium">Phone:</span>{" "}
+              {maskString(order.shipping_address?.phone_number || order.customer_phone, 3)}
+            </p>
+            <p>
+              <span className="font-medium">Address:</span>{" "}
+              {order.shipping_address
+                ? `${maskString(order.shipping_address.street, 5)}, ${order.shipping_address.city || "***"}, ${order.shipping_address.province || "***"}`
+                : "Address information not available"}
+            </p>
+          </div>
+        </div>
+
+        {/* Logistic Information */}
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Logistic Information</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-gray-600">Courier</label>
+              <p className="text-gray-800">{order.courier || "Not specified"}</p>
             </div>
+            <div>
+              <label className="text-sm font-medium text-gray-600">Tracking Number</label>
+              <p className="text-gray-800 font-mono">{order.tracking_number || "Not available"}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Cancellation Reason */}
+        {order.cancellation_reason && (
+          <div className="bg-white rounded-lg shadow-sm border p-6">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">Cancellation Reason</h2>
+            <p className="text-gray-700">{order.cancellation_reason}</p>
+            {order.cancelled_at && (
+              <p className="text-sm text-gray-500 mt-2">
+                Cancelled on: {new Date(order.cancelled_at.toDate()).toLocaleDateString()}
+              </p>
+            )}
           </div>
         )}
-
-        {/* Order Approval Dialog */}
-        <OrderApprovalDialog
-          open={approvalDialog.open}
-          onOpenChange={(open) => setApprovalDialog({ open, order: null })}
-          order={approvalDialog.order}
-          onConfirm={() => {
-            handleApproveOrder()
-            setApprovalDialog({ open: false, order: null })
-          }}
-        />
-
-        {/* Order Rejection Dialog */}
-        <OrderRejectionDialog
-          open={rejectionDialog.open}
-          onOpenChange={(open) => setRejectionDialog({ open, order: null })}
-          order={rejectionDialog.order}
-          onConfirm={(reason) => {
-            handleRejectOrder(reason)
-            setRejectionDialog({ open: false, order: null })
-          }}
-        />
-
-        {/* Payment Proof Modal */}
-        <PaymentProofModal
-          open={paymentProofModal.open}
-          onOpenChange={(open) => setPaymentProofModal({ open, order: null })}
-          order={paymentProofModal.order}
-          onApprovePayment={() => {
-            handleApprovePayment()
-            setPaymentProofModal({ open: false, order: null })
-          }}
-          onRejectPayment={() => {
-            handleRejectPayment()
-            setPaymentProofModal({ open: false, order: null })
-          }}
-        />
       </div>
-    </DashboardLayout>
-  )
+    )
+  }
+
+  // For non-cancelled orders, show the full order details page
+  return <OrderDetailsPage />
 }

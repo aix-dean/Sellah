@@ -1,253 +1,294 @@
-import {
-  getDoc,
-  getDocs,
-  type DocumentReference,
-  type Query,
-  type DocumentSnapshot,
-  type QuerySnapshot,
-} from "firebase/firestore"
+import { getDoc, getDocs, type DocumentData, type Query, type CollectionReference, type doc } from "firebase/firestore"
 
-// Enhanced tracking for billing analysis
+// Define a type for a logged Firestore read operation
 interface FirestoreReadLog {
   timestamp: number
   collection: string
-  operation: "getDoc" | "getDocs"
-  documentCount: number
-  duration: number
-  caller: string
-  page?: string
-  cost: number // Estimated cost in reads
+  documentId?: string
+  query?: string // String representation of the query
+  readCount: number
+  cost: number
+  duration: number // in milliseconds
+  isExpensive: boolean
+  isSlow: boolean
 }
 
+// Define a type for collection statistics
 interface CollectionStats {
   totalReads: number
-  totalDocuments: number
   totalCost: number
-  operations: FirestoreReadLog[]
+  totalDocumentsRead: number
+  averageDuration: number
 }
 
-let readLogs: FirestoreReadLog[] = []
-let collectionStats: Record<string, CollectionStats> = {}
-let totalReadCount = 0
-let sessionStartTime = Date.now()
-
-// Get current page/route for better tracking
-function getCurrentPage(): string {
-  if (typeof window === "undefined") return "server"
-
-  const path = window.location.pathname
-  const searchParams = window.location.search
-
-  // Map common paths to readable names
-  const pageMap: Record<string, string> = {
-    "/dashboard": "Dashboard Home",
-    "/dashboard/products": "Products List",
-    "/dashboard/products/add": "Add Product",
-    "/dashboard/orders": "Orders List",
-    "/dashboard/account": "Account Settings",
-    "/login": "Login Page",
-    "/register": "Registration",
-  }
-
-  // Check for dynamic routes
-  if (path.includes("/dashboard/products/edit/")) return "Edit Product"
-  if (path.includes("/dashboard/products/") && !path.includes("/add")) return "Product Details"
-
-  return pageMap[path] || path + searchParams
+// Define a type for page statistics
+interface PageStats {
+  totalReads: number
+  totalCost: number
+  totalDocumentsRead: number
+  averageDuration: number
 }
 
-// Get caller information for debugging
-function getCaller(): string {
-  const stack = new Error().stack
-  if (!stack) return "unknown"
+// In-memory storage for logs and statistics
+let firestoreReadLogs: FirestoreReadLog[] = []
+let firestoreReadCount = 0
+let totalSessionCost = 0
+const READ_COST_PER_DOCUMENT = 0.00000006 // $0.06 per 100,000 reads in USD
+const MAX_LOG_ENTRIES = 1000 // Limit the number of logs to prevent memory issues
 
-  const lines = stack.split("\n")
-  // Skip the first few lines (this function, wrapper function)
-  for (let i = 3; i < Math.min(lines.length, 8); i++) {
-    const line = lines[i]
-    if (line && !line.includes("firestore-logger") && !line.includes("node_modules")) {
-      // Extract file name and line number
-      const match = line.match(/at.*$$(.+):(\d+):(\d+)$$/) || line.match(/at (.+):(\d+):(\d+)/)
-      if (match) {
-        const [, file, lineNum] = match
-        const fileName = file.split("/").pop() || file
-        return `${fileName}:${lineNum}`
-      }
-    }
-  }
-  return "unknown"
-}
+// Thresholds for warnings
+const SLOW_OPERATION_THRESHOLD_MS = 1000 // 1 second
+const EXPENSIVE_OPERATION_THRESHOLD_DOCS = 10 // More than 10 documents read in a single operation
 
-// Calculate estimated cost (Firestore pricing: $0.06 per 100K reads)
-function calculateCost(documentCount: number): number {
-  return (documentCount * 0.06) / 100000
-}
+// Billing analysis thresholds (for development warnings)
+const DAILY_COST_WARNING_THRESHOLD = 0.01 // $0.01
+const MONTHLY_COST_WARNING_THRESHOLD = 0.1 // $0.10
 
-// Log a Firestore read operation
-function logRead(collection: string, operation: "getDoc" | "getDocs", documentCount: number, duration: number) {
-  const caller = getCaller()
-  const page = getCurrentPage()
-  const cost = calculateCost(documentCount)
+// Function to log a Firestore read operation
+export function logFirestoreRead(
+  collectionName: string,
+  readCount: number,
+  duration: number,
+  documentId?: string,
+  queryDetails?: string,
+) {
+  const cost = readCount * READ_COST_PER_DOCUMENT
+  firestoreReadCount += readCount
+  totalSessionCost += cost
 
-  const log: FirestoreReadLog = {
+  const isExpensive = readCount > EXPENSIVE_OPERATION_THRESHOLD_DOCS
+  const isSlow = duration > SLOW_OPERATION_THRESHOLD_MS
+
+  const logEntry: FirestoreReadLog = {
     timestamp: Date.now(),
-    collection,
-    operation,
-    documentCount,
-    duration,
-    caller,
-    page,
+    collection: collectionName,
+    documentId,
+    query: queryDetails,
+    readCount,
     cost,
+    duration,
+    isExpensive,
+    isSlow,
   }
 
-  readLogs.push(log)
-  totalReadCount += documentCount
+  firestoreReadLogs.push(logEntry)
+  if (firestoreReadLogs.length > MAX_LOG_ENTRIES) {
+    firestoreReadLogs.shift() // Remove oldest entry if limit exceeded
+  }
 
-  // Update collection stats
-  if (!collectionStats[collection]) {
-    collectionStats[collection] = {
-      totalReads: 0,
-      totalDocuments: 0,
-      totalCost: 0,
-      operations: [],
+  // Log to console for immediate feedback in development
+  if (process.env.NODE_ENV === "development") {
+    console.log(
+      `📊 Firestore Read: ${collectionName}${documentId ? `/${documentId}` : ""}${
+        queryDetails ? ` (${queryDetails})` : ""
+      } - ${readCount} docs, ${duration.toFixed(2)}ms, $${(cost * 1000000).toFixed(2)}μ`,
+    )
+    if (isSlow) {
+      console.warn(`⚠️ SLOW OPERATION: Firestore read took ${duration.toFixed(2)}ms for ${collectionName}`)
     }
-  }
-
-  collectionStats[collection].totalReads += 1
-  collectionStats[collection].totalDocuments += documentCount
-  collectionStats[collection].totalCost += cost
-  collectionStats[collection].operations.push(log)
-
-  // Enhanced console logging with cost information
-  const costFormatted = cost < 0.000001 ? "<$0.000001" : `$${cost.toFixed(6)}`
-
-
-}
-
-// Logged version of getDoc
-export async function loggedGetDoc(docRef: DocumentReference): Promise<DocumentSnapshot> {
-  const startTime = Date.now()
-
-  try {
-    const result = await getDoc(docRef)
-    const duration = Date.now() - startTime
-    const collection = docRef.path.split("/")[0]
-
-    logRead(collection, "getDoc", 1, duration)
-    return result
-  } catch (error) {
-    const duration = Date.now() - startTime
-    const collection = docRef.path.split("/")[0]
-    console.error(`❌ Firestore getDoc failed for ${collection}:`, error)
-    throw error
-  }
-}
-
-// Logged version of getDocs
-export async function loggedGetDocs(queryRef: Query): Promise<QuerySnapshot> {
-  const startTime = Date.now()
-
-  try {
-    const result = await getDocs(queryRef)
-    const duration = Date.now() - startTime
-
-    // Extract collection name from query
-    let collectionName = "unknown"
-    try {
-      // This is a bit hacky but works for most cases
-      const queryStr = queryRef.toString()
-      const match = queryStr.match(/Query$$([^)]+)$$/)
-      if (match) {
-        collectionName = match[1].split("/")[0]
-      }
-    } catch (e) {
-      // Fallback - try to get from converter or other properties
-      if ((queryRef as any)._query?.path?.segments) {
-        collectionName = (queryRef as any)._query.path.segments[0]
-      }
+    if (isExpensive) {
+      console.warn(`⚠️ EXPENSIVE OPERATION: Firestore read ${readCount} documents from ${collectionName}`)
     }
 
-    logRead(collectionName, "getDocs", result.size, duration)
-    return result
-  } catch (error) {
-    const duration = Date.now() - startTime
-    console.error(`❌ Firestore getDocs failed:`, error)
-    throw error
+    // Periodically print billing analysis
+    if (firestoreReadLogs.length % 50 === 0) {
+      printBillingAnalysis()
+    }
   }
 }
 
-// Get total read count
+// Wrapper for getDoc to log reads
+export async function loggedGetDoc<T extends DocumentData>(
+  docRef: ReturnType<typeof doc>,
+): Promise<ReturnType<typeof getDoc>> {
+  const startTime = performance.now()
+  const docSnap = await getDoc(docRef)
+  const endTime = performance.now()
+  const duration = endTime - startTime
+
+  const collectionName = docRef.parent.id
+  const documentId = docRef.id
+  const readCount = docSnap.exists() ? 1 : 0 // 1 read if document exists, 0 if not found (still counts as a read operation)
+
+  logFirestoreRead(collectionName, readCount, duration, documentId)
+  return docSnap
+}
+
+// Wrapper for getDocs to log reads
+export async function loggedGetDocs<T extends DocumentData>(
+  queryRef: Query<T> | CollectionReference<T>,
+): Promise<ReturnType<typeof getDocs>> {
+  const startTime = performance.now()
+  const querySnapshot = await getDocs(queryRef)
+  const endTime = performance.now()
+  const duration = endTime - startTime
+
+  const collectionName = queryRef.path // For CollectionReference
+  const readCount = querySnapshot.size
+
+  let queryDetails = ""
+  if ("_query" in queryRef) {
+    // This is a simplified way to get query details, might need more robust parsing
+    const filters = (queryRef as Query<T>)._query.filters
+    const orderBy = (queryRef as Query<T>)._query.orderBy
+    if (filters && filters.length > 0) {
+      queryDetails += `Filters: ${filters.map((f: any) => `${f.field} ${f.op} ${f.value}`).join(", ")}`
+    }
+    if (orderBy && orderBy.length > 0) {
+      queryDetails += `${queryDetails ? "; " : ""}OrderBy: ${orderBy.map((o: any) => `${o.field} ${o.direction}`).join(", ")}`
+    }
+  } else {
+    queryDetails = "Collection Scan"
+  }
+
+  logFirestoreRead(collectionName, readCount, duration, undefined, queryDetails)
+  return querySnapshot
+}
+
+// Get total Firestore read count for the current session
 export function getFirestoreReadCount(): number {
-  return totalReadCount
+  return firestoreReadCount
 }
 
-// Get total session cost
+// Get total estimated cost for the current session
 export function getTotalSessionCost(): number {
-  return readLogs.reduce((total, log) => total + log.cost, 0)
+  return totalSessionCost
 }
 
-// Get collection statistics
+// Get statistics per collection
 export function getCollectionStats(): Record<string, CollectionStats> {
-  return { ...collectionStats }
-}
-
-// Get page statistics
-export function getPageStats(): Record<string, { reads: number; documents: number; cost: number }> {
-  const pageStats: Record<string, { reads: number; documents: number; cost: number }> = {}
-
-  readLogs.forEach((log) => {
-    const page = log.page || "unknown"
-    if (!pageStats[page]) {
-      pageStats[page] = { reads: 0, documents: 0, cost: 0 }
+  const stats: Record<string, CollectionStats> = {}
+  firestoreReadLogs.forEach((log) => {
+    if (!stats[log.collection]) {
+      stats[log.collection] = {
+        totalReads: 0,
+        totalCost: 0,
+        totalDocumentsRead: 0,
+        averageDuration: 0,
+      }
     }
-    pageStats[page].reads += 1
-    pageStats[page].documents += log.documentCount
-    pageStats[page].cost += log.cost
+    stats[log.collection].totalReads += 1
+    stats[log.collection].totalCost += log.cost
+    stats[log.collection].totalDocumentsRead += log.readCount
+    stats[log.collection].averageDuration =
+      (stats[log.collection].averageDuration * (stats[log.collection].totalReads - 1) + log.duration) /
+      stats[log.collection].totalReads
   })
-
-  return pageStats
+  return stats
 }
 
-// Get recent expensive operations
-export function getExpensiveOperations(limit = 10): FirestoreReadLog[] {
-  return readLogs
-    .filter((log) => log.documentCount > 10 || log.cost > 0.000005)
-    .sort((a, b) => b.cost - a.cost)
-    .slice(0, limit)
+// Get statistics per page (requires page context to be passed to logFirestoreRead)
+// For now, this will just aggregate all reads. To make it page-specific,
+// you'd need to pass the current page/route to logFirestoreRead.
+export function getPageStats(): Record<string, PageStats> {
+  // This is a placeholder. To implement properly, you'd need to pass
+  // the current page/route to `logFirestoreRead` and store it in `FirestoreReadLog`.
+  // For now, it will just return overall stats.
+  const overallStats: PageStats = {
+    totalReads: firestoreReadCount,
+    totalCost: totalSessionCost,
+    totalDocumentsRead: firestoreReadLogs.reduce((sum, log) => sum + log.readCount, 0),
+    averageDuration: firestoreReadLogs.reduce((sum, log) => sum + log.duration, 0) / firestoreReadLogs.length || 0,
+  }
+  return { "Overall Application": overallStats }
 }
 
-// Reset counters
+// Get expensive operations (reads more than EXPENSIVE_OPERATION_THRESHOLD_DOCS documents)
+export function getExpensiveOperations(): FirestoreReadLog[] {
+  return firestoreReadLogs.filter((log) => log.isExpensive).sort((a, b) => b.readCount - a.readCount)
+}
+
+// Get slow operations (takes longer than SLOW_OPERATION_THRESHOLD_MS)
+export function getSlowOperations(): FirestoreReadLog[] {
+  return firestoreReadLogs.filter((log) => log.isSlow).sort((a, b) => b.duration - a.duration)
+}
+
+// Reset all logged data
 export function resetFirestoreReadCount(): void {
-  readLogs = []
-  collectionStats = {}
-  totalReadCount = 0
-  sessionStartTime = Date.now()
-
+  firestoreReadLogs = []
+  firestoreReadCount = 0
+  totalSessionCost = 0
+  console.log("📊 Firestore read logs and counts reset.")
 }
 
-// Export detailed logs for analysis
+// Export all logs as JSON
 export function exportReadLogs(): string {
-  const sessionDuration = (Date.now() - sessionStartTime) / 1000 / 60 // minutes
-  const summary = {
-    sessionDuration: `${sessionDuration.toFixed(1)} minutes`,
-    totalReads: totalReadCount,
-    totalCost: getTotalSessionCost(),
-    collectionStats,
-    pageStats: getPageStats(),
-    expensiveOperations: getExpensiveOperations(),
-    allLogs: readLogs,
+  return JSON.stringify(firestoreReadLogs, null, 2)
+}
+
+// Print a detailed billing analysis to the console
+export function printBillingAnalysis(): void {
+  if (process.env.NODE_ENV !== "development") {
+    console.log("Billing analysis is only available in development mode.")
+    return
   }
 
-  return JSON.stringify(summary, null, 2)
-}
+  console.groupCollapsed("📊 Firestore Billing Analysis")
+  console.log(`Total Firestore Reads (Session): ${firestoreReadCount}`)
+  console.log(`Estimated Session Cost: $${totalSessionCost.toFixed(6)}`)
 
-// Print billing analysis to console
-export function printBillingAnalysis(): void {
+  const avgReadsPerMinute =
+    firestoreReadCount /
+      (firestoreReadLogs.length > 0 ? (Date.now() - firestoreReadLogs[0].timestamp) / (1000 * 60) : 1) || 0
+  const avgCostPerMinute =
+    totalSessionCost /
+      (firestoreReadLogs.length > 0 ? (Date.now() - firestoreReadLogs[0].timestamp) / (1000 * 60) : 1) || 0
 
+  const projectedDailyReads = avgReadsPerMinute * 60 * 24
+  const projectedDailyCost = avgCostPerMinute * 60 * 24
+  const projectedMonthlyCost = projectedDailyCost * 30 // Simple projection
 
-  const totalCost = getTotalSessionCost()
-  const sessionDuration = (Date.now() - sessionStartTime) / 1000 / 60
+  console.log(`\nProjected Daily Reads: ${projectedDailyReads.toFixed(0)}`)
+  console.log(`Projected Daily Cost: $${projectedDailyCost.toFixed(6)}`)
+  console.log(`Projected Monthly Cost: $${projectedMonthlyCost.toFixed(6)}`)
 
+  if (projectedDailyCost > DAILY_COST_WARNING_THRESHOLD) {
+    console.warn(
+      `🚨 WARNING: Projected daily cost ($${projectedDailyCost.toFixed(6)}) exceeds threshold ($${DAILY_COST_WARNING_THRESHOLD}).`,
+    )
+  }
+  if (projectedMonthlyCost > MONTHLY_COST_WARNING_THRESHOLD) {
+    console.warn(
+      `🚨 WARNING: Projected monthly cost ($${projectedMonthlyCost.toFixed(6)}) exceeds threshold ($${MONTHLY_COST_WARNING_THRESHOLD}).`,
+    )
+  }
 
+  console.log("\n--- Collection Statistics ---")
+  const collectionStats = getCollectionStats()
+  for (const coll in collectionStats) {
+    const stats = collectionStats[coll]
+    console.log(
+      `  ${coll}: Reads=${stats.totalReads}, Docs=${stats.totalDocumentsRead}, AvgDuration=${stats.averageDuration.toFixed(2)}ms, Cost=$${stats.totalCost.toFixed(6)}`,
+    )
+  }
 
+  console.log("\n--- Slow Operations (duration > 1000ms) ---")
+  const slowOps = getSlowOperations()
+  if (slowOps.length > 0) {
+    slowOps.forEach((op) =>
+      console.log(
+        `  ${op.collection}${op.documentId ? `/${op.documentId}` : ""}${
+          op.query ? ` (${op.query})` : ""
+        }: ${op.duration.toFixed(2)}ms, ${op.readCount} docs`,
+      ),
+    )
+  } else {
+    console.log("  No slow operations detected.")
+  }
+
+  console.log("\n--- Expensive Operations (reads > 10 docs) ---")
+  const expensiveOps = getExpensiveOperations()
+  if (expensiveOps.length > 0) {
+    expensiveOps.forEach((op) =>
+      console.log(
+        `  ${op.collection}${op.documentId ? `/${op.documentId}` : ""}${
+          op.query ? ` (${op.query})` : ""
+        }: ${op.readCount} docs, ${op.duration.toFixed(2)}ms`,
+      ),
+    )
+  } else {
+    console.log("  No expensive operations detected.")
+  }
+
+  console.groupEnd()
 }

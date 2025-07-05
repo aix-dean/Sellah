@@ -841,9 +841,9 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
     switch (currentStep) {
       case 1:
         return (
-          <div className="space-y-4 sm:space-y-6">
+          <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4 sm:mb-6">Product Details</h2>
+              <h2 className="text-xl font-semibold text-gray-800">Product Details</h2>
               {hasErrors && (
                 <div className="flex items-center text-red-600 text-sm">
                   <AlertCircle className="w-4 h-4 mr-1" />
@@ -852,7 +852,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
               )}
             </div>
 
-            <div className="space-y-4 sm:space-y-6">
+            <div className="space-y-6">
               <div>
                 <Label htmlFor="name" className="text-sm font-medium text-gray-700 mb-2 block text-left">
                   Product Name <span className="text-red-500">*</span>
@@ -863,14 +863,14 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                   value={formData.name}
                   onChange={handleInputChange}
                   placeholder="Enter product name"
-                  className={`w-full text-sm sm:text-base ${fieldErrors.name ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}`}
+                  className={`w-full ${fieldErrors.name ? "border-red-500 focus:border-red-500 focus:ring-red-500" : "border-gray-300"}`}
                   required
                 />
                 {fieldErrors.name && (
-                  <p className="mt-1 text-sm text-red-600 flex items-center">
+                  <div className="mt-1 flex items-center text-red-600 text-sm">
                     <AlertCircle className="w-4 h-4 mr-1 flex-shrink-0" />
-                    {fieldErrors.name}
-                  </p>
+                    <span>{fieldErrors.name}</span>
+                  </div>
                 )}
               </div>
 
@@ -884,15 +884,15 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
                   value={formData.description}
                   onChange={handleInputChange}
                   placeholder="Enter product description"
-                  rows={3}
-                  className={`w-full text-sm sm:text-base resize-none sm:resize-y ${fieldErrors.description ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}`}
+                  rows={4}
+                  className={`w-full resize-none ${fieldErrors.description ? "border-red-500 focus:border-red-500 focus:ring-red-500" : "border-gray-300"}`}
                   required
                 />
                 {fieldErrors.description && (
-                  <p className="mt-1 text-sm text-red-600 flex items-center">
+                  <div className="mt-1 flex items-center text-red-600 text-sm">
                     <AlertCircle className="w-4 h-4 mr-1 flex-shrink-0" />
-                    {fieldErrors.description}
-                  </p>
+                    <span>{fieldErrors.description}</span>
+                  </div>
                 )}
               </div>
 
@@ -1577,31 +1577,31 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
           <h1 className="text-3xl font-bold text-gray-800">Edit Product</h1>
         </div>
 
-        {/* Main Content - Responsive Layout */}
-        <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
+        {/* Main Content - Two Column Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Sidebar - Steps */}
-          <div className="w-full lg:w-80 xl:w-96">
+          <div className="lg:col-span-1">
             <StepNavigation currentStep={currentStep} steps={STEPS} onStepClick={goToStep} />
           </div>
 
           {/* Right Content - Form */}
-          <div className="flex-1 bg-white rounded-lg shadow-sm border">
-            <div className="p-4 sm:p-6 text-left">
+          <div className="lg:col-span-2 bg-white rounded-lg shadow-sm border">
+            <div className="p-6">
               {/* Error and Success Messages */}
               {generalError && (
-                <Alert variant="destructive" className="mb-4 sm:mb-6">
+                <Alert variant="destructive" className="mb-6">
                   <AlertDescription className="text-sm">{generalError}</AlertDescription>
                 </Alert>
               )}
 
               {success && (
-                <Alert className="mb-4 sm:mb-6 border-green-200 bg-green-50">
+                <Alert className="mb-6 border-green-200 bg-green-50">
                   <AlertDescription className="text-green-800 text-sm">{success}</AlertDescription>
                 </Alert>
               )}
 
               {/* Step Content */}
-              <div className="min-h-[400px] sm:min-h-[500px]">{renderStepContent}</div>
+              <div className="min-h-[500px]">{renderStepContent}</div>
             </div>
 
             <NavigationButtons

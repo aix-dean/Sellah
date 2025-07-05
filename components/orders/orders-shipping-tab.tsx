@@ -133,7 +133,7 @@ export function OrdersShippingTab({
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Order</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Customer</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Channel</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-700">Date</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">Order Date</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Total</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Action</th>
@@ -146,11 +146,11 @@ export function OrdersShippingTab({
 
                   return (
                     <tr key={order.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-4 px-4">
+                      <td className="py-4 px-4 text-left">
                         <div className="text-left">
                           <button
                             onClick={() => handleOrderClick(order)}
-                            className="font-medium text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+                            className="font-medium text-blue-600 hover:text-blue-700 hover:underline cursor-pointer text-left text-left"
                           >
                             {order.order_number}
                           </button>

@@ -1,350 +1,719 @@
 import {
   collection,
+  doc,
   addDoc,
   updateDoc,
   deleteDoc,
-  doc,
-  getDocs,
   getDoc,
+  getDocs,
   query,
   where,
   orderBy,
   limit,
   startAfter,
   serverTimestamp,
+  writeBatch,
+  increment,
   type QueryDocumentSnapshot,
-  type DocumentData,
 } from "firebase/firestore"
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"
-import { db, storage } from "@/lib/firebase"
+import { db, storage } from "./firebase"
 
-export enum ProductStatus {
-  Draft = "draft",
-  Published = "published",
-  Archived = "archived",
-}
-
+// Product interfaces
 export interface Product {
-  id: string
+  id?: string
   name: string
   description: string
-  price: number
   category: string
-  stock: number
+  brand?: string
   sku: string
-  weight: number
-  dimensions: string
-  location: string // Changed from object to string
-  status: ProductStatus
-  isFeatured: boolean
-  imageUrls: string[]
-  courier: string
-  shippingFee: number
-  companyId: string
-  userId: string
-  createdAt: Date
-  updatedAt: Date
-}
-
-export interface CreateProductData {
-  name: string
-  description: string
   price: number
-  category: string
-  stock: number
-  sku: string
-  weight: number
-  dimensions: string
-  location:
-    | {
-        street: string
-        city: string
-        province: string
-        postal_code: string
-      }
-    | string // Accept both object and string
-  status: ProductStatus
-  isFeatured: boolean
-  imageUrls: string[]
-  courier: string
-  shippingFee: number
-  companyId: string
+  comparePrice?: number
+  costPrice?: number
+  trackQuantity: boolean
+  quantity?: number
+  lowStockThreshold?: number
+  weight?: number
+  dimensions?: {
+    length?: number
+    width?: number
+    height?: number
+    unit?: "cm" | "in"
+  }
+  images: string[]
+  mainImage?: string
+  tags: string[]
+  specifications?: Record<string, string>
+  seoTitle?: string
+  seoDescription?: string
+  seoKeywords?: string[]
+  status: "active" | "draft" | "archived"
+  visibility: "public" | "private"
+  featured: boolean
+  condition: "new" | "used" | "refurbished"
   userId: string
+  createdAt?: any
+  updatedAt?: any
+  // Additional fields for soft delete
+  active?: boolean
+  deleted?: boolean
+  sales?: number
+  views?: number
+  rating?: number
+  image_url?: string
+  stock?: number
+  variations?: Array<{
+    name: string
+    price: number
+    stock: number
+    sku?: string
+  }>
 }
 
-export interface UpdateProductData extends Partial<CreateProductData> {
-  id: string
-}
-
-export interface ProductFilters {
+export interface ProductFilter {
   category?: string
-  status?: ProductStatus
-  companyId?: string
-  userId?: string
-  isFeatured?: boolean
-  searchTerm?: string
-}
-
-export interface PaginationOptions {
-  limit?: number
-  lastDoc?: QueryDocumentSnapshot<DocumentData>
+  brand?: string
+  status?: string
+  visibility?: string
+  featured?: boolean
+  condition?: string
+  priceMin?: number
+  priceMax?: number
+  inStock?: boolean
+  search?: string
 }
 
 export interface ProductsResponse {
   products: Product[]
-  lastDoc?: QueryDocumentSnapshot<DocumentData>
-  hasMore: boolean
   total: number
+  hasMore: boolean
+  lastDoc?: QueryDocumentSnapshot
 }
 
-// Helper function to convert location object to string
-function formatLocationString(location: any): string {
-  if (typeof location === "string") {
-    return location
-  }
+// User status limits
+export const PRODUCT_LIMITS = {
+  UNKNOWN: 1,
+  INCOMPLETE: 5,
+  VERIFIED: Number.POSITIVE_INFINITY, // No limit
+} as const
 
-  if (typeof location === "object" && location !== null) {
-    const { street = "", city = "", province = "", postal_code = "" } = location
-    return [street, city, province, postal_code].filter(Boolean).join(", ")
-  }
+export type UserStatus = keyof typeof PRODUCT_LIMITS
 
-  return ""
-}
-
-export async function createProduct(productData: CreateProductData): Promise<string> {
+// Check if user can add more products
+export async function canUserAddProduct(userId: string): Promise<{
+  canAdd: boolean
+  currentCount: number
+  limit: number
+  status: string
+  message?: string
+}> {
   try {
-    // Convert location object to string if it's an object
-    const locationString = formatLocationString(productData.location)
+    // Get user data to check status and current product count
+    const userRef = doc(db, "iboard_users", userId)
+    const userDoc = await getDoc(userRef)
 
-    const docData = {
+    if (!userDoc.exists()) {
+      throw new Error("User not found")
+    }
+
+    const userData = userDoc.data()
+    const userStatus = userData.status || "UNKNOWN"
+    const currentCount = userData.product_count || 0
+    const limit = PRODUCT_LIMITS[userStatus as UserStatus] || PRODUCT_LIMITS.UNKNOWN
+
+    const canAdd = currentCount < limit
+
+    let message: string | undefined
+    if (!canAdd) {
+      if (userStatus === "UNKNOWN") {
+        message =
+          "You can only create 1 product with UNKNOWN status. Please complete your profile to increase your limit."
+      } else if (userStatus === "INCOMPLETE") {
+        message =
+          "You have reached the limit of 5 products for INCOMPLETE status. Please verify your account to remove this limit."
+      }
+    }
+
+    return {
+      canAdd,
+      currentCount,
+      limit,
+      status: userStatus,
+      message,
+    }
+  } catch (error) {
+    console.error("Error checking product limit:", error)
+    throw error
+  }
+}
+
+// Product CRUD operations
+export async function createProduct(productData: Omit<Product, "id" | "createdAt" | "updatedAt">): Promise<string> {
+  try {
+    // Check if user can add more products
+    const limitCheck = await canUserAddProduct(productData.userId)
+    if (!limitCheck.canAdd) {
+      throw new Error(limitCheck.message || "Product limit reached")
+    }
+
+    const product: Omit<Product, "id"> = {
       ...productData,
-      location: locationString, // Store as string in Firestore
+      // Set default values for required fields
+      active: true,
+      deleted: false,
+      sales: 0,
+      views: 0,
+      rating: 5,
+      stock: productData.quantity || 0,
+      image_url: productData.mainImage || productData.images[0] || "",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     }
 
-    const docRef = await addDoc(collection(db, "products"), docData)
+    const docRef = await addDoc(collection(db, "products"), product)
+
+    // Update user's product count
+    await updateUserProductCount(productData.userId, 1)
+
+    console.log("Product created successfully:", docRef.id)
     return docRef.id
   } catch (error) {
     console.error("Error creating product:", error)
-    throw new Error("Failed to create product")
+    throw error
   }
 }
 
-export async function updateProduct(productData: UpdateProductData): Promise<void> {
+export async function updateProduct(productId: string, updates: Partial<Product>, userId: string): Promise<void> {
   try {
-    const { id, ...updateData } = productData
+    const productRef = doc(db, "products", productId)
 
-    // Convert location object to string if it's an object
-    if (updateData.location) {
-      updateData.location = formatLocationString(updateData.location)
+    const updateData = {
+      ...updates,
+      updatedAt: serverTimestamp(),
     }
 
-    const docRef = doc(db, "products", id)
-    await updateDoc(docRef, {
-      ...updateData,
-      updatedAt: serverTimestamp(),
-    })
+    await updateDoc(productRef, updateData)
+
+    console.log("Product updated successfully:", productId)
   } catch (error) {
     console.error("Error updating product:", error)
-    throw new Error("Failed to update product")
+    throw error
   }
 }
 
-export async function deleteProduct(productId: string): Promise<void> {
+// Soft delete product (set active=false, deleted=true)
+export async function deleteProduct(productId: string, userId: string): Promise<void> {
   try {
-    const docRef = doc(db, "products", productId)
-    await deleteDoc(docRef)
+    const productRef = doc(db, "products", productId)
+    const productDoc = await getDoc(productRef)
+
+    if (!productDoc.exists()) {
+      throw new Error("Product not found")
+    }
+
+    const productData = productDoc.data() as Product
+
+    // Verify ownership
+    if (productData.userId !== userId) {
+      throw new Error("Unauthorized: You can only delete your own products")
+    }
+
+    // Soft delete: set active=false and deleted=true
+    await updateDoc(productRef, {
+      active: false,
+      deleted: true,
+      updatedAt: serverTimestamp(),
+    })
+
+    // Update user's product count (decrease by 1)
+    await updateUserProductCount(userId, -1)
+
+    console.log("Product soft deleted successfully:", productId)
   } catch (error) {
     console.error("Error deleting product:", error)
-    throw new Error("Failed to delete product")
+    throw error
+  }
+}
+
+// Hard delete product (completely remove from database)
+export async function hardDeleteProduct(productId: string, userId: string): Promise<void> {
+  try {
+    const productRef = doc(db, "products", productId)
+    const productDoc = await getDoc(productRef)
+
+    if (!productDoc.exists()) {
+      throw new Error("Product not found")
+    }
+
+    const productData = productDoc.data() as Product
+
+    // Verify ownership
+    if (productData.userId !== userId) {
+      throw new Error("Unauthorized: You can only delete your own products")
+    }
+
+    // Delete product images from storage
+    if (productData.images && productData.images.length > 0) {
+      await deleteProductImages(productData.images)
+    }
+
+    // Delete product document
+    await deleteDoc(productRef)
+
+    // Update user's product count (decrease by 1)
+    await updateUserProductCount(userId, -1)
+
+    console.log("Product hard deleted successfully:", productId)
+  } catch (error) {
+    console.error("Error hard deleting product:", error)
+    throw error
   }
 }
 
 export async function getProduct(productId: string): Promise<Product | null> {
   try {
-    const docRef = doc(db, "products", productId)
-    const docSnap = await getDoc(docRef)
+    const productDoc = await getDoc(doc(db, "products", productId))
 
-    if (docSnap.exists()) {
-      const data = docSnap.data()
+    if (productDoc.exists()) {
       return {
-        id: docSnap.id,
-        ...data,
-        createdAt: data.createdAt?.toDate() || new Date(),
-        updatedAt: data.updatedAt?.toDate() || new Date(),
+        id: productDoc.id,
+        ...productDoc.data(),
       } as Product
     }
 
     return null
   } catch (error) {
     console.error("Error getting product:", error)
-    throw new Error("Failed to get product")
+    throw error
   }
 }
 
 export async function getProducts(
-  filters: ProductFilters = {},
-  pagination: PaginationOptions = {},
+  filters: ProductFilter = {},
+  pageSize = 20,
+  lastDoc?: QueryDocumentSnapshot,
 ): Promise<ProductsResponse> {
   try {
-    const { limit: pageLimit = 10, lastDoc } = pagination
-    const { category, status, companyId, userId, isFeatured, searchTerm } = filters
-
     let q = query(collection(db, "products"))
 
+    // Only get active, non-deleted products by default
+    q = query(q, where("active", "==", true), where("deleted", "==", false))
+
     // Apply filters
-    if (category) {
-      q = query(q, where("category", "==", category))
-    }
-    if (status) {
-      q = query(q, where("status", "==", status))
-    }
-    if (companyId) {
-      q = query(q, where("companyId", "==", companyId))
-    }
-    if (userId) {
-      q = query(q, where("userId", "==", userId))
-    }
-    if (isFeatured !== undefined) {
-      q = query(q, where("isFeatured", "==", isFeatured))
+    if (filters.category) {
+      q = query(q, where("category", "==", filters.category))
     }
 
-    // Add ordering and pagination
+    if (filters.brand) {
+      q = query(q, where("brand", "==", filters.brand))
+    }
+
+    if (filters.status) {
+      q = query(q, where("status", "==", filters.status))
+    }
+
+    if (filters.visibility) {
+      q = query(q, where("visibility", "==", filters.visibility))
+    }
+
+    if (filters.featured !== undefined) {
+      q = query(q, where("featured", "==", filters.featured))
+    }
+
+    if (filters.condition) {
+      q = query(q, where("condition", "==", filters.condition))
+    }
+
+    if (filters.inStock) {
+      q = query(q, where("stock", ">", 0))
+    }
+
+    // Add ordering
     q = query(q, orderBy("createdAt", "desc"))
 
+    // Add pagination
     if (lastDoc) {
       q = query(q, startAfter(lastDoc))
     }
 
-    q = query(q, limit(pageLimit + 1)) // Get one extra to check if there are more
+    q = query(q, limit(pageSize + 1)) // Get one extra to check if there are more
 
     const querySnapshot = await getDocs(q)
-    const products: Product[] = []
     const docs = querySnapshot.docs
 
-    // Process documents
-    for (let i = 0; i < Math.min(docs.length, pageLimit); i++) {
-      const doc = docs[i]
-      const data = doc.data()
+    const hasMore = docs.length > pageSize
+    const products = docs.slice(0, pageSize).map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Product[]
 
-      // Filter by search term if provided (client-side filtering)
-      if (searchTerm) {
-        const searchLower = searchTerm.toLowerCase()
-        const nameMatch = data.name?.toLowerCase().includes(searchLower)
-        const descMatch = data.description?.toLowerCase().includes(searchLower)
-        const skuMatch = data.sku?.toLowerCase().includes(searchLower)
+    // Apply client-side filters that can't be done in Firestore
+    let filteredProducts = products
 
-        if (!nameMatch && !descMatch && !skuMatch) {
-          continue
-        }
-      }
-
-      products.push({
-        id: doc.id,
-        ...data,
-        createdAt: data.createdAt?.toDate() || new Date(),
-        updatedAt: data.updatedAt?.toDate() || new Date(),
-      } as Product)
+    if (filters.search) {
+      const searchTerm = filters.search.toLowerCase()
+      filteredProducts = products.filter(
+        (product) =>
+          product.name.toLowerCase().includes(searchTerm) ||
+          product.description.toLowerCase().includes(searchTerm) ||
+          product.tags.some((tag) => tag.toLowerCase().includes(searchTerm)),
+      )
     }
 
-    const hasMore = docs.length > pageLimit
-    const newLastDoc = docs.length > 0 ? docs[Math.min(docs.length - 1, pageLimit - 1)] : undefined
+    if (filters.priceMin !== undefined) {
+      filteredProducts = filteredProducts.filter((product) => product.price >= filters.priceMin!)
+    }
+
+    if (filters.priceMax !== undefined) {
+      filteredProducts = filteredProducts.filter((product) => product.price <= filters.priceMax!)
+    }
 
     return {
-      products,
-      lastDoc: newLastDoc,
+      products: filteredProducts,
+      total: filteredProducts.length,
       hasMore,
-      total: products.length, // This is just the current page count
+      lastDoc: hasMore ? docs[pageSize - 1] : undefined,
     }
   } catch (error) {
     console.error("Error getting products:", error)
-    throw new Error("Failed to get products")
+    throw error
   }
 }
 
-export async function uploadProductImage(file: File): Promise<string> {
+export async function getUserProducts(
+  userId: string,
+  filters: ProductFilter = {},
+  pageSize = 20,
+  lastDoc?: QueryDocumentSnapshot,
+): Promise<ProductsResponse> {
   try {
-    const timestamp = Date.now()
-    const fileName = `${timestamp}-${file.name}`
-    const storageRef = ref(storage, `products/${fileName}`)
+    let q = query(
+      collection(db, "products"),
+      where("userId", "==", userId),
+      where("active", "==", true),
+      where("deleted", "==", false),
+    )
 
-    await uploadBytes(storageRef, file)
-    const downloadURL = await getDownloadURL(storageRef)
+    // Apply additional filters
+    if (filters.status) {
+      q = query(q, where("status", "==", filters.status))
+    }
+
+    if (filters.category) {
+      q = query(q, where("category", "==", filters.category))
+    }
+
+    // Add ordering
+    q = query(q, orderBy("createdAt", "desc"))
+
+    // Add pagination
+    if (lastDoc) {
+      q = query(q, startAfter(lastDoc))
+    }
+
+    q = query(q, limit(pageSize + 1))
+
+    const querySnapshot = await getDocs(q)
+    const docs = querySnapshot.docs
+
+    const hasMore = docs.length > pageSize
+    const products = docs.slice(0, pageSize).map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Product[]
+
+    return {
+      products,
+      total: products.length,
+      hasMore,
+      lastDoc: hasMore ? docs[pageSize - 1] : undefined,
+    }
+  } catch (error) {
+    console.error("Error getting user products:", error)
+    throw error
+  }
+}
+
+// Image management
+export async function uploadProductImage(file: File, userId: string, productId?: string): Promise<string> {
+  try {
+    const fileName = `${Date.now()}_${file.name}`
+    const path = productId ? `products/${userId}/${productId}/${fileName}` : `products/${userId}/temp/${fileName}`
+    const storageRef = ref(storage, path)
+
+    const snapshot = await uploadBytes(storageRef, file)
+    const downloadURL = await getDownloadURL(snapshot.ref)
 
     return downloadURL
   } catch (error) {
     console.error("Error uploading product image:", error)
-    throw new Error("Failed to upload image")
+    throw error
   }
 }
 
-export async function deleteProductImage(imageUrl: string): Promise<void> {
+export async function deleteProductImages(imageUrls: string[]): Promise<void> {
   try {
-    const imageRef = ref(storage, imageUrl)
-    await deleteObject(imageRef)
+    const deletePromises = imageUrls.map(async (url) => {
+      try {
+        const imageRef = ref(storage, url)
+        await deleteObject(imageRef)
+      } catch (error) {
+        console.error("Error deleting image:", url, error)
+      }
+    })
+
+    await Promise.all(deletePromises)
   } catch (error) {
-    console.error("Error deleting product image:", error)
-    throw new Error("Failed to delete image")
+    console.error("Error deleting product images:", error)
+    throw error
   }
 }
 
-export async function getFeaturedProducts(limit = 10): Promise<Product[]> {
+// Stock management
+export async function updateProductStock(
+  productId: string,
+  quantityChange: number,
+  userId: string,
+  reason?: string,
+): Promise<void> {
+  try {
+    const productRef = doc(db, "products", productId)
+
+    await updateDoc(productRef, {
+      quantity: increment(quantityChange),
+      stock: increment(quantityChange), // Update both fields for compatibility
+      updatedAt: serverTimestamp(),
+    })
+
+    console.log("Stock updated for product:", productId, "Change:", quantityChange)
+  } catch (error) {
+    console.error("Error updating product stock:", error)
+    throw error
+  }
+}
+
+export async function getLowStockProducts(userId: string): Promise<Product[]> {
   try {
     const q = query(
       collection(db, "products"),
-      where("isFeatured", "==", true),
-      where("status", "==", ProductStatus.Published),
-      orderBy("createdAt", "desc"),
-      limit(limit),
+      where("userId", "==", userId),
+      where("trackQuantity", "==", true),
+      where("active", "==", true),
+      where("deleted", "==", false),
+      where("status", "==", "active"),
     )
 
     const querySnapshot = await getDocs(q)
-    const products: Product[] = []
+    const products = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Product[]
 
-    querySnapshot.forEach((doc) => {
-      const data = doc.data()
-      products.push({
-        id: doc.id,
-        ...data,
-        createdAt: data.createdAt?.toDate() || new Date(),
-        updatedAt: data.updatedAt?.toDate() || new Date(),
-      } as Product)
+    // Filter products that are below their low stock threshold
+    return products.filter((product) => {
+      const threshold = product.lowStockThreshold || 5
+      return (product.quantity || 0) <= threshold
     })
-
-    return products
   } catch (error) {
-    console.error("Error getting featured products:", error)
-    throw new Error("Failed to get featured products")
+    console.error("Error getting low stock products:", error)
+    throw error
   }
 }
 
-export async function getProductsByCategory(category: string, limit = 10): Promise<Product[]> {
+// Utility functions
+export async function updateUserProductCount(userId: string, change: number): Promise<void> {
   try {
-    const q = query(
-      collection(db, "products"),
-      where("category", "==", category),
-      where("status", "==", ProductStatus.Published),
-      orderBy("createdAt", "desc"),
-      limit(limit),
-    )
+    const userRef = doc(db, "iboard_users", userId)
+    await updateDoc(userRef, {
+      product_count: increment(change),
+      updated_at: serverTimestamp(),
+    })
+    console.log(`Updated product count for user ${userId}: ${change > 0 ? "+" : ""}${change}`)
+  } catch (error) {
+    console.error("Error updating user product count:", error)
+    throw error
+  }
+}
 
+export async function getProductCategories(): Promise<string[]> {
+  try {
+    const q = query(collection(db, "products"), where("active", "==", true), where("deleted", "==", false))
     const querySnapshot = await getDocs(q)
-    const products: Product[] = []
 
-    querySnapshot.forEach((doc) => {
-      const data = doc.data()
-      products.push({
-        id: doc.id,
-        ...data,
-        createdAt: data.createdAt?.toDate() || new Date(),
-        updatedAt: data.updatedAt?.toDate() || new Date(),
-      } as Product)
+    const categories = new Set<string>()
+    querySnapshot.docs.forEach((doc) => {
+      const product = doc.data() as Product
+      if (product.category) {
+        categories.add(product.category)
+      }
     })
 
-    return products
+    return Array.from(categories).sort()
   } catch (error) {
-    console.error("Error getting products by category:", error)
-    throw new Error("Failed to get products by category")
+    console.error("Error getting product categories:", error)
+    throw error
+  }
+}
+
+export async function getProductBrands(): Promise<string[]> {
+  try {
+    const q = query(collection(db, "products"), where("active", "==", true), where("deleted", "==", false))
+    const querySnapshot = await getDocs(q)
+
+    const brands = new Set<string>()
+    querySnapshot.docs.forEach((doc) => {
+      const product = doc.data() as Product
+      if (product.brand) {
+        brands.add(product.brand)
+      }
+    })
+
+    return Array.from(brands).sort()
+  } catch (error) {
+    console.error("Error getting product brands:", error)
+    throw error
+  }
+}
+
+export function generateSKU(productName: string, category: string): string {
+  const namePrefix = productName
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .substring(0, 3)
+    .toUpperCase()
+  const categoryPrefix = category
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .substring(0, 3)
+    .toUpperCase()
+  const timestamp = Date.now().toString().slice(-6)
+
+  return `${namePrefix}${categoryPrefix}${timestamp}`
+}
+
+// Batch operations
+export async function bulkUpdateProducts(
+  updates: Array<{ id: string; data: Partial<Product> }>,
+  userId: string,
+): Promise<void> {
+  try {
+    const batch = writeBatch(db)
+
+    updates.forEach(({ id, data }) => {
+      const productRef = doc(db, "products", id)
+      batch.update(productRef, {
+        ...data,
+        updatedAt: serverTimestamp(),
+      })
+    })
+
+    await batch.commit()
+
+    console.log("Bulk update completed for", updates.length, "products")
+  } catch (error) {
+    console.error("Error bulk updating products:", error)
+    throw error
+  }
+}
+
+export async function bulkDeleteProducts(productIds: string[], userId: string): Promise<void> {
+  try {
+    const batch = writeBatch(db)
+
+    // Get all products to delete their images
+    const products = await Promise.all(productIds.map((id) => getProduct(id)))
+
+    // Delete images
+    const allImages = products.filter((product) => product !== null).flatMap((product) => product!.images || [])
+
+    if (allImages.length > 0) {
+      await deleteProductImages(allImages)
+    }
+
+    // Soft delete product documents
+    productIds.forEach((id) => {
+      const productRef = doc(db, "products", id)
+      batch.update(productRef, {
+        active: false,
+        deleted: true,
+        updatedAt: serverTimestamp(),
+      })
+    })
+
+    await batch.commit()
+
+    // Update user's product count
+    await updateUserProductCount(userId, -productIds.length)
+
+    console.log("Bulk delete completed for", productIds.length, "products")
+  } catch (error) {
+    console.error("Error bulk deleting products:", error)
+    throw error
+  }
+}
+
+// Get user's product statistics
+export async function getUserProductStats(userId: string): Promise<{
+  totalProducts: number
+  activeProducts: number
+  draftProducts: number
+  archivedProducts: number
+  lowStockProducts: number
+  currentCount: number
+  limit: number
+  status: string
+  canAddMore: boolean
+}> {
+  try {
+    // Get user status and limits
+    const limitCheck = await canUserAddProduct(userId)
+
+    // Get all user products (including deleted for total count)
+    const allProductsQuery = query(collection(db, "products"), where("userId", "==", userId))
+    const allProductsSnapshot = await getDocs(allProductsQuery)
+
+    // Get active products only
+    const activeProductsQuery = query(
+      collection(db, "products"),
+      where("userId", "==", userId),
+      where("active", "==", true),
+      where("deleted", "==", false),
+    )
+    const activeProductsSnapshot = await getDocs(activeProductsQuery)
+
+    let activeProducts = 0
+    let draftProducts = 0
+    let archivedProducts = 0
+
+    activeProductsSnapshot.docs.forEach((doc) => {
+      const product = doc.data() as Product
+      switch (product.status) {
+        case "active":
+          activeProducts++
+          break
+        case "draft":
+          draftProducts++
+          break
+        case "archived":
+          archivedProducts++
+          break
+      }
+    })
+
+    // Get low stock products
+    const lowStockProducts = await getLowStockProducts(userId)
+
+    return {
+      totalProducts: allProductsSnapshot.size,
+      activeProducts,
+      draftProducts,
+      archivedProducts,
+      lowStockProducts: lowStockProducts.length,
+      currentCount: limitCheck.currentCount,
+      limit: limitCheck.limit,
+      status: limitCheck.status,
+      canAddMore: limitCheck.canAdd,
+    }
+  } catch (error) {
+    console.error("Error getting user product stats:", error)
+    throw error
   }
 }

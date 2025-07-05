@@ -1,13 +1,13 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { onAuthStateChanged, type User } from "firebase/auth"
-import { doc } from "firebase/firestore"
-import { auth, db } from "@/lib/firebase"
-import { loggedGetDoc } from "@/lib/firestore-logger"
-import { useFirestoreQuery, firestoreCache } from "./use-firestore-cache"
+import { doc, onSnapshot, getDoc } from "firebase/firestore"
+import { db } from "@/lib/firebase"
+import { useAuthState } from "react-firebase-hooks/auth"
+import { auth } from "@/lib/firebase"
 
-interface UserData {
+// User data interface matching the application structure
+export interface UserData {
   uid: string
   email?: string
   phone_number?: string
@@ -22,110 +22,279 @@ interface UserData {
   active?: boolean
   onboarding?: boolean
   type?: string
+  status?: "UNKNOWN" | "INCOMPLETE" | "VERIFIED"
+  account_status?: "active" | "inactive"
   emailVerified?: boolean
   company_id?: string
-}
-
-interface CompanyData {
-  id?: string
-  name?: string
-  business_type?: string
-  address?: {
-    street?: string
-    city?: string
-    province?: string
-    postal_code?: string
-  }
-  website?: string
-  created_by?: string
+  product_count?: number
   created_at?: any
   updated_at?: any
+  last_login?: any
+}
+
+// Product limit information
+export interface ProductLimitInfo {
+  canAdd: boolean
+  currentCount: number
+  limit: number
+  status: string
+  message?: string
+}
+
+// Status information
+export interface StatusInfo {
+  label: string
+  color: string
+  description: string
 }
 
 export function useUserData() {
-  const [currentUser, setCurrentUser] = useState<User | null>(null)
-  const [authLoading, setAuthLoading] = useState(true)
+  const [user] = useAuthState(auth)
+  const [userData, setUserData] = useState<UserData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Listen for auth state changes
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user)
-      setAuthLoading(false)
+  // Refresh user data function
+  const refreshUser = useCallback(async () => {
+    if (!user) {
+      setUserData(null)
+      setLoading(false)
+      return
+    }
 
-      // Clear cache when user changes
-      if (!user) {
-        firestoreCache.invalidatePattern("user_.*")
-        firestoreCache.invalidatePattern("company_.*")
+    try {
+      setLoading(true)
+      setError(null)
+
+      const userDocRef = doc(db, "iboard_users", user.uid)
+      const userDoc = await getDoc(userDocRef)
+
+      if (userDoc.exists()) {
+        const firestoreData = userDoc.data()
+        const combinedData: UserData = {
+          uid: user.uid,
+          email: user.email || firestoreData.email,
+          phone_number: user.phoneNumber || firestoreData.phone_number,
+          display_name: user.displayName || firestoreData.display_name,
+          photo_url: user.photoURL || firestoreData.photo_url,
+          emailVerified: user.emailVerified,
+          first_name: firestoreData.first_name || "",
+          middle_name: firestoreData.middle_name || "",
+          last_name: firestoreData.last_name || "",
+          gender: firestoreData.gender || "",
+          about_me: firestoreData.about_me || "",
+          license_key: firestoreData.license_key || "",
+          active: firestoreData.active !== false,
+          onboarding: firestoreData.onboarding || false,
+          type: firestoreData.type || "SELLAH",
+          status: firestoreData.status || "UNKNOWN",
+          account_status: firestoreData.account_status || "active",
+          company_id: firestoreData.company_id || "",
+          product_count: firestoreData.product_count || 0,
+          created_at: firestoreData.created_at,
+          updated_at: firestoreData.updated_at,
+          last_login: firestoreData.last_login,
+        }
+        setUserData(combinedData)
+      } else {
+        // If no Firestore document exists, create basic user data from auth
+        const basicUserData: UserData = {
+          uid: user.uid,
+          email: user.email || "",
+          phone_number: user.phoneNumber || "",
+          display_name: user.displayName || "",
+          photo_url: user.photoURL || "",
+          emailVerified: user.emailVerified,
+          first_name: "",
+          middle_name: "",
+          last_name: "",
+          status: "UNKNOWN",
+          type: "SELLAH",
+          active: true,
+          onboarding: false,
+          account_status: "active",
+          product_count: 0,
+        }
+        setUserData(basicUserData)
       }
-    })
+    } catch (err) {
+      console.error("Error fetching user data:", err)
+      setError("Failed to load user data")
+
+      // Fallback to basic auth data
+      if (user) {
+        const fallbackData: UserData = {
+          uid: user.uid,
+          email: user.email || "",
+          phone_number: user.phoneNumber || "",
+          display_name: user.displayName || "",
+          photo_url: user.photoURL || "",
+          emailVerified: user.emailVerified,
+          status: "UNKNOWN",
+          type: "SELLAH",
+          active: true,
+          product_count: 0,
+        }
+        setUserData(fallbackData)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [user])
+
+  // Set up real-time listener for user data
+  useEffect(() => {
+    if (!user) {
+      setUserData(null)
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
+    const userDocRef = doc(db, "iboard_users", user.uid)
+
+    const unsubscribe = onSnapshot(
+      userDocRef,
+      (doc) => {
+        try {
+          if (doc.exists()) {
+            const firestoreData = doc.data()
+            const combinedData: UserData = {
+              uid: user.uid,
+              email: user.email || firestoreData.email,
+              phone_number: user.phoneNumber || firestoreData.phone_number,
+              display_name: user.displayName || firestoreData.display_name,
+              photo_url: user.photoURL || firestoreData.photo_url,
+              emailVerified: user.emailVerified,
+              first_name: firestoreData.first_name || "",
+              middle_name: firestoreData.middle_name || "",
+              last_name: firestoreData.last_name || "",
+              gender: firestoreData.gender || "",
+              about_me: firestoreData.about_me || "",
+              license_key: firestoreData.license_key || "",
+              active: firestoreData.active !== false,
+              onboarding: firestoreData.onboarding || false,
+              type: firestoreData.type || "SELLAH",
+              status: firestoreData.status || "UNKNOWN",
+              account_status: firestoreData.account_status || "active",
+              company_id: firestoreData.company_id || "",
+              product_count: firestoreData.product_count || 0,
+              created_at: firestoreData.created_at,
+              updated_at: firestoreData.updated_at,
+              last_login: firestoreData.last_login,
+            }
+            setUserData(combinedData)
+          } else {
+            // Create basic user data if document doesn't exist
+            const basicUserData: UserData = {
+              uid: user.uid,
+              email: user.email || "",
+              phone_number: user.phoneNumber || "",
+              display_name: user.displayName || "",
+              photo_url: user.photoURL || "",
+              emailVerified: user.emailVerified,
+              first_name: "",
+              middle_name: "",
+              last_name: "",
+              status: "UNKNOWN",
+              type: "SELLAH",
+              active: true,
+              onboarding: false,
+              account_status: "active",
+              product_count: 0,
+            }
+            setUserData(basicUserData)
+          }
+          setError(null)
+        } catch (err) {
+          console.error("Error processing user data:", err)
+          setError("Failed to process user data")
+        } finally {
+          setLoading(false)
+        }
+      },
+      (err) => {
+        console.error("Error listening to user data:", err)
+        setError("Failed to load user data")
+        setLoading(false)
+
+        // Fallback to basic auth data
+        if (user) {
+          const fallbackData: UserData = {
+            uid: user.uid,
+            email: user.email || "",
+            phone_number: user.phoneNumber || "",
+            display_name: user.displayName || "",
+            photo_url: user.photoURL || "",
+            emailVerified: user.emailVerified,
+            status: "UNKNOWN",
+            type: "SELLAH",
+            active: true,
+            product_count: 0,
+          }
+          setUserData(fallbackData)
+        }
+      },
+    )
 
     return () => unsubscribe()
-  }, [])
-
-  // Fetch user data with caching
-  const {
-    data: userData,
-    loading: userLoading,
-    error: userError,
-    refetch: refetchUser,
-  } = useFirestoreQuery<UserData | null>(
-    `user_${currentUser?.uid}`,
-    async () => {
-      if (!currentUser) return null
-
-      const userRef = doc(db, "iboard_users", currentUser.uid)
-      const userSnap = await loggedGetDoc(userRef)
-
-      if (!userSnap.exists()) {
-        throw new Error("User profile not found")
-      }
-
-      return { uid: currentUser.uid, ...userSnap.data() } as UserData
-    },
-    { ttl: 10 * 60 * 1000 }, // 10 minutes cache
-  )
-
-  // Fetch company data with caching
-  const {
-    data: companyData,
-    loading: companyLoading,
-    error: companyError,
-    refetch: refetchCompany,
-  } = useFirestoreQuery<CompanyData | null>(
-    `company_${userData?.company_id}`,
-    async () => {
-      if (!userData?.company_id) return null
-
-      const companyRef = doc(db, "companies", userData.company_id)
-      const companySnap = await loggedGetDoc(companyRef)
-
-      if (!companySnap.exists()) {
-        throw new Error("Company not found")
-      }
-
-      return { id: companySnap.id, ...companySnap.data() } as CompanyData
-    },
-    { ttl: 15 * 60 * 1000 }, // 15 minutes cache
-  )
-
-  const invalidateUserCache = useCallback(() => {
-    firestoreCache.invalidate(`user_${currentUser?.uid}`)
-    if (userData?.company_id) {
-      firestoreCache.invalidate(`company_${userData.company_id}`)
-    }
-  }, [currentUser?.uid, userData?.company_id])
+  }, [user])
 
   return {
-    currentUser,
+    currentUser: userData,
     userData,
-    companyData,
-    loading: authLoading || userLoading || companyLoading,
-    userLoading,
-    companyLoading,
-    authLoading,
-    error: userError || companyError,
-    refetchUser,
-    refetchCompany,
-    invalidateUserCache,
+    loading,
+    error,
+    refreshUser,
+  }
+}
+
+// Helper function to get product limit based on user status
+export function getUserProductLimit(status?: string): number {
+  switch (status) {
+    case "VERIFIED":
+      return Number.POSITIVE_INFINITY // Unlimited
+    case "INCOMPLETE":
+      return 5
+    case "UNKNOWN":
+    default:
+      return 1
+  }
+}
+
+// Helper function to check if user can add more products
+export function canUserAddProduct(userData: UserData | null): boolean {
+  if (!userData) return false
+
+  const limit = getUserProductLimit(userData.status)
+  const currentCount = userData.product_count || 0
+
+  return currentCount < limit
+}
+
+// Helper function to get status information
+export function getUserStatusInfo(status?: string): StatusInfo {
+  switch (status) {
+    case "VERIFIED":
+      return {
+        label: "Verified",
+        color: "green",
+        description: "Account is fully verified with unlimited access",
+      }
+    case "INCOMPLETE":
+      return {
+        label: "Incomplete",
+        color: "yellow",
+        description: "Account setup is incomplete, limited access",
+      }
+    case "UNKNOWN":
+    default:
+      return {
+        label: "Unknown",
+        color: "red",
+        description: "Account status unknown, very limited access",
+      }
   }
 }

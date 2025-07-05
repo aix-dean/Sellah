@@ -6,7 +6,6 @@ import { onAuthStateChanged } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { doc, getDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import FirestoreDebugPanel from "./firestore-debug-panel"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -63,7 +62,7 @@ export default function DashboardLayout({ children, activeItem, userName = "" }:
       setCurrentUser(null)
       setUserData(null)
       setDisplayName("")
-      // signOut function already handles redirect
+      router.push("/login")
     } catch (error) {
       console.error("Error signing out:", error)
       alert("Failed to logout. Please try again.")
@@ -181,7 +180,6 @@ export default function DashboardLayout({ children, activeItem, userName = "" }:
                     userData?.photo_url ||
                     currentUser?.photoURL ||
                     "/placeholder.svg?height=32&width=32&query=user profile" ||
-                    "/placeholder.svg" ||
                     "/placeholder.svg"
                   }
                   alt="Profile"
@@ -254,9 +252,6 @@ export default function DashboardLayout({ children, activeItem, userName = "" }:
         {/* Main Content Area */}
         <main className="flex-1 pt-3 pb-20 md:pb-6 overflow-y-auto text-center mr-2 lg:mr-2.5 md:pt-2.5 ml-2 md:ml-[144px]">
           <div className="max-w-full">{children}</div>
-
-          {/* Firestore Debug Panel - only in development */}
-          {process.env.NODE_ENV === "development" && <FirestoreDebugPanel />}
         </main>
       </div>
 

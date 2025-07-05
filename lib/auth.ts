@@ -3,202 +3,198 @@ import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   sendPasswordResetEmail,
-  GoogleAuthProvider,
-  signInWithPopup,
-  FacebookAuthProvider,
+  updateProfile,
   type User,
-  onAuthStateChanged,
+  type AuthError,
 } from "firebase/auth"
-import { doc, setDoc, getDoc, Timestamp } from "firebase/firestore"
+import { doc, setDoc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore"
 import { auth, db } from "./firebase"
-import { generateLicenseKey } from "./license-generator"
+import { validateLicenseFormat, createLicenseDocument } from "./license-generator"
 
-// Logout flag management
-let wasLoggedOutFlag = false
-let sessionExpiredFlag = false
+// User data interface
+export interface UserData {
+  uid: string
+  email?: string
+  phone_number?: string
+  display_name?: string
+  photo_url?: string
+  first_name?: string
+  middle_name?: string
+  last_name?: string
+  gender?: string
+  about_me?: string
+  license_key?: string
+  active?: boolean
+  onboarding?: boolean
+  type?: string
+  status?: "UNKNOWN" | "INCOMPLETE" | "VERIFIED"
+  account_status?: "active" | "inactive"
+  emailVerified?: boolean
+  company_id?: string
+  product_count?: number
+  created_at?: any
+  updated_at?: any
+  last_login?: any
+}
 
-export function setLogoutFlags(wasLoggedOut = true, sessionExpired = false) {
-  wasLoggedOutFlag = wasLoggedOut
-  sessionExpiredFlag = sessionExpired
+// Registration data interface
+export interface RegistrationData {
+  email: string
+  password: string
+  firstName: string
+  middleName?: string
+  lastName: string
+  phoneNumber?: string
+  licenseKey: string
+  gender?: string
+  aboutMe?: string
+}
 
+// Login result interface
+export interface LoginResult {
+  success: boolean
+  user?: User
+  error?: string
+  requiresEmailVerification?: boolean
+}
+
+// Registration result interface
+export interface RegistrationResult {
+  success: boolean
+  user?: User
+  error?: string
+  requiresEmailVerification?: boolean
+}
+
+// Session management constants
+const LOGOUT_FLAG_KEY = "sellah_logout_flag"
+const SESSION_EXPIRED_KEY = "sellah_session_expired"
+const LOGOUT_REASON_KEY = "sellah_logout_reason"
+
+// Session management functions
+export function setLogoutFlags(reason: "manual" | "session_expired" | "inactivity" = "manual") {
   if (typeof window !== "undefined") {
-    localStorage.setItem("wasLoggedOut", wasLoggedOut.toString())
-    localStorage.setItem("sessionExpired", sessionExpired.toString())
+    localStorage.setItem(LOGOUT_FLAG_KEY, "true")
+    localStorage.setItem(LOGOUT_REASON_KEY, reason)
+    if (reason === "session_expired") {
+      localStorage.setItem(SESSION_EXPIRED_KEY, "true")
+    }
   }
 }
 
 export function clearLogoutFlags() {
-  wasLoggedOutFlag = false
-  sessionExpiredFlag = false
-
   if (typeof window !== "undefined") {
-    localStorage.removeItem("wasLoggedOut")
-    localStorage.removeItem("sessionExpired")
+    localStorage.removeItem(LOGOUT_FLAG_KEY)
+    localStorage.removeItem(SESSION_EXPIRED_KEY)
+    localStorage.removeItem(LOGOUT_REASON_KEY)
   }
 }
 
 export function wasLoggedOut(): boolean {
   if (typeof window !== "undefined") {
-    const stored = localStorage.getItem("wasLoggedOut")
-    return stored === "true" || wasLoggedOutFlag
+    return localStorage.getItem(LOGOUT_FLAG_KEY) === "true"
   }
-  return wasLoggedOutFlag
+  return false
 }
 
 export function wasSessionExpired(): boolean {
   if (typeof window !== "undefined") {
-    const stored = localStorage.getItem("sessionExpired")
-    return stored === "true" || sessionExpiredFlag
+    return localStorage.getItem(SESSION_EXPIRED_KEY) === "true"
   }
-  return sessionExpiredFlag
+  return false
 }
 
-// Force logout function for session timeout
-export async function forceLogout() {
-  try {
-    await firebaseSignOut(auth)
-    setLogoutFlags(true, true)
-
-    if (typeof window !== "undefined") {
-      // Clear browser history to prevent back navigation
-      window.history.replaceState(null, "", "/login?session=expired")
-      window.location.href = "/login?session=expired"
-    }
-
-    return { error: null }
-  } catch (error: any) {
-    console.error("Force logout error:", error)
-
-    // Even if Firebase signOut fails, redirect to login
-    if (typeof window !== "undefined") {
-      window.location.href = "/login?error=force_logout_failed"
-    }
-
-    return { error: error.message }
+export function getLogoutReason(): string {
+  if (typeof window !== "undefined") {
+    return localStorage.getItem(LOGOUT_REASON_KEY) || "manual"
   }
+  return "manual"
 }
 
-export interface RegistrationData {
-  firstName: string
-  middleName?: string
-  lastName: string
-  email: string
-  password: string
-  companyName: string
-  phoneNumber: string
-  street: string
-  city: string
-  province: string
+// Format license key as user types
+export function formatLicenseKey(value: string): string {
+  // Remove all non-alphanumeric characters
+  const cleaned = value.replace(/[^A-Z0-9]/g, "").toUpperCase()
+
+  // Add dashes every 5 characters
+  const formatted = cleaned.replace(/(.{5})/g, "$1-").replace(/-$/, "")
+
+  // Limit to 23 characters (XXXXX-XXXXX-XXXXX-XXXXX)
+  return formatted.substring(0, 23)
 }
 
-interface AuthResult {
-  success: boolean
-  error?: string
-  user?: User
-  licenseKey?: string
+// Validate license key format
+export function isValidLicenseKeyFormat(licenseKey: string): boolean {
+  return validateLicenseFormat(licenseKey)
 }
 
-export async function registerUser(data: RegistrationData): Promise<AuthResult> {
+// Check if license key is already used
+export async function isLicenseKeyUsed(licenseKey: string): Promise<boolean> {
   try {
-    clearLogoutFlags()
-
-    // Create Firebase user
-    const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password)
-    const user = userCredential.user
-
-    // Generate unique license key
-    const licenseKey = generateLicenseKey()
-
-    // Create user document in iboard_users collection without company_id
-    await setDoc(doc(db, "iboard_users", user.uid), {
-      uid: user.uid,
-      first_name: data.firstName,
-      middle_name: data.middleName || "",
-      last_name: data.lastName,
-      email: data.email,
-      license_key: licenseKey,
-      email_verified: true,
-      created_at: Timestamp.now(),
-      updated_at: Timestamp.now(),
-      status: "active",
-      role: "owner",
-    })
-
-    // Create license document without company_id
-    const licenseDocument = {
-      license_key: licenseKey,
-      user_id: user.uid,
-      status: "active",
-      type: "standard",
-      created_at: Timestamp.now(),
-      updated_at: Timestamp.now(),
-      expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
-      features: {
-        max_products: 1000,
-        max_orders: 10000,
-        analytics: true,
-        api_access: true,
-      },
-      metadata: {
-        activation_count: 1,
-        last_activated: Timestamp.now(),
-        created_by: user.uid,
-      },
-    }
-
-    await setDoc(doc(db, "licenses", licenseKey), licenseDocument)
-
-    console.log("Registration successful:", {
-      userId: user.uid,
-      licenseKey: licenseKey,
-    })
-
-    return {
-      success: true,
-      user,
-      licenseKey,
-    }
-  } catch (error: any) {
-    console.error("Registration error:", error)
-
-    let errorMessage = "Registration failed. Please try again."
-
-    if (error.code === "auth/email-already-in-use") {
-      errorMessage = "An account with this email already exists."
-    } else if (error.code === "auth/weak-password") {
-      errorMessage = "Password is too weak. Please choose a stronger password."
-    } else if (error.code === "auth/invalid-email") {
-      errorMessage = "Please enter a valid email address."
-    }
-
-    return {
-      success: false,
-      error: errorMessage,
-    }
+    const licensesRef = collection(db, "licenses")
+    const q = query(licensesRef, where("license_key", "==", licenseKey))
+    const querySnapshot = await getDocs(q)
+    return !querySnapshot.empty
+  } catch (error) {
+    console.error("Error checking license key:", error)
+    return false
   }
 }
 
-export async function signInWithEmail(email: string, password: string): Promise<AuthResult> {
+// Sign in with email and password
+export async function signInWithEmail(email: string, password: string): Promise<LoginResult> {
   try {
-    clearLogoutFlags()
     const userCredential = await signInWithEmailAndPassword(auth, email, password)
     const user = userCredential.user
 
+    // Update last login timestamp
+    try {
+      const userDocRef = doc(db, "iboard_users", user.uid)
+      await updateDoc(userDocRef, {
+        last_login: serverTimestamp(),
+        updated_at: serverTimestamp(),
+      })
+    } catch (updateError) {
+      console.error("Error updating last login:", updateError)
+      // Don't fail the login if we can't update the timestamp
+    }
+
+    // Clear any logout flags on successful login
+    clearLogoutFlags()
+
     return {
       success: true,
       user,
+      requiresEmailVerification: !user.emailVerified,
     }
-  } catch (error: any) {
-    console.error("Sign in error:", error)
+  } catch (error) {
+    console.error("Login error:", error)
+    const authError = error as AuthError
 
-    let errorMessage = "Sign in failed. Please try again."
+    let errorMessage = "Login failed. Please try again."
 
-    if (error.code === "auth/user-not-found" || error.code === "auth/wrong-password") {
-      errorMessage = "Invalid email or password."
-    } else if (error.code === "auth/invalid-email") {
-      errorMessage = "Please enter a valid email address."
-    } else if (error.code === "auth/too-many-requests") {
-      errorMessage = "Too many failed attempts. Please try again later."
+    switch (authError.code) {
+      case "auth/user-not-found":
+        errorMessage = "No account found with this email address."
+        break
+      case "auth/wrong-password":
+        errorMessage = "Incorrect password. Please try again."
+        break
+      case "auth/invalid-email":
+        errorMessage = "Invalid email address format."
+        break
+      case "auth/user-disabled":
+        errorMessage = "This account has been disabled. Please contact support."
+        break
+      case "auth/too-many-requests":
+        errorMessage = "Too many failed login attempts. Please try again later."
+        break
+      case "auth/network-request-failed":
+        errorMessage = "Network error. Please check your connection and try again."
+        break
+      case "auth/invalid-credential":
+        errorMessage = "Invalid email or password. Please check your credentials."
+        break
     }
 
     return {
@@ -208,113 +204,207 @@ export async function signInWithEmail(email: string, password: string): Promise<
   }
 }
 
-// Legacy function for compatibility
-export async function signUpWithEmail(
-  email: string,
-  password: string,
-  userData: {
-    firstName: string
-    middleName: string
-    lastName: string
-    companyName: string
-    phoneNumber: string
-    street: string
-    city: string
-    province: string
-  },
-) {
-  return await registerUser({
-    firstName: userData.firstName,
-    middleName: userData.middleName,
-    lastName: userData.lastName,
-    email: email,
-    password: password,
-    companyName: userData.companyName,
-    phoneNumber: userData.phoneNumber,
-    street: userData.street,
-    city: userData.city,
-    province: userData.province,
-  })
-}
-
-export async function signInWithGoogle() {
+// Register new user
+export async function registerUser(data: RegistrationData): Promise<RegistrationResult> {
   try {
-    clearLogoutFlags()
-    const provider = new GoogleAuthProvider()
-    const result = await signInWithPopup(auth, provider)
-    return { user: result.user, error: null }
-  } catch (error: any) {
-    return { user: null, error: error.message }
-  }
-}
-
-export async function signInWithFacebook() {
-  try {
-    clearLogoutFlags()
-    const provider = new FacebookAuthProvider()
-    const result = await signInWithPopup(auth, provider)
-    return { user: result.user, error: null }
-  } catch (error: any) {
-    return { user: null, error: error.message }
-  }
-}
-
-export async function resetPassword(email: string) {
-  try {
-    clearLogoutFlags()
-    await sendPasswordResetEmail(auth, email)
-    return { error: null }
-  } catch (error: any) {
-    return { error: error.message }
-  }
-}
-
-export async function signOut() {
-  try {
-    await firebaseSignOut(auth)
-    setLogoutFlags(true, false)
-
-    if (typeof window !== "undefined") {
-      // Clear browser history to prevent back navigation
-      window.history.replaceState(null, "", "/login")
-      window.location.href = "/login"
+    // Validate license key format
+    if (!isValidLicenseKeyFormat(data.licenseKey)) {
+      return {
+        success: false,
+        error: "Invalid license key format. Please use format: XXXXX-XXXXX-XXXXX-XXXXX",
+      }
     }
 
-    return { error: null }
-  } catch (error: any) {
-    console.error("Logout error:", error)
-
-    // Even if Firebase signOut fails, redirect to login
-    if (typeof window !== "undefined") {
-      window.location.href = "/login?error=logout_failed"
+    // Check if license key is already used
+    const licenseUsed = await isLicenseKeyUsed(data.licenseKey)
+    if (licenseUsed) {
+      return {
+        success: false,
+        error: "This license key has already been registered. Please use a different license key.",
+      }
     }
 
-    return { error: error.message }
-  }
-}
+    // Create Firebase Auth user
+    const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password)
+    const user = userCredential.user
 
-export async function getCurrentUser(): Promise<User | null> {
-  return new Promise((resolve) => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      unsubscribe()
-      resolve(user)
+    // Update user profile
+    await updateProfile(user, {
+      displayName: `${data.firstName} ${data.lastName}`.trim(),
     })
-  })
-}
 
-export async function getUserData(uid: string) {
-  try {
-    const userDoc = await getDoc(doc(db, "iboard_users", uid))
-    if (userDoc.exists()) {
-      return { data: userDoc.data(), error: null }
-    } else {
-      return { data: null, error: "User not found" }
+    // Create user document in Firestore
+    const userData: UserData = {
+      uid: user.uid,
+      email: user.email || data.email,
+      phone_number: data.phoneNumber || "",
+      display_name: `${data.firstName} ${data.lastName}`.trim(),
+      photo_url: user.photoURL || "",
+      first_name: data.firstName,
+      middle_name: data.middleName || "",
+      last_name: data.lastName,
+      gender: data.gender || "",
+      about_me: data.aboutMe || "",
+      license_key: data.licenseKey,
+      active: true,
+      onboarding: false,
+      type: "SELLAH",
+      status: "UNKNOWN",
+      account_status: "active",
+      emailVerified: user.emailVerified,
+      company_id: "",
+      product_count: 0,
+      created_at: serverTimestamp(),
+      updated_at: serverTimestamp(),
+      last_login: serverTimestamp(),
     }
-  } catch (error: any) {
-    return { data: null, error: error.message }
+
+    // Save user data to Firestore
+    const userDocRef = doc(db, "iboard_users", user.uid)
+    await setDoc(userDocRef, userData)
+
+    // Create license document
+    try {
+      await createLicenseDocument(data.licenseKey, user.uid)
+    } catch (licenseError) {
+      console.error("Error creating license document:", licenseError)
+      // Don't fail registration if license document creation fails
+    }
+
+    return {
+      success: true,
+      user,
+      requiresEmailVerification: !user.emailVerified,
+    }
+  } catch (error) {
+    console.error("Registration error:", error)
+    const authError = error as AuthError
+
+    let errorMessage = "Registration failed. Please try again."
+
+    switch (authError.code) {
+      case "auth/email-already-in-use":
+        errorMessage = "An account with this email address already exists."
+        break
+      case "auth/invalid-email":
+        errorMessage = "Invalid email address format."
+        break
+      case "auth/weak-password":
+        errorMessage = "Password is too weak. Please use at least 6 characters."
+        break
+      case "auth/network-request-failed":
+        errorMessage = "Network error. Please check your connection and try again."
+        break
+    }
+
+    return {
+      success: false,
+      error: errorMessage,
+    }
   }
 }
 
-export function onAuthStateChange(callback: (user: User | null) => void) {
-  return onAuthStateChanged(auth, callback)
+// Sign out user
+export async function signOut(reason: "manual" | "session_expired" | "inactivity" = "manual"): Promise<void> {
+  try {
+    // Set logout flags before signing out
+    setLogoutFlags(reason)
+
+    await firebaseSignOut(auth)
+  } catch (error) {
+    console.error("Sign out error:", error)
+    throw error
+  }
+}
+
+// Send password reset email
+export async function resetPassword(email: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    await sendPasswordResetEmail(auth, email)
+    return { success: true }
+  } catch (error) {
+    console.error("Password reset error:", error)
+    const authError = error as AuthError
+
+    let errorMessage = "Failed to send password reset email. Please try again."
+
+    switch (authError.code) {
+      case "auth/user-not-found":
+        errorMessage = "No account found with this email address."
+        break
+      case "auth/invalid-email":
+        errorMessage = "Invalid email address format."
+        break
+      case "auth/network-request-failed":
+        errorMessage = "Network error. Please check your connection and try again."
+        break
+    }
+
+    return {
+      success: false,
+      error: errorMessage,
+    }
+  }
+}
+
+// Get current user data from Firestore
+export async function getCurrentUserData(): Promise<UserData | null> {
+  try {
+    const user = auth.currentUser
+    if (!user) return null
+
+    const userDocRef = doc(db, "iboard_users", user.uid)
+    const userDoc = await getDoc(userDocRef)
+
+    if (userDoc.exists()) {
+      const firestoreData = userDoc.data()
+      return {
+        uid: user.uid,
+        email: user.email || firestoreData.email,
+        phone_number: user.phoneNumber || firestoreData.phone_number,
+        display_name: user.displayName || firestoreData.display_name,
+        photo_url: user.photoURL || firestoreData.photo_url,
+        emailVerified: user.emailVerified,
+        ...firestoreData,
+      } as UserData
+    }
+
+    return null
+  } catch (error) {
+    console.error("Error getting current user data:", error)
+    return null
+  }
+}
+
+// Update user profile
+export async function updateUserProfile(updates: Partial<UserData>): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = auth.currentUser
+    if (!user) {
+      return { success: false, error: "No authenticated user" }
+    }
+
+    // Update Firebase Auth profile if needed
+    if (updates.display_name || updates.photo_url) {
+      await updateProfile(user, {
+        displayName: updates.display_name,
+        photoURL: updates.photo_url,
+      })
+    }
+
+    // Update Firestore document
+    const userDocRef = doc(db, "iboard_users", user.uid)
+    await updateDoc(userDocRef, {
+      ...updates,
+      updated_at: serverTimestamp(),
+    })
+
+    return { success: true }
+  } catch (error) {
+    console.error("Error updating user profile:", error)
+    return {
+      success: false,
+      error: "Failed to update profile. Please try again.",
+    }
+  }
 }
