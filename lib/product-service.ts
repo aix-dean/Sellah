@@ -90,11 +90,13 @@ export interface ProductsResponse {
   lastDoc?: QueryDocumentSnapshot
 }
 
-// User status limits
+// Updated user status limits
 export const PRODUCT_LIMITS = {
   UNKNOWN: 1,
-  INCOMPLETE: 5,
+  BASIC: 5,
   VERIFIED: Number.POSITIVE_INFINITY, // No limit
+  // Legacy support for old status names
+  INCOMPLETE: 5,
 } as const
 
 export type UserStatus = keyof typeof PRODUCT_LIMITS
@@ -119,18 +121,45 @@ export async function canUserAddProduct(userId: string): Promise<{
     const userData = userDoc.data()
     const userStatus = userData.status || "UNKNOWN"
     const currentCount = userData.product_count || 0
-    const limit = PRODUCT_LIMITS[userStatus as UserStatus] || PRODUCT_LIMITS.UNKNOWN
+
+    // Get limit based on user status
+    let limit: number
+    switch (userStatus) {
+      case "UNKNOWN":
+        limit = PRODUCT_LIMITS.UNKNOWN
+        break
+      case "BASIC":
+        limit = PRODUCT_LIMITS.BASIC
+        break
+      case "VERIFIED":
+        limit = PRODUCT_LIMITS.VERIFIED
+        break
+      case "INCOMPLETE": // Legacy support
+        limit = PRODUCT_LIMITS.INCOMPLETE
+        break
+      default:
+        limit = PRODUCT_LIMITS.UNKNOWN
+    }
 
     const canAdd = currentCount < limit
 
     let message: string | undefined
     if (!canAdd) {
-      if (userStatus === "UNKNOWN") {
-        message =
-          "You can only create 1 product with UNKNOWN status. Please complete your profile to increase your limit."
-      } else if (userStatus === "INCOMPLETE") {
-        message =
-          "You have reached the limit of 5 products for INCOMPLETE status. Please verify your account to remove this limit."
+      switch (userStatus) {
+        case "UNKNOWN":
+          message =
+            "You can only create 1 product with UNKNOWN status. Please complete your profile to upgrade your account."
+          break
+        case "BASIC":
+          message =
+            "You have reached the limit of 5 products for BASIC status. Please verify your account to remove this limit."
+          break
+        case "INCOMPLETE": // Legacy support
+          message =
+            "You have reached the limit of 5 products for INCOMPLETE status. Please verify your account to remove this limit."
+          break
+        default:
+          message = "You have reached your product limit. Please upgrade your account status."
       }
     }
 
@@ -170,12 +199,15 @@ export async function createProduct(productData: Omit<Product, "id" | "createdAt
       updatedAt: serverTimestamp(),
     }
 
+    // Create the product document
     const docRef = await addDoc(collection(db, "products"), product)
 
-    // Update user's product count
+    // Increment user's product count by 1
     await updateUserProductCount(productData.userId, 1)
 
     console.log("Product created successfully:", docRef.id)
+    console.log("User product count incremented by 1")
+
     return docRef.id
   } catch (error) {
     console.error("Error creating product:", error)
@@ -225,10 +257,11 @@ export async function deleteProduct(productId: string, userId: string): Promise<
       updatedAt: serverTimestamp(),
     })
 
-    // Update user's product count (decrease by 1)
+    // Decrease user's product count by 1
     await updateUserProductCount(userId, -1)
 
     console.log("Product soft deleted successfully:", productId)
+    console.log("User product count decremented by 1")
   } catch (error) {
     console.error("Error deleting product:", error)
     throw error
@@ -260,10 +293,11 @@ export async function hardDeleteProduct(productId: string, userId: string): Prom
     // Delete product document
     await deleteDoc(productRef)
 
-    // Update user's product count (decrease by 1)
+    // Decrease user's product count by 1
     await updateUserProductCount(userId, -1)
 
     console.log("Product hard deleted successfully:", productId)
+    console.log("User product count decremented by 1")
   } catch (error) {
     console.error("Error hard deleting product:", error)
     throw error
@@ -520,14 +554,17 @@ export async function getLowStockProducts(userId: string): Promise<Product[]> {
   }
 }
 
-// Utility functions
+// Utility function to update user's product count
 export async function updateUserProductCount(userId: string, change: number): Promise<void> {
   try {
     const userRef = doc(db, "iboard_users", userId)
+
+    // Use increment to atomically update the product_count field
     await updateDoc(userRef, {
       product_count: increment(change),
       updated_at: serverTimestamp(),
     })
+
     console.log(`Updated product count for user ${userId}: ${change > 0 ? "+" : ""}${change}`)
   } catch (error) {
     console.error("Error updating user product count:", error)
@@ -640,10 +677,11 @@ export async function bulkDeleteProducts(productIds: string[], userId: string): 
 
     await batch.commit()
 
-    // Update user's product count
+    // Decrease user's product count by the number of deleted products
     await updateUserProductCount(userId, -productIds.length)
 
     console.log("Bulk delete completed for", productIds.length, "products")
+    console.log(`User product count decremented by ${productIds.length}`)
   } catch (error) {
     console.error("Error bulk deleting products:", error)
     throw error

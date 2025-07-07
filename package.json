@@ -9,6 +9,8 @@
     "start": "next start"
   },
   "dependencies": {
+    "@chakra-ui/react": "latest",
+    "@emotion/react": "latest",
     "@hookform/resolvers": "^3.9.1",
     "@radix-ui/react-accordion": "latest",
     "@radix-ui/react-alert-dialog": "latest",

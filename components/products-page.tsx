@@ -22,6 +22,7 @@ import {
   Loader2,
   X,
   CheckCircle,
+  AlertTriangle,
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import DashboardLayout from "./dashboard-layout"
@@ -31,7 +32,7 @@ import { collection, addDoc, serverTimestamp, doc, updateDoc } from "firebase/fi
 import { db } from "@/lib/firebase"
 import { ProductCardSkeleton, ProductListItemSkeleton } from "./skeleton/product-card-skeleton"
 import { DeleteProductDialog } from "./delete-product-dialog"
-import { deleteProduct } from "@/lib/product-service"
+import { deleteProduct, canUserAddProduct } from "@/lib/product-service"
 import { useToast } from "@/hooks/use-toast"
 import { useCategories } from "@/hooks/use-categories"
 
@@ -41,7 +42,7 @@ interface CompanyFormData {
   address_city: string
   address_province: string
   website: string
-  position: string // Add this line
+  position: string
 }
 
 interface ProductToDelete {
@@ -61,6 +62,9 @@ export default function ProductsPage() {
   const [companySuccess, setCompanySuccess] = useState("")
   const [productToDelete, setProductToDelete] = useState<ProductToDelete | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [showLimitModal, setShowLimitModal] = useState(false)
+  const [limitMessage, setLimitMessage] = useState("")
+  const [checkingLimits, setCheckingLimits] = useState(false)
 
   const { toast } = useToast()
 
@@ -70,7 +74,7 @@ export default function ProductsPage() {
     address_city: "",
     address_province: "",
     website: "",
-    position: "", // Add this line
+    position: "",
   })
 
   const { currentUser, userData, loading: userLoading } = useUserData()
@@ -111,7 +115,6 @@ export default function ProductsPage() {
         throw new Error("Province is required")
       }
       if (!companyData.position.trim()) {
-        // Add this validation
         throw new Error("Your position is required")
       }
 
@@ -125,7 +128,7 @@ export default function ProductsPage() {
           province: companyData.address_province,
         },
         website: companyData.website,
-        position: companyData.position, // Add this line
+        position: companyData.position,
         created_by: currentUser.uid,
         created_at: serverTimestamp(),
         updated_at: serverTimestamp(),
@@ -157,15 +160,48 @@ export default function ProductsPage() {
     }
   }
 
-  const handleAddProduct = () => {
+  const checkProductLimits = async (): Promise<boolean> => {
+    if (!currentUser) return false
+
+    setCheckingLimits(true)
+    try {
+      const limitCheck = await canUserAddProduct(currentUser.uid)
+
+      if (!limitCheck.canAdd) {
+        setLimitMessage(limitCheck.message || "You have reached your product limit.")
+        setShowLimitModal(true)
+        return false
+      }
+
+      return true
+    } catch (error: any) {
+      console.error("Error checking product limits:", error)
+      toast({
+        title: "Error",
+        description: "Failed to check product limits. Please try again.",
+        variant: "destructive",
+      })
+      return false
+    } finally {
+      setCheckingLimits(false)
+    }
+  }
+
+  const handleAddProduct = async () => {
+    if (!currentUser) return
+
+    // First check product limits
+    const canAdd = await checkProductLimits()
+    if (!canAdd) return
+
     // Check if user has company information
-    if (!currentUser?.company_id) {
+    if (!userData?.company_id) {
       console.log(JSON.stringify(currentUser))
       setShowCompanyForm(true)
       return
     }
 
-    // User has company info, proceed to add product page
+    // User has company info and is within limits, proceed to add product page
     window.location.href = "/dashboard/products/add"
   }
 
@@ -180,8 +216,13 @@ export default function ProductsPage() {
       address_city: "",
       address_province: "",
       website: "",
-      position: "", // Add this line
+      position: "",
     })
+  }
+
+  const handleCloseLimitModal = () => {
+    setShowLimitModal(false)
+    setLimitMessage("")
   }
 
   const handleDeleteClick = (product: any) => {
@@ -199,7 +240,10 @@ export default function ProductsPage() {
     try {
       // Call the soft delete function which updates active=false and deleted=true
       await deleteProduct(productToDelete.id, currentUser.uid)
-
+    const userRef = doc(db, "iboard_users", currentUser.uid)
+    await updateDoc(userRef, {
+      product_count: increment(-1),
+    })
       toast({
         title: "Product deleted",
         description: `${productToDelete.name} has been successfully deleted and removed from your active inventory.`,
@@ -354,12 +398,93 @@ export default function ProductsPage() {
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Inventory</h1>
             <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your product inventory and listings</p>
           </div>
-          <Button onClick={handleAddProduct} className="bg-red-500 hover:bg-red-600 text-white w-full sm:w-auto">
-            <Plus className="w-4 h-4 mr-2" />
-            <span className="sm:hidden">Add</span>
-            <span className="hidden sm:inline">Add Product</span>
+          <Button
+            onClick={handleAddProduct}
+            disabled={checkingLimits}
+            className="bg-red-500 hover:bg-red-600 text-white w-full sm:w-auto"
+          >
+            {checkingLimits ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                <span className="sm:hidden">Checking...</span>
+                <span className="hidden sm:inline">Checking Limits...</span>
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4 mr-2" />
+                <span className="sm:hidden">Add</span>
+                <span className="hidden sm:inline">Add Product</span>
+              </>
+            )}
           </Button>
         </div>
+
+        {/* Product Limit Modal */}
+        {showLimitModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="flex items-center justify-between p-6 border-b">
+                <div className="flex items-center space-x-2">
+                  <AlertTriangle className="w-5 h-5 text-yellow-500" />
+                  <h3 className="text-lg font-semibold text-gray-900">Product Limit Reached</h3>
+                </div>
+                <Button variant="ghost" size="sm" onClick={handleCloseLimitModal} className="p-1">
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+
+              <div className="p-6">
+                <div className="mb-6">
+                  <p className="text-gray-600 mb-4">{limitMessage}</p>
+
+                  {userData?.status === "UNKNOWN" && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h4 className="font-medium text-blue-900 mb-2">Upgrade to BASIC Status</h4>
+                      <p className="text-sm text-blue-700 mb-3">
+                        Complete your profile to upgrade to BASIC status and create up to 5 products.
+                      </p>
+                      <ul className="text-sm text-blue-700 space-y-1">
+                        <li>• Complete your business information</li>
+                        <li>• Verify your contact details</li>
+                        <li>• Add your business address</li>
+                      </ul>
+                    </div>
+                  )}
+
+                  {userData?.status === "BASIC" && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <h4 className="font-medium text-green-900 mb-2">Upgrade to VERIFIED Status</h4>
+                      <p className="text-sm text-green-700 mb-3">
+                        Get your account verified to remove all product limits and access premium features.
+                      </p>
+                      <ul className="text-sm text-green-700 space-y-1">
+                        <li>• Submit business documents</li>
+                        <li>• Complete identity verification</li>
+                        <li>• Unlimited product listings</li>
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 justify-end">
+                  <Button variant="outline" onClick={handleCloseLimitModal} className="w-full sm:w-auto bg-transparent">
+                    Close
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      handleCloseLimitModal()
+                      // You can add navigation to upgrade page here
+                      // window.location.href = "/dashboard/account/upgrade"
+                    }}
+                    className="bg-red-500 hover:bg-red-600 text-white w-full sm:w-auto"
+                  >
+                    Upgrade Account
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Company Information Form Overlay */}
         {showCompanyForm && (
@@ -598,9 +723,22 @@ export default function ProductsPage() {
                 : "Get started by adding your first product"}
             </p>
             {!searchTerm && selectedCategory === "all" && (
-              <Button onClick={handleAddProduct} className="bg-red-500 hover:bg-red-600 text-white">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Your First Product
+              <Button
+                onClick={handleAddProduct}
+                disabled={checkingLimits}
+                className="bg-red-500 hover:bg-red-600 text-white"
+              >
+                {checkingLimits ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Checking Limits...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Your First Product
+                  </>
+                )}
               </Button>
             )}
           </div>

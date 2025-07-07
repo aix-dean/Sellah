@@ -3,17 +3,35 @@
 import { useState, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
-import { RefreshCw, AlertCircle, Clock, User, ChevronDown, ChevronUp } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
+import {
+  Clock,
+  Search,
+  Filter,
+  Download,
+  RefreshCw,
+  AlertCircle,
+  Calendar,
+  User,
+  Activity,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  EyeOff,
+  TrendingUp,
+  BarChart3,
+} from "lucide-react"
 import {
   orderActivityService,
   type OrderActivity,
   getActivityIcon,
   getActivityColor,
-  getStatusBadgeColor,
-  formatTimestamp,
-  formatRelativeTime,
+  getActivityPriority,
 } from "@/lib/order-activity-service"
+import { toast } from "@/hooks/use-toast"
+import { Box, Heading, Text, Spinner } from "@/components/ui/custom-ui"
 
 interface OrderActivityTimelineProps {
   orderId: string
@@ -21,13 +39,34 @@ interface OrderActivityTimelineProps {
 
 export default function OrderActivityTimeline({ orderId }: OrderActivityTimelineProps) {
   const [activities, setActivities] = useState<OrderActivity[]>([])
+  const [filteredActivities, setFilteredActivities] = useState<OrderActivity[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [filterType, setFilterType] = useState<string>("all")
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
+  const [showMetadata, setShowMetadata] = useState(false)
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
+  const [lifecycleSummary, setLifecycleSummary] = useState<any>(null)
+
+  const activityTypes = [
+    { value: "all", label: "All Activities" },
+    { value: "order_created", label: "Order Created" },
+    { value: "status_change", label: "Status Changes" },
+    { value: "payment_update", label: "Payment Updates" },
+    { value: "shipping_update", label: "Shipping Updates" },
+    { value: "note_added", label: "Notes Added" },
+    { value: "order_updated", label: "Order Updates" },
+  ]
 
   useEffect(() => {
     fetchActivities()
+    fetchLifecycleSummary()
   }, [orderId])
+
+  useEffect(() => {
+    applyFilters()
+  }, [activities, searchTerm, filterType, sortOrder])
 
   const fetchActivities = async () => {
     if (!orderId) return
@@ -36,14 +75,55 @@ export default function OrderActivityTimeline({ orderId }: OrderActivityTimeline
     setError(null)
 
     try {
-      const result = await orderActivityService.getOrderActivities(orderId)
-      setActivities(Array.isArray(result) ? result : [])
+      const activitiesData = await orderActivityService.getOrderActivities(orderId)
+      setActivities(activitiesData)
     } catch (error) {
       console.error("Error fetching order activities:", error)
       setError("Failed to load order activity history.")
     } finally {
       setLoading(false)
     }
+  }
+
+  const fetchLifecycleSummary = async () => {
+    try {
+      const summary = await orderActivityService.getOrderLifecycleSummary(orderId)
+      setLifecycleSummary(summary)
+    } catch (error) {
+      console.error("Error fetching lifecycle summary:", error)
+    }
+  }
+
+  const applyFilters = () => {
+    let filtered = [...activities]
+
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (activity) =>
+          activity.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          activity.new_value.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (activity.old_value && activity.old_value.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (activity.metadata?.user_name &&
+            activity.metadata.user_name.toLowerCase().includes(searchTerm.toLowerCase())),
+      )
+    }
+
+    if (filterType !== "all") {
+      filtered = filtered.filter((activity) => activity.activity_type === filterType)
+    }
+
+    filtered.sort((a, b) => {
+      const aTime = a.timestamp?.toDate?.() || new Date(a.timestamp || 0)
+      const bTime = b.timestamp?.toDate?.() || new Date(b.timestamp || 0)
+
+      if (sortOrder === "desc") {
+        return bTime.getTime() - aTime.getTime()
+      } else {
+        return aTime.getTime() - bTime.getTime()
+      }
+    })
+
+    setFilteredActivities(filtered)
   }
 
   const toggleExpanded = (activityId: string) => {
@@ -56,210 +136,410 @@ export default function OrderActivityTimeline({ orderId }: OrderActivityTimeline
     setExpandedItems(newExpanded)
   }
 
-  // Group activities by date using Firestore Timestamps
-  const groupedActivities = Array.isArray(activities)
-    ? activities.reduce<Record<string, OrderActivity[]>>((groups, activity) => {
-        const date = activity.timestamp.toDate()
-        const dateKey = date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return "N/A"
+    try {
+      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+    } catch (error) {
+      return "Invalid Date"
+    }
+  }
 
-        if (!groups[dateKey]) {
-          groups[dateKey] = []
-        }
+  const formatRelativeTime = (timestamp: any) => {
+    if (!timestamp) return "N/A"
+    try {
+      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
+      const now = new Date()
+      const diffMs = now.getTime() - date.getTime()
+      const diffMins = Math.floor(diffMs / 60000)
+      const diffHours = Math.floor(diffMins / 60)
+      const diffDays = Math.floor(diffHours / 24)
 
-        groups[dateKey].push(activity)
-        return groups
-      }, {})
-    : {}
+      if (diffMins < 1) return "Just now"
+      if (diffMins < 60) return `${diffMins}m ago`
+      if (diffHours < 24) return `${diffHours}h ago`
+      if (diffDays < 7) return `${diffDays}d ago`
+      return formatDate(timestamp)
+    } catch (error) {
+      return "Invalid Date"
+    }
+  }
+
+  const exportActivities = () => {
+    const csvContent = [
+      ["Timestamp", "Type", "Description", "Old Value", "New Value", "User", "Details"].join(","),
+      ...filteredActivities.map((activity) =>
+        [
+          formatDate(activity.timestamp),
+          activity.activity_type,
+          `"${activity.description}"`,
+          activity.old_value || "",
+          activity.new_value,
+          activity.metadata?.user_name || "",
+          activity.metadata ? `"${JSON.stringify(activity.metadata)}"` : "",
+        ].join(","),
+      ),
+    ].join("\n")
+
+    const blob = new Blob([csvContent], { type: "text/csv" })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `order-activity-history.csv`
+    a.click()
+    window.URL.revokeObjectURL(url)
+
+    toast({
+      title: "Export Complete",
+      description: "Activity history has been exported to CSV.",
+    })
+  }
+
+  // Group activities by date
+  const groupedActivities = filteredActivities.reduce<Record<string, OrderActivity[]>>((groups, activity) => {
+    const date = activity.timestamp?.toDate?.() || new Date(activity.timestamp || 0)
+    const dateKey = date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+
+    if (!groups[dateKey]) {
+      groups[dateKey] = []
+    }
+
+    groups[dateKey].push(activity)
+    return groups
+  }, {})
 
   const sortedDates = Object.keys(groupedActivities).sort((a, b) => {
     const dateA = new Date(a).getTime()
     const dateB = new Date(b).getTime()
-    return dateB - dateA // Newest first
+    return sortOrder === "desc" ? dateB - dateA : dateA - dateB
   })
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="space-y-2">
-            <Skeleton className="h-6 w-32" />
-            <div className="space-y-3">
-              <div className="flex items-start space-x-4">
-                <Skeleton className="h-10 w-10 rounded-full" />
-                <div className="space-y-2 flex-1">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+      <Box className="flex items-center justify-center py-12">
+        <Box className="text-center">
+          <Spinner size="lg" className="mx-auto mb-4" />
+          <Text size="sm" color="gray">
+            Loading activity history...
+          </Text>
+        </Box>
+      </Box>
     )
   }
 
   if (error) {
     return (
-      <div className="text-center py-8">
+      <Box className="text-center py-12">
         <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-        <p className="text-sm text-gray-700 mb-4">{error}</p>
+        <Text size="sm" color="gray" className="mb-4">
+          {error}
+        </Text>
         <Button onClick={fetchActivities} variant="outline" size="sm">
           <RefreshCw className="w-4 h-4 mr-2" />
           Try Again
         </Button>
-      </div>
-    )
-  }
-
-  if (!Array.isArray(activities) || activities.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <Clock className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-        <p className="text-sm text-gray-500">No activity recorded for this order yet.</p>
-      </div>
+      </Box>
     )
   }
 
   return (
-    <div className="space-y-8">
-      {sortedDates.map((dateKey) => (
-        <div key={dateKey}>
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="flex-shrink-0 bg-gray-100 px-3 py-1 rounded-full">
-              <span className="text-sm font-medium text-gray-700">{dateKey}</span>
-            </div>
-            <div className="flex-1 h-px bg-gray-200"></div>
-          </div>
+    <Box className="space-y-6">
+      {/* Summary Stats */}
+      {lifecycleSummary && (
+        <Box className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+          <Box className="text-center">
+            <Box className="flex items-center justify-center mb-2">
+              <Calendar className="w-4 h-4 text-blue-600" />
+            </Box>
+            <Text size="xs" color="gray" className="mb-1">
+              Created
+            </Text>
+            <Text size="sm" className="font-semibold text-gray-900">
+              {lifecycleSummary.created_at ? formatRelativeTime({ toDate: () => lifecycleSummary.created_at }) : "N/A"}
+            </Text>
+          </Box>
+          <Box className="text-center">
+            <Box className="flex items-center justify-center mb-2">
+              <TrendingUp className="w-4 h-4 text-green-600" />
+            </Box>
+            <Text size="xs" color="gray" className="mb-1">
+              Current Status
+            </Text>
+            <Text size="sm" className="font-semibold text-gray-900 capitalize">
+              {lifecycleSummary.current_status || "Unknown"}
+            </Text>
+          </Box>
+          <Box className="text-center">
+            <Box className="flex items-center justify-center mb-2">
+              <BarChart3 className="w-4 h-4 text-purple-600" />
+            </Box>
+            <Text size="xs" color="gray" className="mb-1">
+              Status Changes
+            </Text>
+            <Text size="sm" className="font-semibold text-gray-900">
+              {lifecycleSummary.status_changes}
+            </Text>
+          </Box>
+          <Box className="text-center">
+            <Box className="flex items-center justify-center mb-2">
+              <Activity className="w-4 h-4 text-orange-600" />
+            </Box>
+            <Text size="xs" color="gray" className="mb-1">
+              Total Activities
+            </Text>
+            <Text size="sm" className="font-semibold text-gray-900">
+              {lifecycleSummary.total_activities}
+            </Text>
+          </Box>
+        </Box>
+      )}
 
-          <div className="space-y-4">
-            {groupedActivities[dateKey].map((activity, index) => {
-              // Get the appropriate icon for this activity type
-              const activityIcon = getActivityIcon(activity.activity_type)
+      {/* Controls */}
+      <Box className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+        <Box className="flex items-center space-x-2">
+          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+            {filteredActivities.length} {filteredActivities.length === 1 ? "activity" : "activities"}
+          </Badge>
+          <Button variant="ghost" size="sm" onClick={() => setShowMetadata(!showMetadata)} className="text-gray-500">
+            {showMetadata ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            <span className="ml-1 hidden sm:inline">{showMetadata ? "Hide" : "Show"} Details</span>
+          </Button>
+        </Box>
 
-              return (
-                <div key={activity.id || index} className="relative pl-10 pb-6">
-                  {/* Timeline connector */}
-                  {index < groupedActivities[dateKey].length - 1 && (
-                    <div className="absolute left-4 top-8 bottom-0 w-0.5 bg-gray-200"></div>
-                  )}
+        <Box className="flex items-center space-x-2">
+          <Button variant="ghost" size="sm" onClick={exportActivities}>
+            <Download className="w-4 h-4" />
+            <span className="ml-1 hidden sm:inline">Export</span>
+          </Button>
+          <Button variant="ghost" size="sm" onClick={fetchActivities}>
+            <RefreshCw className="w-4 h-4" />
+            <span className="ml-1 hidden sm:inline">Refresh</span>
+          </Button>
+        </Box>
+      </Box>
 
-                  {/* Activity dot with icon */}
-                  <div
-                    className={`absolute left-0 top-2 w-8 h-8 rounded-full flex items-center justify-center ${getActivityColor(
-                      activity.activity_type,
-                    )} shadow-sm border-2 border-white`}
-                  >
-                    <span className="text-sm">{activityIcon}</span>
-                  </div>
+      {/* Filters */}
+      <Box className="flex flex-col sm:flex-row gap-4">
+        <Box className="flex-1">
+          <Box className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input
+              placeholder="Search activities..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </Box>
+        </Box>
+        <Select value={filterType} onValueChange={setFilterType}>
+          <SelectTrigger className="w-full sm:w-48">
+            <Filter className="w-4 h-4 mr-2" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {activityTypes.map((type) => (
+              <SelectItem key={type.value} value={type.value}>
+                {type.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={sortOrder} onValueChange={(value: "asc" | "desc") => setSortOrder(value)}>
+          <SelectTrigger className="w-full sm:w-32">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="desc">Newest First</SelectItem>
+            <SelectItem value="asc">Oldest First</SelectItem>
+          </SelectContent>
+        </Select>
+      </Box>
 
-                  {/* Activity content */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-3 mb-2">
-                          <Badge
-                            variant="outline"
-                            className={`${getActivityColor(activity.activity_type)} text-xs font-medium`}
-                          >
-                            {activity.activity_type.replace("_", " ").toUpperCase()}
-                          </Badge>
-                          <span className="text-xs text-gray-500 font-medium">
-                            {formatRelativeTime(activity.timestamp)}
-                          </span>
-                        </div>
+      <Separator />
 
-                        <p className="text-sm font-medium text-gray-900 mb-2">{activity.description}</p>
+      {/* Activity Timeline */}
+      {filteredActivities.length === 0 ? (
+        <Box className="text-center py-12">
+          <Activity className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <Text color="gray" className="mb-2">
+            {searchTerm || filterType !== "all"
+              ? "No activities match your filters."
+              : "No activity recorded for this order yet."}
+          </Text>
+          {(searchTerm || filterType !== "all") && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSearchTerm("")
+                setFilterType("all")
+              }}
+              className="mt-2"
+            >
+              Clear Filters
+            </Button>
+          )}
+        </Box>
+      ) : (
+        <Box className="space-y-8">
+          {sortedDates.map((dateKey) => (
+            <Box key={dateKey}>
+              <Box className="flex items-center space-x-3 mb-6">
+                <Box className="flex items-center space-x-2 bg-gray-100 px-3 py-1 rounded-full">
+                  <Calendar className="w-4 h-4 text-gray-500" />
+                  <Text size="sm" className="font-medium text-gray-700">
+                    {dateKey}
+                  </Text>
+                </Box>
+                <Box className="flex-1 h-px bg-gray-200"></Box>
+                <Badge variant="outline" className="text-xs">
+                  {groupedActivities[dateKey].length}{" "}
+                  {groupedActivities[dateKey].length === 1 ? "activity" : "activities"}
+                </Badge>
+              </Box>
 
-                        {/* Status change visualization with icons */}
-                        {activity.activity_type === "status_change" && (
-                          <div className="flex items-center space-x-3 mb-3">
-                            {activity.old_value && (
-                              <>
-                                <Badge
-                                  variant="outline"
-                                  className={`${getStatusBadgeColor(activity.old_value)} text-xs flex items-center gap-1`}
-                                >
-                                  <span>
-                                    {activity.old_value.toUpperCase()}
-                                  </span>
+              <Box className="space-y-4">
+                {groupedActivities[dateKey]
+                  .sort((a, b) => {
+                    const priorityDiff = getActivityPriority(a.activity_type) - getActivityPriority(b.activity_type)
+                    if (priorityDiff !== 0) return priorityDiff
+
+                    const aTime = a.timestamp?.toDate?.() || new Date(a.timestamp || 0)
+                    const bTime = b.timestamp?.toDate?.() || new Date(b.timestamp || 0)
+                    return sortOrder === "desc" ? bTime.getTime() - aTime.getTime() : aTime.getTime() - bTime.getTime()
+                  })
+                  .map((activity, index) => (
+                    <Box key={activity.id || index} className="relative pl-10 pb-6">
+                      {/* Timeline connector */}
+                      {index < groupedActivities[dateKey].length - 1 && (
+                        <Box className="absolute left-4 top-8 bottom-0 w-0.5 bg-gray-200"></Box>
+                      )}
+
+                      {/* Activity dot */}
+                      <Box
+                        className={`absolute left-0 top-2 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${getActivityColor(activity.activity_type)} shadow-sm border-2 border-white`}
+                      >
+                        {getActivityIcon(activity.activity_type)}
+                      </Box>
+
+                      {/* Activity content */}
+                      <Box className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-200 hover:border-gray-300">
+                        <Box className="flex items-start justify-between mb-3">
+                          <Box className="flex-1">
+                            <Box className="flex items-center space-x-3 mb-2">
+                              <Badge
+                                variant="outline"
+                                className={`${getActivityColor(activity.activity_type)} text-xs font-medium`}
+                              >
+                                {activity.activity_type.replace("_", " ").toUpperCase()}
+                              </Badge>
+                              <Text size="xs" color="gray" className="font-medium">
+                                {formatRelativeTime(activity.timestamp)}
+                              </Text>
+                            </Box>
+
+                            <Text size="sm" className="font-medium text-gray-900 mb-2">
+                              {activity.description}
+                            </Text>
+
+                            {/* Status change visualization */}
+                            {activity.activity_type === "status_change" && (
+                              <Box className="flex items-center space-x-3 mb-3">
+                                {activity.old_value && (
+                                  <>
+                                    <Badge variant="outline" className="bg-gray-100 text-gray-600 text-xs">
+                                      {activity.old_value.charAt(0).toUpperCase() + activity.old_value.slice(1)}
+                                    </Badge>
+                                    <Text size="sm" color="gray">
+                                      →
+                                    </Text>
+                                  </>
+                                )}
+                                <Badge variant="outline" className="bg-green-100 text-green-800 text-xs">
+                                  {activity.new_value.charAt(0).toUpperCase() + activity.new_value.slice(1)}
                                 </Badge>
-                                <span className="text-gray-400 text-sm">→</span>
-                              </>
+                              </Box>
                             )}
-                            <Badge
-                              variant="outline"
-                              className={`${getStatusBadgeColor(activity.new_value)} text-xs flex items-center gap-1`}
-                            >
-                              <span>{activity.new_value.toUpperCase()}</span>
-                            </Badge>
-                          </div>
-                        )}
 
-                        {/* User and timestamp */}
-                        <div className="flex items-center space-x-4 text-xs text-gray-500">
-                          {activity.metadata?.user_name && (
-                            <div className="flex items-center space-x-1">
-                              <User className="w-3 h-3" />
-                              <span>{activity.metadata.user_name}</span>
-                            </div>
-                          )}
-                          <div className="flex items-center space-x-1">
-                            <Clock className="w-3 h-3" />
-                            <span>{formatTimestamp(activity.timestamp)}</span>
-                          </div>
-                        </div>
+                            {/* User and timestamp */}
+                            <Box className="flex items-center space-x-4 text-xs text-gray-500">
+                              {activity.metadata?.user_name && (
+                                <Box className="flex items-center space-x-1">
+                                  <User className="w-3 h-3" />
+                                  <span>{activity.metadata.user_name}</span>
+                                </Box>
+                              )}
+                              <Box className="flex items-center space-x-1">
+                                <Clock className="w-3 h-3" />
+                                <span>{formatDate(activity.timestamp)}</span>
+                              </Box>
+                            </Box>
 
-                        {/* Metadata toggle */}
-                        {activity.metadata && Object.keys(activity.metadata).length > 0 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => toggleExpanded(activity.id || `${index}`)}
-                            className="mt-3 h-6 px-2 text-xs text-gray-500 hover:text-gray-700"
-                          >
-                            {expandedItems.has(activity.id || `${index}`) ? (
-                              <>
-                                <ChevronUp className="w-3 h-3 mr-1" />
-                                Hide Details
-                              </>
-                            ) : (
-                              <>
-                                <ChevronDown className="w-3 h-3 mr-1" />
-                                Show Details
-                              </>
+                            {/* Metadata toggle */}
+                            {activity.metadata && Object.keys(activity.metadata).length > 1 && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleExpanded(activity.id || `${index}`)}
+                                className="mt-3 h-6 px-2 text-xs text-gray-500 hover:text-gray-700"
+                              >
+                                {expandedItems.has(activity.id || `${index}`) ? (
+                                  <>
+                                    <ChevronUp className="w-3 h-3 mr-1" />
+                                    Hide Details
+                                  </>
+                                ) : (
+                                  <>
+                                    <ChevronDown className="w-3 h-3 mr-1" />
+                                    Show Details
+                                  </>
+                                )}
+                              </Button>
                             )}
-                          </Button>
-                        )}
 
-                        {/* Expanded metadata */}
-                        {expandedItems.has(activity.id || `${index}`) && activity.metadata && (
-                          <div className="mt-4 p-3 bg-gray-50 rounded-lg border">
-                            <h5 className="text-xs font-semibold text-gray-700 mb-3">Additional Details</h5>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              {Object.entries(activity.metadata)
-                                .filter(([key]) => !["user_name", "created_at", "source"].includes(key))
-                                .map(([key, value]) => (
-                                  <div key={key} className="flex flex-col space-y-1">
-                                    <span className="text-xs text-gray-500 capitalize font-medium">
-                                      {key.replace(/_/g, " ")}:
-                                    </span>
-                                    <span className="text-xs text-gray-700 font-mono bg-white px-2 py-1 rounded border">
-                                      {typeof value === "object" ? JSON.stringify(value) : String(value)}
-                                    </span>
-                                  </div>
-                                ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
+                            {/* Expanded metadata */}
+                            {(showMetadata || expandedItems.has(activity.id || `${index}`)) && activity.metadata && (
+                              <Box className="mt-4 p-3 bg-gray-50 rounded-lg border">
+                                <Heading size="xs" className="text-gray-700 mb-3">
+                                  Additional Details
+                                </Heading>
+                                <Box className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                  {Object.entries(activity.metadata)
+                                    .filter(([key]) => !["user_name", "created_at", "source"].includes(key))
+                                    .map(([key, value]) => (
+                                      <Box key={key} className="flex flex-col space-y-1">
+                                        <Text size="xs" color="gray" className="capitalize font-medium">
+                                          {key.replace(/_/g, " ")}:
+                                        </Text>
+                                        <Text
+                                          size="xs"
+                                          className="text-gray-700 font-mono bg-white px-2 py-1 rounded border"
+                                        >
+                                          {typeof value === "object" ? JSON.stringify(value) : String(value)}
+                                        </Text>
+                                      </Box>
+                                    ))}
+                                </Box>
+                              </Box>
+                            )}
+                          </Box>
+                        </Box>
+                      </Box>
+                    </Box>
+                  ))}
+              </Box>
+            </Box>
+          ))}
+        </Box>
+      )}
+    </Box>
   )
 }

@@ -147,7 +147,7 @@ export default function DashboardLayout({ children, activeItem, userName = "" }:
   }, [])
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="flex items-center justify-between mb-4">
       {/* Fixed Header */}
       <header className="bg-red-500 text-white px-4 py-3 flex items-center justify-between h-16 fixed top-0 left-0 right-0 z-50 shadow-lg">
         <div className="flex items-center space-x-4">

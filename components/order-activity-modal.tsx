@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { History, X } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { useUserData } from "@/hooks/use-user-data"
-import { createOrderActivity } from "@/lib/order-activity"
+import { logOrderStatusChange } from "@/lib/order-activity-service"
 import OrderActivityTimeline from "./order-activity-timeline"
 
 interface OrderActivityModalProps {
@@ -159,59 +159,23 @@ export default function OrderActivityModal({
         await updateDoc(orderRef, {
           payment_status: "paid",
         })
-
-        // Create payment update activity
-        await createOrderActivity({
-          order_id: orderId,
-          user_id: currentUser.uid,
-          activity_type: "payment_update",
-          old_value: order.payment_status,
-          new_value: "paid",
-          description: `Payment status updated to paid due to order ${newStatus}`,
-          metadata: {
-            user_name: currentUser.displayName || currentUser.email,
-            order_number: order.order_number,
-            total_amount: order.total_amount,
-            customer_name: order.customer_name,
-            payment_method: order.payment_method,
-            status_change: newStatus,
-          },
-        })
       } else if (newStatus === "cancelled") {
         await updateDoc(orderRef, {
           payment_status: "cancelled",
           cancelled_at: Timestamp.now(),
           cancelled_by: currentUser.uid,
         })
-
-        // Create payment update activity
-        await createOrderActivity({
-          order_id: orderId,
-          user_id: currentUser.uid,
-          activity_type: "payment_update",
-          old_value: order.payment_status,
-          new_value: "cancelled",
-          description: `Payment status updated to cancelled due to order cancellation`,
-          metadata: {
-            user_name: currentUser.displayName || currentUser.email,
-            order_number: order.order_number,
-            total_amount: order.total_amount,
-            customer_name: order.customer_name,
-            payment_method: order.payment_method,
-          },
-        })
       }
 
-      // Create status change activity record
-      await createOrderActivity({
-        order_id: orderId,
-        user_id: currentUser.uid,
-        activity_type: "status_change",
-        old_value: oldStatus,
-        new_value: newStatus,
-        description: `Order status changed from ${oldStatus} to ${newStatus}`,
-        metadata: {
-          user_name: currentUser.displayName || currentUser.email,
+      // Log the status change with notification
+      await logOrderStatusChange(
+        orderId,
+        order.order_number,
+        order.customer_id || order.user_id, // Customer ID
+        currentUser.uid, // Admin/seller ID
+        oldStatus,
+        newStatus,
+        {
           order_number: order.order_number,
           total_amount: order.total_amount,
           customer_name: order.customer_name,
@@ -220,7 +184,7 @@ export default function OrderActivityModal({
           device_info: navigator.userAgent,
           timestamp_iso: new Date().toISOString(),
         },
-      })
+      )
 
       // Update local state
       setOrder({
@@ -261,7 +225,7 @@ export default function OrderActivityModal({
       {trigger ? (
         <div onClick={handleOpen}>{trigger}</div>
       ) : (
-        <Button variant="outline" size="sm" onClick={handleOpen} className="flex items-center gap-1">
+        <Button variant="outline" size="sm" onClick={handleOpen} className="flex items-center gap-1 bg-transparent">
           <History className="w-4 h-4" />
           <span>Activity</span>
         </Button>

@@ -29,14 +29,18 @@ export const STEPS = [
 
 // Unit options for products
 export const UNIT_OPTIONS = [
+  { value: "per_bottle", label: "Per Bottle" },
+  { value: "per_gallon", label: "Per Gallon" },
   { value: "per_piece", label: "Per Piece" },
-  { value: "per_kg", label: "Per Kilogram" },
-  { value: "per_gram", label: "Per Gram" },
-  { value: "per_liter", label: "Per Liter" },
-  { value: "per_meter", label: "Per Meter" },
-  { value: "per_pack", label: "Per Pack" },
-  { value: "per_box", label: "Per Box" },
   { value: "per_set", label: "Per Set" },
+  { value: "per_box", label: "Per Box" },
+  { value: "per_square_foot", label: "Per Square Foot" },
+  { value: "per_square_meter", label: "Per Square Meter" },
+  { value: "per_roll", label: "Per Roll" },
+  { value: "per_dozon", label: "Per Dozen"},
+  { value: "per_hundred", label: "Per Hundred"},
+  { value: "per_unit", label: "Per Unit"},
+  { value: "per_watt", label: "Per Watt"}
 ]
 
 // Product form data interface

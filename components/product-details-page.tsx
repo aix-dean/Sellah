@@ -95,6 +95,7 @@ interface Product {
     carrier: string
     url?: string
   }
+  userId?: string
 }
 
 export default function ProductDetailsPage({ productId }: ProductDetailsPageProps) {
@@ -181,6 +182,7 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
           sku: productData.sku,
           shipping_methods: productData.shipping_methods || [],
           tracking_info: productData.tracking_info || null,
+          userId: productData.userId,
         })
 
         // Fetch category names
@@ -274,12 +276,16 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
   }
 
   const handleDeleteConfirm = async () => {
-    if (!productToDelete) return
+    if (!productToDelete || !product) return
 
     setIsDeleting(true)
     try {
-      await deleteProduct(productToDelete.id)
-
+      // Pass both productId and userId to the deleteProduct function
+      await deleteProduct(productToDelete.id, product.userId)
+  const userRef = doc(db, "iboard_users", product.userId)
+    await updateDoc(userRef, {
+      product_count: increment(-1),
+    })
       toast({
         title: "Product deleted",
         description: `${productToDelete.name} has been successfully deleted and removed from your active inventory.`,

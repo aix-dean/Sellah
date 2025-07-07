@@ -14,7 +14,7 @@ import { useRouter } from "next/navigation"
 import { OrderApprovalDialog } from "./order-approval-dialog"
 import { OrderRejectionDialog } from "./order-rejection-dialog"
 import { PaymentProofModal } from "./payment-proof-modal"
-import { updateOrderStatus, updateOrderOutForDelivery } from "@/lib/api"
+import { updateOrderStatus, updateOrderOutForDelivery, approveOrderPayment, completeOrder } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { getStatusCounts, debugStatusMapping, getOrdersByDisplayStatus } from "@/lib/status-utils"
 import { OrderStatusDebugger } from "./order-status-debugger"
@@ -167,6 +167,7 @@ export default function OrdersPage() {
         currentUser?.uid || "system",
         order.status,
         currentUser?.displayName || "System",
+        "Order approved by admin",
       )
       toast({
         title: "Order Approved",
@@ -178,7 +179,7 @@ export default function OrdersPage() {
       setActiveTab("TO SHIP")
       setShouldSwitchTab("TO SHIP")
 
-      await handleRefresh() // Use the enhanced refresh function
+      await handleRefresh()
     } catch (error) {
       console.error("Error approving order:", error)
       toast({
@@ -195,10 +196,11 @@ export default function OrdersPage() {
     try {
       await updateOrderStatus(
         order.id,
-        "CANCELLED",
+        "cancelled",
         currentUser?.uid || "system",
         order.status,
         currentUser?.displayName || "System",
+        reason,
       )
       toast({
         title: "Order Rejected",
@@ -210,7 +212,7 @@ export default function OrdersPage() {
       setActiveTab("CANCELLED")
       setShouldSwitchTab("CANCELLED")
 
-      await handleRefresh() // Use the enhanced refresh function
+      await handleRefresh()
     } catch (error) {
       console.error("Error rejecting order:", error)
       toast({
@@ -221,27 +223,28 @@ export default function OrdersPage() {
     }
   }
 
-  // Handle payment approval (ONLY refresh UI, don't change status)
-  const handlePaymentApprovalSuccess = async () => {
-    console.log("🔄 Payment approved - refreshing UI only, no status change")
+  // Handle payment approval
+  const handlePaymentApprovalSuccess = async (order: any) => {
+    console.log("🔄 Payment approved for order:", order)
     try {
+      await approveOrderPayment(order.id, currentUser?.uid || "system", currentUser?.displayName || "System")
       toast({
         title: "Payment Approved",
         description: `Payment has been approved successfully.`,
       })
       showAnimatedSuccess("Payment approved successfully!")
-      await handleRefresh() // Only refresh to show updated approve_payment field
+      await handleRefresh()
     } catch (error) {
-      console.error("Error refreshing after payment approval:", error)
+      console.error("Error approving payment:", error)
       toast({
         title: "Error",
-        description: "Failed to refresh orders. Please try again.",
+        description: "Failed to approve payment. Please try again.",
         variant: "destructive",
       })
     }
   }
 
-  // Handle payment rejection (for payment sent orders) - Enhanced with debugging
+  // Handle payment rejection (for payment sent orders)
   const handleRejectPayment = async (order: any) => {
     console.log("🔄 Rejecting payment for order:", order)
     try {
@@ -251,13 +254,14 @@ export default function OrdersPage() {
         currentUser?.uid || "system",
         order.status,
         currentUser?.displayName || "System",
+        "Payment rejected by admin",
       )
       toast({
         title: "Payment Rejected",
         description: `Payment for order ${order.order_number} has been rejected.`,
       })
       showAnimatedSuccess("Payment rejected successfully!")
-      await handleRefresh() // Use the enhanced refresh function
+      await handleRefresh()
     } catch (error) {
       console.error("Error rejecting payment:", error)
       toast({
@@ -269,16 +273,16 @@ export default function OrdersPage() {
   }
 
   // Handle ready to ship - change status to 'in transit'
-  const handleReadyToShip = async (order: any, updateApprovePayment = false) => {
-    console.log("🔄 Handling ready to ship for order:", order, "updateApprovePayment:", updateApprovePayment)
+  const handleReadyToShip = async (order: any) => {
+    console.log("🔄 Handling ready to ship for order:", order)
     try {
-      // Always change status to 'in transit' when ready for shipping is clicked
       await updateOrderStatus(
         order.id,
         "in transit",
         currentUser?.uid || "system",
         order.status,
         currentUser?.displayName || "System",
+        "Order ready for shipping",
       )
       toast({
         title: "Order Ready to Ship",
@@ -290,7 +294,7 @@ export default function OrdersPage() {
       setActiveTab("SHIPPING")
       setShouldSwitchTab("SHIPPING")
 
-      await handleRefresh() // Use the enhanced refresh function
+      await handleRefresh()
     } catch (error) {
       console.error("Error updating order to in transit:", error)
       toast({
@@ -301,7 +305,7 @@ export default function OrdersPage() {
     }
   }
 
-  // Handle out for delivery - update out_of_delivery field to true (for delivery orders)
+  // Handle out for delivery
   const handleOutForDelivery = async (order: any) => {
     console.log("🚚 Handling out for delivery for order:", order)
     try {
@@ -322,30 +326,11 @@ export default function OrdersPage() {
     }
   }
 
-  // Handle picked up by buyer or order received - change status to 'order received' then 'completed'
+  // Handle picked up by buyer or order received
   const handlePickedUpByBuyer = async (order: any) => {
     console.log("📦 Handling picked up by buyer/order received for order:", order)
     try {
-      // First update to 'order received'
-      await updateOrderStatus(
-        order.id,
-        "order received",
-        currentUser?.uid || "system",
-        order.status,
-        currentUser?.displayName || "System",
-      )
-
-      // Then immediately update to 'completed'
-      setTimeout(async () => {
-        await updateOrderStatus(
-          order.id,
-          "completed",
-          currentUser?.uid || "system",
-          "order received",
-          currentUser?.displayName || "System",
-        )
-        await handleRefresh()
-      }, 500)
+      await completeOrder(order.id, currentUser?.uid || "system", currentUser?.displayName || "System")
 
       const actionText = order.is_pickup ? "picked up by buyer" : "received by customer"
       toast({
@@ -369,10 +354,9 @@ export default function OrdersPage() {
     }
   }
 
-  // Add tab switching effect after the existing useEffect hooks
+  // Add tab switching effect
   useEffect(() => {
     if (shouldSwitchTab) {
-      // Clear the switch flag after a short delay
       const timer = setTimeout(() => {
         setShouldSwitchTab(null)
       }, 1000)
@@ -398,7 +382,7 @@ export default function OrdersPage() {
         return (
           <OrdersUnpaidTab
             {...commonProps}
-             onViewPaymentProof={(order) => {
+            onViewPaymentProof={(order) => {
               console.log("🔍 Opening payment proof modal for order:", order)
               setPaymentProofModal({ open: true, order })
             }}
@@ -467,14 +451,14 @@ export default function OrdersPage() {
                   variant="outline"
                   onClick={handleRefresh}
                   disabled={loading}
-                  className="flex items-center justify-center space-x-2"
+                  className="flex items-center justify-center space-x-2 bg-transparent"
                 >
                   <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
                   <span>Refresh</span>
                 </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="flex items-center justify-center space-x-2">
+                    <Button variant="outline" className="flex items-center justify-center space-x-2 bg-transparent">
                       <Filter className="w-4 h-4" />
                       <span className="hidden sm:inline">Status: {activeTab}</span>
                       <span className="sm:hidden">Filter</span>
@@ -520,7 +504,7 @@ export default function OrdersPage() {
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="flex items-center justify-center space-x-2">
+                  <Button variant="outline" className="flex items-center justify-center space-x-2 bg-transparent">
                     <span>Order ID</span>
                     <ChevronDown className="w-4 h-4" />
                   </Button>
@@ -586,7 +570,7 @@ export default function OrdersPage() {
           setPaymentProofModal({ open, order: null })
         }}
         order={paymentProofModal.order}
-        onApprovePayment={handlePaymentApprovalSuccess}
+        onApprovePayment={() => handlePaymentApprovalSuccess(paymentProofModal.order)}
         onRejectPayment={() => handleRejectPayment(paymentProofModal.order)}
       />
 

@@ -1,233 +1,150 @@
-import { doc, updateDoc, serverTimestamp, getDoc } from "firebase/firestore"
-import { db } from "@/lib/firebase"
-import { createOrderActivity } from "@/lib/order-activity"
-import { updateOrderStatusWithStockManagement } from "./order-status-handler"
-import { formatOrderItemsForStock } from "./stock-management"
+import { doc, updateDoc, serverTimestamp, arrayUnion, getDoc } from "firebase/firestore"
+import { db } from "./firebase"
+import { logOrderStatusChange, logPaymentReceived, logOrderShipped, logOrderDelivered } from "./order-activity-service"
 
-export const updateOrderStatus = async (
+export async function updateOrderStatus(
   orderId: string,
   newStatus: string,
   userId: string,
   oldStatus?: string,
   userName?: string,
-) => {
-  console.log("🚀 updateOrderStatus called with:", {
-    orderId,
-    newStatus,
-    userId,
-    oldStatus,
-    userName,
-  })
-
+  reason?: string,
+): Promise<void> {
   try {
-    if (!orderId || !newStatus || !userId) {
-      throw new Error("Missing required parameters: orderId, newStatus, or userId")
-    }
-
-    // Get current order data first
     const orderRef = doc(db, "orders", orderId)
-    const orderDoc = await getDoc(orderRef)
 
-    if (!orderDoc.exists()) {
-      throw new Error(`Order with ID ${orderId} not found`)
+    // Get current order data if oldStatus not provided
+    if (!oldStatus) {
+      const orderDoc = await getDoc(orderRef)
+      if (orderDoc.exists()) {
+        oldStatus = orderDoc.data().status
+      }
     }
 
-    const currentOrderData = orderDoc.data()
-    const currentStatus = currentOrderData.status || oldStatus || "unknown"
-
-    console.log("📄 Current order data:", {
-      currentStatus,
-      currentApprovePayment: currentOrderData.approve_payment,
-      newStatus,
+    // Update order status
+    await updateDoc(orderRef, {
+      status: newStatus,
+      updated_at: serverTimestamp(),
+      ...(reason && {
+        status_change_reason: reason,
+        status_history: arrayUnion({
+          status: newStatus,
+          timestamp: serverTimestamp(),
+          changed_by: userId,
+          reason,
+        }),
+      }),
     })
 
-    // Use the new stock management function
-    const result = await updateOrderStatusWithStockManagement(
-      orderId,
-      newStatus,
-      userId,
-      currentStatus,
-      userName || "System",
-      currentOrderData,
-    )
-
-    if (!result.success) {
-      throw new Error(result.error || "Failed to update order status")
+    // Log the status change and create notification
+    if (oldStatus) {
+      await logOrderStatusChange(orderId, oldStatus, newStatus, userId, userName, reason)
     }
 
-    // Prepare update data for additional fields
-    const updateData: any = {
-      updated_at: serverTimestamp(),
-    }
-
-    // Set approve_payment to false when status changes to "settle payment" (payment rejected)
-    if (newStatus === "settle payment") {
-      updateData.approve_payment = false
-      console.log("❌ Setting approve_payment to false for settle payment status")
-    }
-
-    // Set approve_payment to false when approving unpaid orders (status changes to "preparing")
-    if (newStatus === "preparing") {
-      updateData.approve_payment = false
-      console.log(
-        "📝 Setting approve_payment to false for preparing status (order approved but payment not yet approved)",
-      )
-    }
-
-    // Update additional fields if needed
-    if (Object.keys(updateData).length > 1) {
-      await updateDoc(orderRef, updateData)
-    }
-
-    return result
+    console.log(`Order ${orderId} status updated from ${oldStatus} to ${newStatus}`)
   } catch (error) {
-    console.error("❌ Error updating order status:", error)
+    console.error("Error updating order status:", error)
     throw error
   }
 }
 
-export const updateOrderApprovePayment = async (orderId: string, userId: string, userName?: string) => {
+export async function updateOrderOutForDelivery(orderId: string, userId: string, userName?: string): Promise<void> {
   try {
-    if (!orderId || !userId) {
-      throw new Error("Missing required parameters: orderId or userId")
-    }
-
-    // Get current order data first
     const orderRef = doc(db, "orders", orderId)
-    const orderDoc = await getDoc(orderRef)
 
-    if (!orderDoc.exists()) {
-      throw new Error(`Order with ID ${orderId} not found`)
-    }
-
-    const currentOrderData = orderDoc.data()
-
-    // Prepare update data - ONLY update approve_payment, DO NOT change status
-    const updateData: any = {
-      approve_payment: true,
+    await updateDoc(orderRef, {
+      out_for_delivery: true,
+      out_for_delivery_at: serverTimestamp(),
       updated_at: serverTimestamp(),
-    }
-
-    // Create order activity with clean metadata using correct parameters
-    await createOrderActivity({
-      orderId,
-      type: "payment_approved",
-      description: "Payment approved - order ready for shipping",
-      userId,
-      userName: userName || "System",
-      metadata: {
-        approve_payment: true,
-        action: "approve_payment",
-        note: "Payment approved without status change",
-      },
     })
 
-    // Update the order document - ONLY approve_payment field, status remains unchanged
-    await updateDoc(orderRef, updateData)
+    // Log the activity
+    await logOrderShipped(orderId, "Out for Delivery", "Local Delivery", userId, userName)
 
-    // Verify the update
-    const updatedDoc = await getDoc(orderRef)
-    const updatedData = updatedDoc.data()
-    console.log("✅ Order document updated successfully. New data:", {
-      status: updatedData?.status, // Should remain unchanged
-      approve_payment: updatedData?.approve_payment, // Should be true
-      updated_at: updatedData?.updated_at,
-    })
-
-    return { success: true }
+    console.log(`Order ${orderId} marked as out for delivery`)
   } catch (error) {
-    console.error("❌ Error updating order approve_payment:", error)
+    console.error("Error updating order out for delivery:", error)
     throw error
   }
 }
 
-export const updateOrderOutForDelivery = async (orderId: string, userId: string, userName?: string) => {
-  console.log("🚚 updateOrderOutForDelivery called with:", {
-    orderId,
-    userId,
-    userName,
-  })
-
-  try {
-    if (!orderId || !userId) {
-      throw new Error("Missing required parameters: orderId or userId")
-    }
-
-    // Get current order data first
-    const orderRef = doc(db, "orders", orderId)
-    const orderDoc = await getDoc(orderRef)
-
-    if (!orderDoc.exists()) {
-      throw new Error(`Order with ID ${orderId} not found`)
-    }
-
-    const currentOrderData = orderDoc.data()
-
-    // Prepare update data - ONLY update out_of_delivery, DO NOT change status
-    const updateData: any = {
-      out_of_delivery: true,
-      updated_at: serverTimestamp(),
-    }
-
-    // Create order activity with clean metadata using correct parameters
-    await createOrderActivity({
-      orderId,
-      type: "out_for_delivery",
-      description: "Order is now out for delivery",
-      userId,
-      userName: userName || "System",
-      metadata: {
-        out_of_delivery: true,
-        action: "out_for_delivery",
-        note: "Order marked as out for delivery without status change",
-        is_pickup: currentOrderData.is_pickup || false,
-      },
-    })
-
-    console.log("📄 Updating order document with:", updateData)
-    // Update the order document - ONLY out_of_delivery field, status remains unchanged
-    await updateDoc(orderRef, updateData)
-
-    // Verify the update
-    const updatedDoc = await getDoc(orderRef)
-    const updatedData = updatedDoc.data()
-    console.log("✅ Order document updated successfully. New data:", {
-      status: updatedData?.status, // Should remain unchanged
-      out_of_delivery: updatedData?.out_of_delivery, // Should be true
-      updated_at: updatedData?.updated_at,
-    })
-
-    return { success: true }
-  } catch (error) {
-    console.error("❌ Error updating order out_of_delivery:", error)
-    throw error
-  }
-}
-
-export async function checkOrderStockAvailability(orderId: string): Promise<{
-  available: boolean
-  insufficientItems: any[]
-}> {
+export async function approveOrderPayment(orderId: string, userId: string, userName?: string): Promise<void> {
   try {
     const orderRef = doc(db, "orders", orderId)
-    const orderDoc = await getDoc(orderRef)
 
+    // Get order data first
+    const orderDoc = await getDoc(orderRef)
     if (!orderDoc.exists()) {
       throw new Error("Order not found")
     }
 
     const orderData = orderDoc.data()
-    const { stockManagementService } = await import("./stock-management")
 
-    const orderItems = formatOrderItemsForStock(orderData.items || [])
-    const stockCheck = await stockManagementService.checkStockAvailability(orderItems)
+    await updateDoc(orderRef, {
+      approve_payment: true,
+      payment_approved_at: serverTimestamp(),
+      payment_approved_by: userId,
+      updated_at: serverTimestamp(),
+    })
 
-    return stockCheck
+    // Log payment approval
+    await logPaymentReceived(
+      orderId,
+      orderData.total_amount || 0,
+      orderData.payment_method || "Unknown",
+      userId,
+      userName,
+    )
+
+    console.log(`Payment approved for order ${orderId}`)
   } catch (error) {
-    console.error("Error checking order stock availability:", error)
-    return {
-      available: false,
-      insufficientItems: [],
-    }
+    console.error("Error approving order payment:", error)
+    throw error
+  }
+}
+
+export async function completeOrder(orderId: string, userId: string, userName?: string): Promise<void> {
+  try {
+    const orderRef = doc(db, "orders", orderId)
+
+    await updateDoc(orderRef, {
+      status: "completed",
+      completed_at: serverTimestamp(),
+      completed_by: userId,
+      updated_at: serverTimestamp(),
+    })
+
+    // Log order completion
+    await logOrderDelivered(orderId, userId, userName)
+
+    console.log(`Order ${orderId} completed`)
+  } catch (error) {
+    console.error("Error completing order:", error)
+    throw error
+  }
+}
+
+export async function addOrderNote(orderId: string, note: string, userId: string, userName?: string): Promise<void> {
+  try {
+    const orderRef = doc(db, "orders", orderId)
+
+    await updateDoc(orderRef, {
+      notes: arrayUnion({
+        note: note.trim(),
+        timestamp: serverTimestamp(),
+        added_by: userId,
+        user_name: userName || "Unknown User",
+      }),
+      updated_at: serverTimestamp(),
+    })
+
+    // Log the note addition
+    const { addOrderNote: logNote } = await import("./order-activity-service")
+    await logNote(orderId, note, userId, userName)
+
+    console.log(`Note added to order ${orderId}`)
+  } catch (error) {
+    console.error("Error adding order note:", error)
+    throw error
   }
 }
