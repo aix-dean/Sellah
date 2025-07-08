@@ -23,7 +23,6 @@ import {
 } from "firebase/firestore"
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"
 import { db } from "@/lib/firebase"
-import DashboardLayout from "./dashboard-layout"
 import { useUserData } from "@/hooks/use-user-data"
 import { useAnimatedSuccess } from "@/hooks/use-animated-success"
 import { AnimatedSuccessMessage } from "./animated-success-message"
@@ -57,14 +56,7 @@ export default function AddProductPage(): ReactElement {
   const [categories, setCategories] = useState<any[]>([])
   const [categoriesLoading, setCategoriesLoading] = useState(true)
   const [categoriesError, setCategoriesError] = useState<string | null>(null)
-  const [checkingLimits, setCheckingLimits] = useState(true)
-  const [productLimitInfo, setProductLimitInfo] = useState<{
-    canAdd: boolean
-    currentCount: number
-    limit: number
-    status: string
-    message?: string
-  } | null>(null)
+
 
   const [formData, setFormData] = useState<ProductFormData>({
     name: "",
@@ -104,65 +96,6 @@ export default function AddProductPage(): ReactElement {
   const { showSuccessAnimation, successMessage, isSuccessVisible, showAnimatedSuccess } = useAnimatedSuccess()
 
   // All callback functions
-  const checkProductLimits = useCallback(async () => {
-    if (!currentUser || !userData) return
-
-    try {
-      setCheckingLimits(true)
-      const currentCount = userData.product_count || 0
-      let limit = 1
-      let canAdd = false
-      let message = ""
-      const userStatus = userData.status || "UNKNOWN"
-
-      switch (userStatus) {
-        case "VERIFIED":
-          limit = Number.POSITIVE_INFINITY
-          canAdd = true
-          break
-        case "BASIC":
-          limit = 5
-          canAdd = currentCount < limit
-          if (!canAdd) {
-            message = `You have reached the maximum of ${limit} products for BASIC status. Upgrade to VERIFIED status for unlimited products.`
-          }
-          break
-        case "INCOMPLETE":
-          limit = 5
-          canAdd = currentCount < limit
-          if (!canAdd) {
-            message = `You have reached the maximum of ${limit} products for INCOMPLETE status. Complete your verification to increase your limit.`
-          }
-          break
-        default:
-          limit = 1
-          canAdd = currentCount < limit
-          if (!canAdd) {
-            message = `You have reached the maximum of ${limit} product for new accounts. Complete your profile to upgrade to BASIC status and create up to 5 products.`
-          }
-          break
-      }
-
-      setProductLimitInfo({
-        canAdd,
-        currentCount,
-        limit,
-        status: userStatus,
-        message,
-      })
-    } catch (error) {
-      console.error("Error checking product limits:", error)
-      setProductLimitInfo({
-        canAdd: false,
-        currentCount: 0,
-        limit: 0,
-        status: "ERROR",
-        message: "Failed to check product limits. Please try again.",
-      })
-    } finally {
-      setCheckingLimits(false)
-    }
-  }, [currentUser, userData])
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -616,11 +549,6 @@ export default function AddProductPage(): ReactElement {
         return
       }
 
-      if (!productLimitInfo?.canAdd) {
-        setGeneralError(productLimitInfo?.message || "You have reached your product limit.")
-        return
-      }
-
       if (!isDraft) {
         for (let i = 1; i <= STEPS.length; i++) {
           const stepValidation = validateStep(i, formData)
@@ -727,15 +655,10 @@ export default function AddProductPage(): ReactElement {
         setLoading(false)
       }
     },
-    [currentUser, userData, formData, showAnimatedSuccess, invalidateProducts, productLimitInfo],
+    [currentUser, userData, formData, showAnimatedSuccess, invalidateProducts],
   )
 
-  // All useEffect hooks
-  useEffect(() => {
-    if (currentUser && userData) {
-      checkProductLimits()
-    }
-  }, [currentUser, userData, checkProductLimits])
+  // All useEffect
 
   useEffect(() => {
     const loadCategories = async () => {
@@ -1483,110 +1406,19 @@ export default function AddProductPage(): ReactElement {
   // NOW WE CAN USE CONDITIONAL RENDERING IN THE RETURN STATEMENT
 
   // Show loading state while checking limits
-  if (userLoading || checkingLimits) {
+  if (userLoading) {
     return (
-      <DashboardLayout activeItem="products">
         <div className="flex items-center justify-center min-h-96">
           <div className="flex flex-col items-center space-y-4">
             <Loader2 className="w-8 h-8 animate-spin text-red-500" />
             <p className="text-gray-600">{userLoading ? "Loading user data..." : "Checking product limits..."}</p>
           </div>
         </div>
-      </DashboardLayout>
-    )
-  }
-
-  // Show limit reached message if user can't add products
-  if (productLimitInfo && !productLimitInfo.canAdd) {
-    return (
-      <DashboardLayout activeItem="products">
-        <div className="max-w-7xl mx-auto space-y-6">
-          <div className="flex items-center space-x-4">
-            <Button variant="ghost" onClick={() => window.history.back()} className="p-2">
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <h1 className="text-3xl font-bold text-gray-800">Add New Product</h1>
-          </div>
-
-          <div className="max-w-2xl mx-auto">
-            <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
-              <div className="mb-6">
-                <Lock className="h-16 w-16 text-red-500 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Product Limit Reached</h2>
-                <p className="text-gray-600 mb-4">{productLimitInfo.message}</p>
-              </div>
-
-              <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">Current Status:</span>
-                  <Badge
-                    variant={
-                      productLimitInfo.status === "VERIFIED"
-                        ? "default"
-                        : productLimitInfo.status === "INCOMPLETE"
-                          ? "secondary"
-                          : "destructive"
-                    }
-                  >
-                    {productLimitInfo.status}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between text-sm mt-2">
-                  <span className="font-medium">Products:</span>
-                  <span>
-                    {productLimitInfo.currentCount} /{" "}
-                    {productLimitInfo.limit === Number.POSITIVE_INFINITY ? "∞" : productLimitInfo.limit}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {productLimitInfo.status === "UNKNOWN" && (
-                  <div className="text-left">
-                    <h3 className="font-semibold text-gray-900 mb-2">To increase your limit:</h3>
-                    <ul className="text-sm text-gray-600 space-y-1">
-                      <li>• Complete your profile information</li>
-                      <li>• Verify your email address</li>
-                      <li>• Add company details</li>
-                    </ul>
-                  </div>
-                )}
-
-                {productLimitInfo.status === "INCOMPLETE" && (
-                  <div className="text-left">
-                    <h3 className="font-semibold text-gray-900 mb-2">To remove the limit:</h3>
-                    <ul className="text-sm text-gray-600 space-y-1">
-                      <li>• Complete account verification</li>
-                      <li>• Submit required documents</li>
-                      <li>• Wait for admin approval</li>
-                    </ul>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3 mt-6">
-                <Button
-                  variant="outline"
-                  onClick={() => (window.location.href = "/dashboard/products")}
-                  className="flex-1"
-                >
-                  Back to Products
-                </Button>
-                <Button onClick={() => (window.location.href = "/dashboard/account")} className="flex-1">
-                  <Shield className="h-4 w-4 mr-2" />
-                  Complete Profile
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </DashboardLayout>
     )
   }
 
   if (userError) {
     return (
-      <DashboardLayout activeItem="products">
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
             <h3 className="text-lg font-medium text-gray-900 mb-2">Authentication Error</h3>
@@ -1594,12 +1426,10 @@ export default function AddProductPage(): ReactElement {
             <Button onClick={() => (window.location.href = "/login")}>Go to Login</Button>
           </div>
         </div>
-      </DashboardLayout>
     )
   }
 
   return (
-    <DashboardLayout activeItem="products">
       <AnimatedSuccessMessage show={showSuccessAnimation} message={successMessage} isVisible={isSuccessVisible} />
 
       <div className="max-w-7xl mx-auto space-y-6">
@@ -1609,31 +1439,6 @@ export default function AddProductPage(): ReactElement {
           </Button>
           <h1 className="text-3xl font-bold text-gray-800">Add New Product</h1>
         </div>
-
-        {productLimitInfo && (
-          <Alert className="border-blue-200 bg-blue-50">
-            <Shield className="h-4 w-4 text-blue-600" />
-            <AlertDescription>
-              <div className="flex items-center justify-between">
-                <span className="text-blue-800">
-                  Product limit: {productLimitInfo.currentCount} /{" "}
-                  {productLimitInfo.limit === Number.POSITIVE_INFINITY ? "∞" : productLimitInfo.limit}
-                </span>
-                <Badge
-                  variant={
-                    productLimitInfo.status === "VERIFIED"
-                      ? "default"
-                      : productLimitInfo.status === "INCOMPLETE"
-                        ? "secondary"
-                        : "destructive"
-                  }
-                >
-                  {productLimitInfo.status}
-                </Badge>
-              </div>
-            </AlertDescription>
-          </Alert>
-        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1">
@@ -1672,6 +1477,5 @@ export default function AddProductPage(): ReactElement {
           </div>
         </div>
       </div>
-    </DashboardLayout>
   )
 }

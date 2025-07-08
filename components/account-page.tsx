@@ -1,504 +1,555 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Camera, User, Building2, Calendar, Shield, ArrowUp } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Separator } from "@/components/ui/separator"
+import { User, Building2, Camera, Edit3, Save, X, CheckCircle, AlertCircle, Calendar, Hash } from "lucide-react"
 import { useUserData } from "@/hooks/use-user-data"
-import { useCompanyData } from "@/hooks/use-company-data"
-import { updateUserProfile, updateCompanyProfile, uploadProfileImage } from "@/lib/api"
-import { useToast } from "@/hooks/use-toast"
-import { useAnimatedSuccess } from "@/hooks/use-animated-success"
-import { AnimatedSuccessMessage } from "./animated-success-message"
-import DashboardLayout from "./dashboard-layout"
+import { doc, updateDoc } from "firebase/firestore"
+import { db } from "@/lib/firebase"
+import { toast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 
+interface PersonalInfo {
+  first_name: string
+  middle_name: string
+  last_name: string
+  email: string
+  phone_number: string
+}
+
+interface CompanyInfo {
+  company_name: string
+  position: string
+  street_address: string
+  city: string
+  province: string
+}
+
 export default function AccountPage() {
+  const { userData, loading, error } = useUserData()
   const router = useRouter()
-  const { toast } = useToast()
-  const { showSuccessAnimation, successMessage, isSuccessVisible, showAnimatedSuccess } = useAnimatedSuccess()
 
-  // User data
-  const { currentUser, userData, loading: userLoading, error: userError, refreshUserData } = useUserData()
-  const {
-    company,
-    loading: companyLoading,
-    error: companyError,
-    refreshCompanyData,
-  } = useCompanyData(userData?.company_id || null)
-
-  // Form states
-  const [personalForm, setPersonalForm] = useState({
-    firstName: "",
-    lastName: "",
+  // Personal info state
+  const [personalInfo, setPersonalInfo] = useState<PersonalInfo>({
+    first_name: "",
+    middle_name: "",
+    last_name: "",
     email: "",
-    phoneNumber: "",
+    phone_number: "",
   })
+  const [editingPersonal, setEditingPersonal] = useState(false)
+  const [savingPersonal, setSavingPersonal] = useState(false)
 
-  const [companyForm, setCompanyForm] = useState({
-    companyName: "",
-    address: "",
+  // Company info state
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo>({
+    company_name: "",
+    position: "",
+    street_address: "",
     city: "",
-    state: "",
-    zipCode: "",
-    phoneNumber: "",
-    email: "",
-    website: "",
+    province: "",
   })
+  const [editingCompany, setEditingCompany] = useState(false)
+  const [savingCompany, setSavingCompany] = useState(false)
 
-  const [uploading, setUploading] = useState(false)
-  const [updating, setUpdating] = useState({ personal: false, company: false })
+  // Profile picture state
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
 
-  // Initialize forms when data loads
+  // Load user data when available
   useEffect(() => {
     if (userData) {
-      setPersonalForm({
-        firstName: userData.firstName || "",
-        lastName: userData.lastName || "",
+      setPersonalInfo({
+        first_name: userData.first_name || "",
+        middle_name: userData.middle_name || "",
+        last_name: userData.last_name || "",
         email: userData.email || "",
-        phoneNumber: userData.phoneNumber || "",
+        phone_number: userData.phone_number || "",
+      })
+
+      setCompanyInfo({
+        company_name: userData.company_name || "",
+        position: userData.position || "",
+        street_address: userData.street_address || "",
+        city: userData.city || "",
+        province: userData.province || "",
       })
     }
   }, [userData])
 
-  useEffect(() => {
-    if (company) {
-      setCompanyForm({
-        companyName: company.companyName || "",
-        address: company.address || "",
-        city: company.city || "",
-        state: company.state || "",
-        zipCode: company.zipCode || "",
-        phoneNumber: company.phoneNumber || "",
-        email: company.email || "",
-        website: company.website || "",
-      })
-    }
-  }, [company])
-
-  // Handle profile image upload
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file || !currentUser) return
-
-    setUploading(true)
-    try {
-      const imageUrl = await uploadProfileImage(currentUser.uid, file)
-      await refreshUserData()
-      showAnimatedSuccess("Profile picture updated successfully!")
-    } catch (error) {
-      console.error("Error uploading image:", error)
-      toast({
-        title: "Upload Failed",
-        description: "Failed to upload profile picture. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setUploading(false)
+  // Get status badge configuration
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "VERIFIED":
+        return {
+          label: "Verified",
+          variant: "default" as const,
+          className: "bg-green-500 hover:bg-green-600 text-white",
+          icon: CheckCircle,
+        }
+      case "BASIC":
+        return {
+          label: "Basic",
+          variant: "secondary" as const,
+          className: "bg-blue-500 hover:bg-blue-600 text-white",
+          icon: AlertCircle,
+        }
+      case "UNKNOWN":
+      default:
+        return {
+          label: "Unknown",
+          variant: "destructive" as const,
+          className: "bg-gray-500 hover:bg-gray-600 text-white",
+          icon: AlertCircle,
+        }
     }
   }
 
-  // Handle personal info update
-  const handlePersonalUpdate = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!currentUser) return
+  const handlePersonalSave = async () => {
+    if (!userData?.uid) return
 
-    setUpdating({ ...updating, personal: true })
+    setSavingPersonal(true)
     try {
-      await updateUserProfile(currentUser.uid, personalForm)
-      await refreshUserData()
-      showAnimatedSuccess("Personal information updated successfully!")
+      const userRef = doc(db, "iboard_users", userData.uid)
+      await updateDoc(userRef, {
+        first_name: personalInfo.first_name,
+        middle_name: personalInfo.middle_name,
+        last_name: personalInfo.last_name,
+        updated_at: new Date(),
+      })
+
+      setEditingPersonal(false)
+      toast({
+        title: "Success",
+        description: "Personal information updated successfully",
+      })
     } catch (error) {
       console.error("Error updating personal info:", error)
       toast({
-        title: "Update Failed",
-        description: "Failed to update personal information. Please try again.",
+        title: "Error",
+        description: "Failed to update personal information",
         variant: "destructive",
       })
     } finally {
-      setUpdating({ ...updating, personal: false })
+      setSavingPersonal(false)
     }
   }
 
-  // Handle company info update
-  const handleCompanyUpdate = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!userData?.company_id) return
+  const handleCompanySave = async () => {
+    if (!userData?.uid) return
 
-    setUpdating({ ...updating, company: true })
+    setSavingCompany(true)
     try {
-      await updateCompanyProfile(userData.company_id, companyForm)
-      await refreshCompanyData()
-      showAnimatedSuccess("Company information updated successfully!")
+      const userRef = doc(db, "iboard_users", userData.uid)
+      await updateDoc(userRef, {
+        company_name: companyInfo.company_name,
+        position: companyInfo.position,
+        street_address: companyInfo.street_address,
+        city: companyInfo.city,
+        province: companyInfo.province,
+        updated_at: new Date(),
+      })
+
+      setEditingCompany(false)
+      toast({
+        title: "Success",
+        description: "Company information updated successfully",
+      })
     } catch (error) {
       console.error("Error updating company info:", error)
       toast({
-        title: "Update Failed",
-        description: "Failed to update company information. Please try again.",
+        title: "Error",
+        description: "Failed to update company information",
         variant: "destructive",
       })
     } finally {
-      setUpdating({ ...updating, company: false })
+      setSavingCompany(false)
     }
   }
 
-  // Get status badge
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      VERIFIED: { label: "Verified", className: "bg-green-100 text-green-800" },
-      INCOMPLETE: { label: "Incomplete", className: "bg-yellow-100 text-yellow-800" },
-      UNKNOWN: { label: "Unknown", className: "bg-gray-100 text-gray-800" },
-    }
-
-    const config = statusConfig[status as keyof typeof statusConfig] || {
-      label: status,
-      className: "bg-gray-100 text-gray-800",
-    }
-
-    return (
-      <Badge variant="secondary" className={config.className}>
-        {config.label}
-      </Badge>
-    )
-  }
-
-  // Format date
-  const formatDate = (timestamp: any) => {
-    if (!timestamp) return "N/A"
-    try {
-      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
-      return date.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })
-    } catch (error) {
-      return "Invalid Date"
-    }
-  }
-
-  const loading = userLoading || companyLoading
-
-  if (userError) {
-    return (
-      <DashboardLayout activeItem="account">
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Authentication Error</h3>
-            <p className="text-gray-500 mb-4">{userError}</p>
-            <Button onClick={() => (window.location.href = "/login")}>Go to Login</Button>
-          </div>
-        </div>
-      </DashboardLayout>
-    )
+  const handleUpgrade = () => {
+    router.push("/dashboard/account/upgrade")
   }
 
   if (loading) {
     return (
-      <DashboardLayout activeItem="account">
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-500">Loading account information...</p>
-          </div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading account information...</p>
         </div>
-      </DashboardLayout>
+      </div>
     )
   }
 
-  return (
-    <DashboardLayout activeItem="account">
-      <div className="min-h-screen bg-gray-50">
-        {/* Animated Success Message */}
-        <AnimatedSuccessMessage show={showSuccessAnimation} message={successMessage} isVisible={isSuccessVisible} />
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-4" />
+          <p className="text-red-600">Error loading account information</p>
+          <p className="text-gray-600 text-sm mt-2">{error}</p>
+        </div>
+      </div>
+    )
+  }
 
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200">
-          <div className="px-4 sm:px-6 py-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Account Settings</h1>
-                <p className="text-gray-500 mt-1">Manage your personal and business information</p>
+  const statusBadge = getStatusBadge(userData.status)
+  const StatusIcon = statusBadge.icon
+
+  return (
+    <div className="max-w-6xl mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Account Settings</h1>
+          <p className="text-gray-600 mt-1">Manage your personal and company information</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Sidebar */}
+        <div className="lg:col-span-1">
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-center space-y-4">
+                {/* Profile Picture */}
+                <div className="relative">
+                  <Avatar className="w-20 h-20 mx-auto">
+                    <AvatarImage src={userData?.photo_url || "/placeholder.svg"} alt="Profile" />
+                    <AvatarFallback className="text-lg">
+                      {userData?.first_name?.[0]}
+                      {userData?.last_name?.[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="absolute bottom-2 right-2 rounded-full w-5 h-5 p-0 bg-transparent"
+                    disabled={uploadingPhoto}
+                  >
+                    <Camera className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                {/* User Name */}
+                <div>
+                  <h3 className="font-semibold text-lg">
+                    {userData?.first_name} {userData?.last_name}
+                  </h3>
+                  <p className="text-gray-600 text-sm">{userData?.email}</p>
+                </div>
+
+                {/* Status Badge */}
+                <div className="flex justify-center">
+                  <Badge className={`${statusBadge.className} flex items-center gap-1`}>
+                    <StatusIcon className="w-3 h-3" />
+                    {statusBadge.label}
+                  </Badge>
+                </div>
+
+                {/* Email Verification */}
+                {userData?.emailVerified && (
+                  <div className="flex items-center justify-center gap-1 text-green-600 text-sm">
+                    <CheckCircle className="w-4 h-4" />
+                    Email Verified
+                  </div>
+                )}
+
+                <Separator />
+
+                {/* Account Info */}
+                <div className="space-y-2 text-sm text-gray-600">
+                  <div className="flex items-center gap-2">
+                    <Hash className="w-4 h-4" />
+                    <span>ID: {userData?.uid?.slice(-8)}</span>
+                  </div>
+                  {userData?.created_at && (
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      <span>Joined: {new Date(userData.created_at.seconds * 1000).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Upgrade Button */}
+                {userData?.status !== "VERIFIED" && (
+                  <Button onClick={handleUpgrade} className="w-full bg-red-500 hover:bg-red-600 text-white">
+                    Upgrade Account
+                  </Button>
+                )}
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
 
-        <div className="px-4 sm:px-6 py-6">
-          <div className="max-w-4xl mx-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              {/* Sidebar */}
-              <div className="lg:col-span-1">
-                <Card>
-                  <CardContent className="p-6">
-                    {/* Profile Section */}
-                    <div className="text-center mb-6">
-                      <div className="relative inline-block">
-                        <Avatar className="w-20 h-20 mx-auto">
-                          <AvatarImage
-                            src={userData?.profileImageUrl || "/placeholder.svg"}
-                            alt={userData?.firstName || "User"}
-                          />
-                          <AvatarFallback className="text-lg">
-                            {userData?.firstName?.[0]?.toUpperCase() || "U"}
-                          </AvatarFallback>
-                        </Avatar>
-                        <label
-                          htmlFor="profile-upload"
-                          className="absolute bottom-0 right-0 bg-blue-600 text-white rounded-full p-1.5 cursor-pointer hover:bg-blue-700 transition-colors"
-                        >
-                          <Camera className="w-3 h-3" />
-                        </label>
-                        <input
-                          id="profile-upload"
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageUpload}
-                          className="hidden"
-                          disabled={uploading}
+        {/* Main Content */}
+        <div className="lg:col-span-3">
+          <Tabs defaultValue="personal" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="personal" className="flex items-center gap-2">
+                <User className="w-4 h-4" />
+                Personal Information
+              </TabsTrigger>
+              <TabsTrigger value="company" className="flex items-center gap-2">
+                <Building2 className="w-4 h-4" />
+                Company Information
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Personal Information Tab */}
+            <TabsContent value="personal">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <User className="w-5 h-5" />
+                      Personal Information
+                    </CardTitle>
+                  </div>
+                  {!editingPersonal ? (
+                    <Button variant="outline" size="sm" onClick={() => setEditingPersonal(true)}>
+                      <Edit3 className="w-4 h-4 mr-2" />
+                      Edit
+                    </Button>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingPersonal(false)
+                          // Reset to original values
+                          setPersonalInfo({
+                            first_name: userData?.first_name || "",
+                            middle_name: userData?.middle_name || "",
+                            last_name: userData?.last_name || "",
+                            email: userData?.email || "",
+                            phone_number: userData?.phone_number || "",
+                          })
+                        }}
+                        disabled={savingPersonal}
+                      >
+                        <X className="w-4 h-4 mr-2" />
+                        Cancel
+                      </Button>
+                      <Button size="sm" onClick={handlePersonalSave} disabled={savingPersonal}>
+                        <Save className="w-4 h-4 mr-2" />
+                        {savingPersonal ? "Saving..." : "Save"}
+                      </Button>
+                    </div>
+                  )}
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="first_name">First Name</Label>
+                      {editingPersonal ? (
+                        <Input
+                          id="first_name"
+                          value={personalInfo.first_name}
+                          onChange={(e) => setPersonalInfo((prev) => ({ ...prev, first_name: e.target.value }))}
+                          placeholder="Enter first name"
                         />
-                      </div>
-                      {uploading && <p className="text-sm text-gray-500 mt-2">Uploading...</p>}
-                    </div>
-
-                    <div className="text-center mb-6">
-                      <h3 className="font-medium text-gray-900">
-                        {userData?.firstName} {userData?.lastName}
-                      </h3>
-                      <p className="text-sm text-gray-500">{userData?.email}</p>
-                      <div className="mt-2">{getStatusBadge(userData?.status || "UNKNOWN")}</div>
-                    </div>
-
-                    <Separator className="my-4" />
-
-                    {/* Account Actions */}
-                    <div className="space-y-2">
-                      {userData?.status === "UNKNOWN" && (
-                        <Button
-                          onClick={() => router.push("/dashboard/account/upgrade")}
-                          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                        >
-                          <ArrowUp className="w-4 h-4 mr-2" />
-                          Upgrade Account
-                        </Button>
+                      ) : (
+                        <div className="mt-1 p-2 bg-gray-100 rounded-md min-h-[40px] flex items-center">
+                          {personalInfo.first_name || "Not provided"}
+                        </div>
                       )}
                     </div>
 
-                    <Separator className="my-4" />
+                    <div>
+                      <Label htmlFor="middle_name">Middle Name</Label>
+                      {editingPersonal ? (
+                        <Input
+                          id="middle_name"
+                          value={personalInfo.middle_name}
+                          onChange={(e) => setPersonalInfo((prev) => ({ ...prev, middle_name: e.target.value }))}
+                          placeholder="Enter middle name (optional)"
+                        />
+                      ) : (
+                        <div className="mt-1 p-2 bg-gray-100 rounded-md min-h-[40px] flex items-center">
+                          {personalInfo.middle_name || "Not provided"}
+                        </div>
+                      )}
+                    </div>
 
-                    {/* Account Info */}
-                    <div className="space-y-3 text-sm">
-                      <div className="flex items-center space-x-2 text-gray-600">
-                        <Calendar className="w-4 h-4" />
-                        <span>Joined {formatDate(userData?.createdAt)}</span>
-                      </div>
-                      <div className="flex items-center space-x-2 text-gray-600">
-                        <Shield className="w-4 h-4" />
-                        <span>Account ID: {userData?.uid?.slice(-8) || "N/A"}</span>
+                    <div>
+                      <Label htmlFor="last_name">Last Name</Label>
+                      {editingPersonal ? (
+                        <Input
+                          id="last_name"
+                          value={personalInfo.last_name}
+                          onChange={(e) => setPersonalInfo((prev) => ({ ...prev, last_name: e.target.value }))}
+                          placeholder="Enter last name"
+                        />
+                      ) : (
+                        <div className="mt-1 p-2 bg-gray-100 rounded-md min-h-[40px] flex items-center">
+                          {personalInfo.last_name || "Not provided"}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label htmlFor="email">Email Address</Label>
+                      <div className="mt-1 p-2 bg-gray-100 rounded-md min-h-[40px] flex items-center justify-between">
+                        <span>{personalInfo.email || "Not provided"}</span>
+                        {userData?.emailVerified && (
+                          <Badge variant="outline" className="text-green-600 border-green-600">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            Verified
+                          </Badge>
+                        )}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
 
-              {/* Main Content */}
-              <div className="lg:col-span-3">
-                <Tabs defaultValue="personal" className="space-y-6">
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="personal" className="flex items-center space-x-2">
-                      <User className="w-4 h-4" />
-                      <span>Personal Info</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="company" className="flex items-center space-x-2">
-                      <Building2 className="w-4 h-4" />
-                      <span>Company Info</span>
-                    </TabsTrigger>
-                  </TabsList>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="phone_number">Phone Number</Label>
+                      <div className="mt-1 p-2 bg-gray-100 rounded-md min-h-[40px] flex items-center">
+                        {personalInfo.phone_number || "Not provided"}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-                  {/* Personal Information Tab */}
-                  <TabsContent value="personal">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center space-x-2">
-                          <User className="w-5 h-5" />
-                          <span>Personal Information</span>
-                        </CardTitle>
-                        <CardDescription>Update your personal details and contact information.</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <form onSubmit={handlePersonalUpdate} className="space-y-4">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <Label htmlFor="firstName">First Name</Label>
-                              <Input
-                                id="firstName"
-                                value={personalForm.firstName}
-                                onChange={(e) => setPersonalForm({ ...personalForm, firstName: e.target.value })}
-                                placeholder="Enter your first name"
-                              />
-                            </div>
-                            <div>
-                              <Label htmlFor="lastName">Last Name</Label>
-                              <Input
-                                id="lastName"
-                                value={personalForm.lastName}
-                                onChange={(e) => setPersonalForm({ ...personalForm, lastName: e.target.value })}
-                                placeholder="Enter your last name"
-                              />
-                            </div>
-                          </div>
+            {/* Company Information Tab */}
+            <TabsContent value="company">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Building2 className="w-5 h-5" />
+                      Company Information
+                    </CardTitle>
+                  </div>
+                  {!editingCompany ? (
+                    <Button variant="outline" size="sm" onClick={() => setEditingCompany(true)}>
+                      <Edit3 className="w-4 h-4 mr-2" />
+                      Edit
+                    </Button>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingCompany(false)
+                          // Reset to original values
+                          setCompanyInfo({
+                            company_name: userData?.company_name || "",
+                            position: userData?.position || "",
+                            street_address: userData?.street_address || "",
+                            city: userData?.city || "",
+                            province: userData?.province || "",
+                          })
+                        }}
+                        disabled={savingCompany}
+                      >
+                        <X className="w-4 h-4 mr-2" />
+                        Cancel
+                      </Button>
+                      <Button size="sm" onClick={handleCompanySave} disabled={savingCompany}>
+                        <Save className="w-4 h-4 mr-2" />
+                        {savingCompany ? "Saving..." : "Save"}
+                      </Button>
+                    </div>
+                  )}
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="company_name">Company Name</Label>
+                      {editingCompany ? (
+                        <Input
+                          id="company_name"
+                          value={companyInfo.company_name}
+                          onChange={(e) => setCompanyInfo((prev) => ({ ...prev, company_name: e.target.value }))}
+                          placeholder="Enter company name"
+                        />
+                      ) : (
+                        <div className="mt-1 p-2 bg-gray-100 rounded-md min-h-[40px] flex items-center">
+                          {companyInfo.company_name || "Not provided"}
+                        </div>
+                      )}
+                    </div>
 
-                          <div>
-                            <Label htmlFor="email">Email Address</Label>
-                            <Input
-                              id="email"
-                              type="email"
-                              value={personalForm.email}
-                              onChange={(e) => setPersonalForm({ ...personalForm, email: e.target.value })}
-                              placeholder="Enter your email address"
-                            />
-                          </div>
+                    <div>
+                      <Label htmlFor="position">Position</Label>
+                      {editingCompany ? (
+                        <Input
+                          id="position"
+                          value={companyInfo.position}
+                          onChange={(e) => setCompanyInfo((prev) => ({ ...prev, position: e.target.value }))}
+                          placeholder="Enter your position"
+                        />
+                      ) : (
+                        <div className="mt-1 p-2 bg-gray-100 rounded-md min-h-[40px] flex items-center">
+                          {companyInfo.position || "Not provided"}
+                        </div>
+                      )}
+                    </div>
 
-                          <div>
-                            <Label htmlFor="phoneNumber">Phone Number</Label>
-                            <Input
-                              id="phoneNumber"
-                              value={personalForm.phoneNumber}
-                              onChange={(e) => setPersonalForm({ ...personalForm, phoneNumber: e.target.value })}
-                              placeholder="Enter your phone number"
-                            />
-                          </div>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="street_address">Street Address</Label>
+                      {editingCompany ? (
+                        <Input
+                          id="street_address"
+                          value={companyInfo.street_address}
+                          onChange={(e) => setCompanyInfo((prev) => ({ ...prev, street_address: e.target.value }))}
+                          placeholder="Enter street address"
+                        />
+                      ) : (
+                        <div className="mt-1 p-2 bg-gray-100 rounded-md min-h-[40px] flex items-center">
+                          {companyInfo.street_address || "Not provided"}
+                        </div>
+                      )}
+                    </div>
 
-                          <Button type="submit" disabled={updating.personal} className="w-full sm:w-auto">
-                            {updating.personal ? "Updating..." : "Update Personal Info"}
-                          </Button>
-                        </form>
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
+                    <div>
+                      <Label htmlFor="city">City</Label>
+                      {editingCompany ? (
+                        <Input
+                          id="city"
+                          value={companyInfo.city}
+                          onChange={(e) => setCompanyInfo((prev) => ({ ...prev, city: e.target.value }))}
+                          placeholder="Enter city"
+                        />
+                      ) : (
+                        <div className="mt-1 p-2 bg-gray-100 rounded-md min-h-[40px] flex items-center">
+                          {companyInfo.city || "Not provided"}
+                        </div>
+                      )}
+                    </div>
 
-                  {/* Company Information Tab */}
-                  <TabsContent value="company">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center space-x-2">
-                          <Building2 className="w-5 h-5" />
-                          <span>Company Information</span>
-                        </CardTitle>
-                        <CardDescription>Manage your business details and contact information.</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        {companyError ? (
-                          <div className="text-center py-8">
-                            <p className="text-red-500 mb-4">Error loading company data: {companyError}</p>
-                            <Button onClick={refreshCompanyData}>Retry</Button>
-                          </div>
-                        ) : (
-                          <form onSubmit={handleCompanyUpdate} className="space-y-4">
-                            <div>
-                              <Label htmlFor="companyName">Company Name</Label>
-                              <Input
-                                id="companyName"
-                                value={companyForm.companyName}
-                                onChange={(e) => setCompanyForm({ ...companyForm, companyName: e.target.value })}
-                                placeholder="Enter company name"
-                              />
-                            </div>
-
-                            <div>
-                              <Label htmlFor="address">Address</Label>
-                              <Input
-                                id="address"
-                                value={companyForm.address}
-                                onChange={(e) => setCompanyForm({ ...companyForm, address: e.target.value })}
-                                placeholder="Enter street address"
-                              />
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                              <div>
-                                <Label htmlFor="city">City</Label>
-                                <Input
-                                  id="city"
-                                  value={companyForm.city}
-                                  onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })}
-                                  placeholder="Enter city"
-                                />
-                              </div>
-                              <div>
-                                <Label htmlFor="state">State</Label>
-                                <Input
-                                  id="state"
-                                  value={companyForm.state}
-                                  onChange={(e) => setCompanyForm({ ...companyForm, state: e.target.value })}
-                                  placeholder="Enter state"
-                                />
-                              </div>
-                              <div>
-                                <Label htmlFor="zipCode">ZIP Code</Label>
-                                <Input
-                                  id="zipCode"
-                                  value={companyForm.zipCode}
-                                  onChange={(e) => setCompanyForm({ ...companyForm, zipCode: e.target.value })}
-                                  placeholder="Enter ZIP code"
-                                />
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div>
-                                <Label htmlFor="companyPhone">Phone Number</Label>
-                                <Input
-                                  id="companyPhone"
-                                  value={companyForm.phoneNumber}
-                                  onChange={(e) => setCompanyForm({ ...companyForm, phoneNumber: e.target.value })}
-                                  placeholder="Enter company phone"
-                                />
-                              </div>
-                              <div>
-                                <Label htmlFor="companyEmail">Email Address</Label>
-                                <Input
-                                  id="companyEmail"
-                                  type="email"
-                                  value={companyForm.email}
-                                  onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })}
-                                  placeholder="Enter company email"
-                                />
-                              </div>
-                            </div>
-
-                            <div>
-                              <Label htmlFor="website">Website</Label>
-                              <Input
-                                id="website"
-                                value={companyForm.website}
-                                onChange={(e) => setCompanyForm({ ...companyForm, website: e.target.value })}
-                                placeholder="Enter company website"
-                              />
-                            </div>
-
-                            <Button type="submit" disabled={updating.company} className="w-full sm:w-auto">
-                              {updating.company ? "Updating..." : "Update Company Info"}
-                            </Button>
-                          </form>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-                </Tabs>
-              </div>
-            </div>
-          </div>
+                    <div>
+                      <Label htmlFor="province">Province</Label>
+                      {editingCompany ? (
+                        <Input
+                          id="province"
+                          value={companyInfo.province}
+                          onChange={(e) => setCompanyInfo((prev) => ({ ...prev, province: e.target.value }))}
+                          placeholder="Enter province"
+                        />
+                      ) : (
+                        <div className="mt-1 p-2 bg-gray-100 rounded-md min-h-[40px] flex items-center">
+                          {companyInfo.province || "Not provided"}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
-    </DashboardLayout>
+    </div>
   )
 }

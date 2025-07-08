@@ -1,7 +1,20 @@
-import { collection, addDoc, serverTimestamp, query, where, orderBy, getDocs } from "firebase/firestore"
+import {
+  collection,
+  addDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocs,
+  startAfter,
+  doc,
+  getDoc,
+  updateDoc,
+  deleteDoc,
+} from "firebase/firestore"
 import { db } from "./firebase"
-import { notificationService } from "./notification-service"
 
+// Order Activity Interface
 export interface OrderActivity {
   id?: string
   order_id: string
@@ -13,6 +26,7 @@ export interface OrderActivity {
     | "shipping_update"
     | "note_added"
     | "order_updated"
+    | "order_delivered"
   old_value?: string
   new_value: string
   description: string
@@ -20,152 +34,253 @@ export interface OrderActivity {
   metadata?: Record<string, any>
 }
 
-export const orderActivityService = {
-  // Create a new activity record
+// Order Activity Service Class
+class OrderActivityService {
+  private collectionName = "order_activities"
+
+  // Create a new activity
   async createActivity(activity: Omit<OrderActivity, "id" | "timestamp">) {
     try {
-      const activityRef = await addDoc(collection(db, "order_activities"), {
+      const docRef = await addDoc(collection(db, this.collectionName), {
         ...activity,
-        timestamp: serverTimestamp(),
+        timestamp: new Date(),
       })
 
-      console.log("Order activity created:", activityRef.id)
-      return activityRef.id
+      return {
+        id: docRef.id,
+        ...activity,
+        timestamp: new Date(),
+      }
     } catch (error) {
       console.error("Error creating order activity:", error)
       throw error
     }
-  },
+  }
 
-  // Get activities for an order
-  async getOrderActivities(orderId: string) {
+  // Get activities for a specific order
+  async getOrderActivities(
+    orderId: string,
+    options: {
+      limit?: number
+      startAfterDoc?: any
+      activityType?: string
+    } = {},
+  ) {
     try {
-      const q = query(
-        collection(db, "order_activities"),
+      const { limit: pageLimit = 20, startAfterDoc, activityType } = options
+
+      let q = query(
+        collection(db, this.collectionName),
         where("order_id", "==", orderId),
         orderBy("timestamp", "desc"),
+        limit(pageLimit),
       )
 
+      if (activityType) {
+        q = query(
+          collection(db, this.collectionName),
+          where("order_id", "==", orderId),
+          where("activity_type", "==", activityType),
+          orderBy("timestamp", "desc"),
+          limit(pageLimit),
+        )
+      }
+
+      if (startAfterDoc) {
+        q = query(q, startAfter(startAfterDoc))
+      }
+
       const querySnapshot = await getDocs(q)
-      return querySnapshot.docs.map((doc) => ({
+      const activities = querySnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       })) as OrderActivity[]
+
+      return {
+        activities,
+        lastDoc: querySnapshot.docs[querySnapshot.docs.length - 1],
+        hasMore: querySnapshot.docs.length === pageLimit,
+      }
     } catch (error) {
-      console.error("Error fetching order activities:", error)
+      console.error("Error getting order activities:", error)
       throw error
     }
-  },
+  }
+
+  // Get activity by ID
+  async getActivityById(activityId: string) {
+    try {
+      const docRef = doc(db, this.collectionName, activityId)
+      const docSnap = await getDoc(docRef)
+
+      if (!docSnap.exists()) {
+        throw new Error("Activity not found")
+      }
+
+      return {
+        id: docSnap.id,
+        ...docSnap.data(),
+      } as OrderActivity
+    } catch (error) {
+      console.error("Error getting activity:", error)
+      throw error
+    }
+  }
+
+  // Update activity
+  async updateActivity(activityId: string, updates: Partial<OrderActivity>) {
+    try {
+      const docRef = doc(db, this.collectionName, activityId)
+      await updateDoc(docRef, {
+        ...updates,
+        updated_at: new Date(),
+      })
+
+      return { success: true, message: "Activity updated successfully" }
+    } catch (error) {
+      console.error("Error updating activity:", error)
+      throw error
+    }
+  }
+
+  // Delete activity
+  async deleteActivity(activityId: string) {
+    try {
+      const docRef = doc(db, this.collectionName, activityId)
+      await deleteDoc(docRef)
+
+      return { success: true, message: "Activity deleted successfully" }
+    } catch (error) {
+      console.error("Error deleting activity:", error)
+      throw error
+    }
+  }
 
   // Get order lifecycle summary
   async getOrderLifecycleSummary(orderId: string) {
     try {
-      const activities = await this.getOrderActivities(orderId)
+      const q = query(
+        collection(db, this.collectionName),
+        where("order_id", "==", orderId),
+        where("activity_type", "==", "status_change"),
+        orderBy("timestamp", "asc"),
+      )
 
-      const statusChanges = activities.filter((a) => a.activity_type === "status_change")
-      const currentStatus = statusChanges.length > 0 ? statusChanges[0].new_value : "unknown"
-      const createdActivity = activities.find((a) => a.activity_type === "order_created")
+      const querySnapshot = await getDocs(q)
+      const statusChanges = querySnapshot.docs.map((doc) => doc.data())
 
       return {
-        total_activities: activities.length,
-        status_changes: statusChanges.length,
-        current_status: currentStatus,
-        created_at: createdActivity?.timestamp || null,
+        total_status_changes: statusChanges.length,
+        status_timeline: statusChanges,
+        current_status: statusChanges[statusChanges.length - 1]?.new_value || "unknown",
+        created_at: statusChanges[0]?.timestamp || null,
+        last_updated: statusChanges[statusChanges.length - 1]?.timestamp || null,
       }
     } catch (error) {
       console.error("Error getting order lifecycle summary:", error)
       throw error
     }
-  },
+  }
+
+  // Get activities by user
+  async getActivitiesByUser(
+    userId: string,
+    options: {
+      limit?: number
+      startAfterDoc?: any
+    } = {},
+  ) {
+    try {
+      const { limit: pageLimit = 20, startAfterDoc } = options
+
+      let q = query(
+        collection(db, this.collectionName),
+        where("user_id", "==", userId),
+        orderBy("timestamp", "desc"),
+        limit(pageLimit),
+      )
+
+      if (startAfterDoc) {
+        q = query(q, startAfter(startAfterDoc))
+      }
+
+      const querySnapshot = await getDocs(q)
+      const activities = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as OrderActivity[]
+
+      return {
+        activities,
+        lastDoc: querySnapshot.docs[querySnapshot.docs.length - 1],
+        hasMore: querySnapshot.docs.length === pageLimit,
+      }
+    } catch (error) {
+      console.error("Error getting activities by user:", error)
+      throw error
+    }
+  }
 }
 
-// Helper functions for common activities
-export const logOrderStatusChange = async (
+// Create singleton instance
+export const orderActivityService = new OrderActivityService()
+
+// Helper function to log order status changes
+export async function logOrderStatusChange(
   orderId: string,
-  orderNumber: string,
-  customerId: string,
-  userId: string,
   oldStatus: string,
   newStatus: string,
+  userId = "system",
   metadata?: Record<string, any>,
-) => {
-  // Create activity record
-  await orderActivityService.createActivity({
+) {
+  return await orderActivityService.createActivity({
     order_id: orderId,
     user_id: userId,
     activity_type: "status_change",
     old_value: oldStatus,
     new_value: newStatus,
     description: `Order status changed from ${oldStatus} to ${newStatus}`,
-    metadata: {
-      order_number: orderNumber,
-      ...metadata,
-    },
+    metadata,
   })
-
-  // Create notification for customer
-  if (customerId && customerId !== userId) {
-    await notificationService.createOrderStatusNotification(
-      orderId,
-      orderNumber,
-      customerId,
-      oldStatus,
-      newStatus,
-      userId,
-    )
-  }
 }
 
-export const logPaymentReceived = async (
+// Helper function to log payment updates
+export async function logPaymentReceived(
   orderId: string,
-  orderNumber: string,
-  customerId: string,
-  userId: string,
   amount: number,
   paymentMethod: string,
+  userId = "system",
   metadata?: Record<string, any>,
-) => {
-  // Create activity record
-  await orderActivityService.createActivity({
+) {
+  return await orderActivityService.createActivity({
     order_id: orderId,
     user_id: userId,
     activity_type: "payment_update",
-    old_value: "pending",
-    new_value: "received",
-    description: `Payment of ₱${amount.toFixed(2)} received via ${paymentMethod}`,
+    new_value: `Payment received: $${amount} via ${paymentMethod}`,
+    description: `Payment of $${amount} received via ${paymentMethod}`,
     metadata: {
-      order_number: orderNumber,
       amount,
       payment_method: paymentMethod,
       ...metadata,
     },
   })
-
-  // Create notification for customer
-  if (customerId && customerId !== userId) {
-    await notificationService.createPaymentNotification(orderId, orderNumber, customerId, "received", amount, userId)
-  }
 }
 
-export const logShippingUpdate = async (
+// Helper function to log shipping updates
+export async function logShippingUpdate(
   orderId: string,
-  orderNumber: string,
-  customerId: string,
-  userId: string,
   trackingNumber: string,
   carrier: string,
+  userId = "system",
   metadata?: Record<string, any>,
-) => {
-  // Create activity record
-  await orderActivityService.createActivity({
+) {
+  return await orderActivityService.createActivity({
     order_id: orderId,
     user_id: userId,
     activity_type: "shipping_update",
-    old_value: "",
-    new_value: trackingNumber,
-    description: `Shipping label created with tracking number ${trackingNumber} via ${carrier}`,
+    new_value: `Shipped via ${carrier} - Tracking: ${trackingNumber}`,
+    description: `Order shipped via ${carrier} with tracking number ${trackingNumber}`,
     metadata: {
-      order_number: orderNumber,
       tracking_number: trackingNumber,
       carrier,
       ...metadata,
@@ -173,42 +288,90 @@ export const logShippingUpdate = async (
   })
 }
 
-// Activity icons and colors
-export const getActivityIcon = (activityType: string) => {
-  const icons = {
-    order_created: "📦",
-    status_change: "🔄",
-    payment_update: "💳",
-    shipping_update: "🚚",
-    note_added: "📝",
-    order_updated: "✏️",
-  }
-  return icons[activityType as keyof typeof icons] || "📋"
+// Helper function to log order delivery
+export async function logOrderDelivered(
+  orderId: string,
+  deliveryMethod = "standard",
+  userId = "system",
+  metadata?: Record<string, any>,
+) {
+  return await orderActivityService.createActivity({
+    order_id: orderId,
+    user_id: userId,
+    activity_type: "order_delivered",
+    new_value: `Order delivered via ${deliveryMethod}`,
+    description: `Order successfully delivered via ${deliveryMethod}`,
+    metadata: {
+      delivery_method: deliveryMethod,
+      delivered_at: new Date().toISOString(),
+      ...metadata,
+    },
+  })
 }
 
-export const getActivityColor = (activityType: string) => {
-  const colors = {
-    order_created: "bg-blue-100 text-blue-800",
-    status_change: "bg-green-100 text-green-800",
-    payment_update: "bg-purple-100 text-purple-800",
-    shipping_update: "bg-orange-100 text-orange-800",
-    note_added: "bg-gray-100 text-gray-800",
-    order_updated: "bg-yellow-100 text-yellow-800",
+// Helper functions for UI display
+export function getActivityIcon(activityType: string): string {
+  switch (activityType) {
+    case "order_created":
+      return "📦"
+    case "status_change":
+      return "🔄"
+    case "payment_update":
+      return "💳"
+    case "shipping_update":
+      return "🚚"
+    case "note_added":
+      return "📝"
+    case "order_updated":
+      return "✏️"
+    case "order_delivered":
+      return "✅"
+    default:
+      return "📋"
   }
-  return colors[activityType as keyof typeof colors] || "bg-gray-100 text-gray-800"
 }
 
-export const getActivityPriority = (activityType: string) => {
-  const priorities = {
-    order_created: 1,
-    status_change: 2,
-    payment_update: 3,
-    shipping_update: 4,
-    note_added: 5,
-    order_updated: 6,
+export function getActivityColor(activityType: string): string {
+  switch (activityType) {
+    case "order_created":
+      return "blue"
+    case "status_change":
+      return "purple"
+    case "payment_update":
+      return "green"
+    case "shipping_update":
+      return "orange"
+    case "note_added":
+      return "gray"
+    case "order_updated":
+      return "yellow"
+    case "order_delivered":
+      return "green"
+    default:
+      return "gray"
   }
-  return priorities[activityType as keyof typeof priorities] || 10
+}
+
+export function getActivityPriority(activityType: string): number {
+  switch (activityType) {
+    case "order_created":
+      return 1
+    case "payment_update":
+      return 2
+    case "status_change":
+      return 3
+    case "shipping_update":
+      return 4
+    case "order_delivered":
+      return 5
+    case "order_updated":
+      return 6
+    case "note_added":
+      return 7
+    default:
+      return 8
+  }
 }
 
 // Backward compatibility
-export const addOrderActivity = orderActivityService.createActivity
+export const addOrderActivity = orderActivityService.createActivity.bind(orderActivityService)

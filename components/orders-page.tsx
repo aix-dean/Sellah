@@ -3,7 +3,6 @@ import { useState, useMemo, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Search, RefreshCw, ChevronDown, Filter } from "lucide-react"
-import DashboardLayout from "./dashboard-layout"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useUserData } from "@/hooks/use-user-data"
 import { useOrdersPaginated } from "@/hooks/use-orders-paginated"
@@ -423,7 +422,7 @@ export default function OrdersPage() {
 
   if (userError) {
     return (
-      <DashboardLayout activeItem="orders">
+
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
             <h3 className="text-lg font-medium text-gray-900 mb-2">Authentication Error</h3>
@@ -431,13 +430,12 @@ export default function OrdersPage() {
             <Button onClick={() => (window.location.href = "/login")}>Go to Login</Button>
           </div>
         </div>
-      </DashboardLayout>
+
     )
   }
 
   return (
-    <DashboardLayout activeItem="orders">
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 text-left">
         {/* Animated Success Message */}
         <AnimatedSuccessMessage show={showSuccessAnimation} message={successMessage} isVisible={isSuccessVisible} />
 
@@ -576,6 +574,6 @@ export default function OrdersPage() {
 
       {/* Debug Component - Only show in development */}
       {process.env.NODE_ENV === "development" && <OrderStatusDebugger />}
-    </DashboardLayout>
+
   )
 }

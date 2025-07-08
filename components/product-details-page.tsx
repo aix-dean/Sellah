@@ -25,7 +25,6 @@ import {
 } from "lucide-react"
 import { doc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import DashboardLayout from "./dashboard-layout"
 import { loggedGetDoc } from "@/lib/firestore-logger"
 import { DeleteProductDialog } from "./delete-product-dialog"
 import { deleteProduct } from "@/lib/product-service"
@@ -312,18 +311,15 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
 
   if (loading) {
     return (
-      <DashboardLayout activeItem="products">
         <div className="flex items-center justify-center min-h-96">
           <Loader2 className="w-8 h-8 animate-spin text-red-500" />
           <span className="ml-2 text-gray-600">Loading product details...</span>
         </div>
-      </DashboardLayout>
     )
   }
 
   if (error || !product) {
     return (
-      <DashboardLayout activeItem="products">
         <div className="max-w-7xl mx-auto">
           <Button variant="ghost" onClick={() => window.history.back()} className="mb-6">
             <ArrowLeft className="w-5 h-5 mr-2" />
@@ -333,12 +329,10 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
             <AlertDescription>{error || "Product not found"}</AlertDescription>
           </Alert>
         </div>
-      </DashboardLayout>
     )
   }
 
   return (
-    <DashboardLayout activeItem="products">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Navigation */}
         <div className="flex items-center justify-between">
@@ -836,6 +830,5 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
           onCancel={handleDeleteCancel}
         />
       </div>
-    </DashboardLayout>
   )
 }

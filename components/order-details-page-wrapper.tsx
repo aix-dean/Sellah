@@ -22,7 +22,6 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { toast } from "@/hooks/use-toast"
 import { useUserData } from "@/hooks/use-user-data"
-import DashboardLayout from "./dashboard-layout"
 import { updateOrderStatusWithStockManagement } from "@/lib/order-status-handler"
 import { useAuth } from "@/hooks/use-auth"
 import { OrderDetailsPage } from "./order-details-page"
@@ -749,7 +748,6 @@ export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWra
   // Error State
   if (error) {
     return (
-      <DashboardLayout activeItem="orders">
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
           <Card className="max-w-md w-full">
             <CardContent className="pt-6">
@@ -771,7 +769,6 @@ export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWra
             </CardContent>
           </Card>
         </div>
-      </DashboardLayout>
     )
   }
 

@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import DashboardLayout from "./dashboard-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -135,7 +134,6 @@ export default function DashboardHome() {
   if (hasDataError) {
     // Show a message when no data is available
     return (
-      <DashboardLayout activeItem="home">
         <div className="space-y-6">
           {/* Keep existing welcome section and banner */}
           <div className="flex flex-col md:flex-row md:justify-between md:items-start space-y-4 md:space-y-0">
@@ -177,12 +175,10 @@ export default function DashboardHome() {
             </div>
           </div>
         </div>
-      </DashboardLayout>
     )
   }
 
   return (
-    <DashboardLayout activeItem="home">
       <div className="space-y-6">
         {/* Welcome Section */}
         <div className="flex flex-col md:flex-row md:justify-between md:items-start space-y-4 md:space-y-0">
@@ -223,16 +219,6 @@ export default function DashboardHome() {
             ))}
           </div>
         </div>
-
-        {/* Quick Stats */}
-        
-
-        {/* Quick Actions */}
-        
-
-        {/* Performance Overview */}
-        
       </div>
-    </DashboardLayout>
   )
 }

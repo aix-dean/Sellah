@@ -3,44 +3,43 @@
 import type React from "react"
 
 import { useEffect, useState } from "react"
-import { useRouter, usePathname } from "next/navigation"
-import { wasLoggedOut, clearLogoutFlags } from "@/lib/auth"
-
-const PUBLIC_ROUTES = ["/", "/login", "/register", "/forgot-password", "/about"]
+import { useRouter } from "next/navigation"
+import { onAuthStateChanged, type User } from "firebase/auth"
+import { auth } from "@/lib/firebase"
 
 interface ProtectedPageWrapperProps {
   children: React.ReactNode
+  redirectTo?: string
 }
 
-export default function ProtectedPageWrapper({ children }: ProtectedPageWrapperProps) {
+export default function ProtectedPageWrapper({ children, redirectTo = "/login" }: ProtectedPageWrapperProps) {
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const pathname = usePathname()
-  const [isChecking, setIsChecking] = useState(true)
 
   useEffect(() => {
-    // If it's a public route, clear logout flags and allow access
-    if (PUBLIC_ROUTES.includes(pathname)) {
-      clearLogoutFlags()
-      setIsChecking(false)
-      return
-    }
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user)
+      setLoading(false)
 
-    // For protected routes, check logout status
-    if (wasLoggedOut()) {
-      router.push("/login?session=expired")
-      return
-    }
+      if (!user) {
+        router.push(redirectTo)
+      }
+    })
 
-    setIsChecking(false)
-  }, [router, pathname])
+    return () => unsubscribe()
+  }, [router, redirectTo])
 
-  // Show loading for protected routes while checking
-  if (isChecking && !PUBLIC_ROUTES.includes(pathname)) {
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-red-600"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     )
+  }
+
+  if (!user) {
+    return null
   }
 
   return <>{children}</>

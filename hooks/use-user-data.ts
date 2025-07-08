@@ -22,7 +22,7 @@ export interface UserData {
   active?: boolean
   onboarding?: boolean
   type?: string
-  status?: "UNKNOWN" | "INCOMPLETE" | "VERIFIED"
+  status?: "UNKNOWN" | "BASIC" | "VERIFIED"
   account_status?: "active" | "inactive"
   emailVerified?: boolean
   company_id?: string
@@ -283,9 +283,9 @@ export function getUserStatusInfo(status?: string): StatusInfo {
         color: "green",
         description: "Account is fully verified with unlimited access",
       }
-    case "INCOMPLETE":
+    case "BASIC":
       return {
-        label: "Incomplete",
+        label: "Basic",
         color: "yellow",
         description: "Account setup is incomplete, limited access",
       }

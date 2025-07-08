@@ -12,10 +12,10 @@ export default function DashboardLayoutPage({
   const pathname = usePathname()
 
   const isAccountPage = pathname === "/dashboard/account"
-
+  const isUpgradePage = pathname === "/dashboard/account/upgrade"
   return (
     <ProtectedPageWrapper>
-      {isAccountPage ? children : <DashboardLayout>{children}</DashboardLayout>}
+      {isAccountPage && isUpgradePage ? children : <DashboardLayout>{children}</DashboardLayout>}
     </ProtectedPageWrapper>
   )
 }
