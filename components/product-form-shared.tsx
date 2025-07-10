@@ -179,10 +179,9 @@ export function validateStep(
 interface StepNavigationProps {
   currentStep: number
   steps: typeof STEPS
-  onStepClick: (step: number) => void
 }
 
-export function StepNavigation({ currentStep, steps, onStepClick }: StepNavigationProps) {
+export function StepNavigation({ currentStep, steps }: StepNavigationProps) {
   return (
     <div className="bg-white rounded-lg shadow-sm border p-6">
       <h3 className="text-lg font-semibold text-gray-800 mb-4">Steps</h3>
@@ -190,7 +189,6 @@ export function StepNavigation({ currentStep, steps, onStepClick }: StepNavigati
         {steps.map((step) => (
           <button
             key={step.id}
-            onClick={() => onStepClick(step.id)}
             className={`w-full text-left p-3 rounded-lg transition-colors ${
               currentStep === step.id
                 ? "bg-red-50 border border-red-200 text-red-700"

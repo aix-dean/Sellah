@@ -12,10 +12,14 @@ import {
   getDoc,
   deleteDoc,
   writeBatch,
+  Timestamp,
+  type DocumentSnapshot,
+  addDoc,
 } from "firebase/firestore"
 import { db } from "./firebase"
 import { orderActivityService } from "./order-activity-service"
 import { notificationService } from "./notification-service"
+import type { Order } from "@/types/order"
 
 export async function updateOrderStatus(
   orderId: string,
@@ -47,7 +51,8 @@ export async function updateOrderStatus(
     // Prepare update data
     const updateData: any = {
       status: newStatus,
-      updated_at: new Date(),
+      updated_at: Timestamp.now(),
+      [`${newStatus}_at`]: Timestamp.now(),
     }
 
     // Add status history if oldStatus is provided
@@ -55,7 +60,7 @@ export async function updateOrderStatus(
       updateData.status_history = arrayUnion({
         status: newStatus,
         previous_status: oldStatus,
-        timestamp: new Date(),
+        timestamp: Timestamp.now(),
         changed_by: userId,
         changed_by_name: userName || "Admin User",
         reason: reason || `Status updated to ${newStatus}`,
@@ -125,11 +130,11 @@ export async function updateOrderOutForDelivery(
 
     await updateDoc(orderRef, {
       status: "out_for_delivery",
-      updated_at: new Date(),
+      updated_at: Timestamp.now(),
       status_history: arrayUnion({
         status: "out_for_delivery",
         previous_status: previousStatus,
-        timestamp: new Date(),
+        timestamp: Timestamp.now(),
         changed_by: userId,
         changed_by_name: userName || "Admin User",
       }),
@@ -192,14 +197,14 @@ export async function approveOrderPayment(
     await updateDoc(orderRef, {
       payment_status: "approved",
       status: "processing",
-      updated_at: new Date(),
-      approved_at: new Date(),
+      updated_at: Timestamp.now(),
+      approved_at: Timestamp.now(),
       approved_by: userId,
       approve_payment: true,
       status_history: arrayUnion({
         status: "processing",
         previous_status: "pending",
-        timestamp: new Date(),
+        timestamp: Timestamp.now(),
         changed_by: userId,
         changed_by_name: "Admin User",
         note: "Payment approved",
@@ -217,7 +222,7 @@ export async function approveOrderPayment(
       metadata: {
         payment_status: "approved",
         approved_by: userId,
-        approved_at: new Date().toISOString(),
+        approved_at: Timestamp.now().toISOString(),
       },
     })
 
@@ -264,15 +269,15 @@ export async function rejectOrderPayment(
     await updateDoc(orderRef, {
       payment_status: "rejected",
       status: "cancelled",
-      updated_at: new Date(),
-      rejected_at: new Date(),
+      updated_at: Timestamp.now(),
+      rejected_at: Timestamp.now(),
       rejected_by: userId,
       rejection_reason: reason,
       approve_payment: false,
       status_history: arrayUnion({
         status: "cancelled",
         previous_status: "pending",
-        timestamp: new Date(),
+        timestamp: Timestamp.now(),
         changed_by: userId,
         changed_by_name: "Admin User",
         note: `Payment rejected: ${reason}`,
@@ -337,12 +342,12 @@ export async function completeOrder(
 
     await updateDoc(orderRef, {
       status: "completed",
-      completed_at: new Date(),
-      updated_at: new Date(),
+      completed_at: Timestamp.now(),
+      updated_at: Timestamp.now(),
       status_history: arrayUnion({
         status: "completed",
         previous_status: previousStatus,
-        timestamp: new Date(),
+        timestamp: Timestamp.now(),
         changed_by: userId,
         changed_by_name: userName || "Admin User",
       }),
@@ -359,7 +364,7 @@ export async function completeOrder(
       metadata: {
         completed_by: userId,
         completed_by_name: userName || "Admin User",
-        completed_at: new Date().toISOString(),
+        completed_at: Timestamp.now().toISOString(),
       },
     })
 
@@ -392,11 +397,11 @@ export async function addOrderNote(
     await updateDoc(orderRef, {
       notes: arrayUnion({
         note: note.trim(),
-        timestamp: new Date(),
+        timestamp: Timestamp.now(),
         added_by: userId,
         user_name: "Admin User",
       }),
-      updated_at: new Date(),
+      updated_at: Timestamp.now(),
     })
 
     // Log the activity
@@ -442,10 +447,10 @@ export async function updateOrderShippingInfo(
 
     await updateDoc(orderRef, {
       shipping_info: shippingInfo,
-      updated_at: new Date(),
+      updated_at: Timestamp.now(),
       shipping_updates: arrayUnion({
         ...shippingInfo,
-        timestamp: new Date(),
+        timestamp: Timestamp.now(),
         updated_by: userId,
         user_name: "Admin User",
       }),
@@ -509,15 +514,15 @@ export async function cancelOrder(
 
     await updateDoc(orderRef, {
       status: "cancelled",
-      cancelled_at: new Date(),
+      cancelled_at: Timestamp.now(),
       cancelled_by: userId,
       cancellation_reason: reason,
       previous_status: previousStatus, // Store for potential restoration
-      updated_at: new Date(),
+      updated_at: Timestamp.now(),
       status_history: arrayUnion({
         status: "cancelled",
         previous_status: previousStatus,
-        timestamp: new Date(),
+        timestamp: Timestamp.now(),
         changed_by: userId,
         changed_by_name: "Admin User",
         note: `Order cancelled: ${reason}`,
@@ -578,9 +583,9 @@ export async function restoreOrder(orderId: string, userId = "system"): Promise<
 
     await updateDoc(orderRef, {
       status: restoreToStatus,
-      restored_at: new Date(),
+      restored_at: Timestamp.now(),
       restored_by: userId,
-      updated_at: new Date(),
+      updated_at: Timestamp.now(),
       // Remove cancellation fields
       cancelled_at: null,
       cancelled_by: null,
@@ -588,7 +593,7 @@ export async function restoreOrder(orderId: string, userId = "system"): Promise<
       status_history: arrayUnion({
         status: restoreToStatus,
         previous_status: "cancelled",
-        timestamp: new Date(),
+        timestamp: Timestamp.now(),
         changed_by: userId,
         changed_by_name: "Admin User",
         note: "Order restored from cancelled status",
@@ -619,7 +624,11 @@ export async function restoreOrder(orderId: string, userId = "system"): Promise<
 // Get order by ID
 export async function getOrderById(orderId: string) {
   try {
-    const orderRef = doc(db, "orders", orderId)
+    if (!orderId || typeof orderId !== "string" || orderId.trim() === "") {
+      throw new Error("Invalid order ID provided")
+    }
+
+    const orderRef = doc(db, "orders", orderId.trim())
     const orderDoc = await getDoc(orderRef)
 
     if (!orderDoc.exists()) {
@@ -629,7 +638,7 @@ export async function getOrderById(orderId: string) {
     return {
       id: orderDoc.id,
       ...orderDoc.data(),
-    }
+    } as Order
   } catch (error) {
     console.error("Error getting order:", error)
     throw error
@@ -637,29 +646,25 @@ export async function getOrderById(orderId: string) {
 }
 
 // Get orders with pagination
-export async function getOrders(
-  filters: {
-    status?: string
-    limit?: number
-    startAfterDoc?: any
-  } = {},
-) {
+export async function getOrders(filters?: {
+  status?: string
+  limit?: number
+  startAfter?: DocumentSnapshot
+}) {
   try {
-    const { status, limit: pageLimit = 10, startAfterDoc } = filters
+    const ordersRef = collection(db, "orders")
+    let q = query(ordersRef, orderBy("created_at", "desc"))
 
-    let q = query(collection(db, "orders"), orderBy("created_at", "desc"), limit(pageLimit))
-
-    if (status) {
-      q = query(
-        collection(db, "orders"),
-        where("status", "==", status),
-        orderBy("created_at", "desc"),
-        limit(pageLimit),
-      )
+    if (filters?.status) {
+      q = query(q, where("status", "==", filters.status))
     }
 
-    if (startAfterDoc) {
-      q = query(q, startAfter(startAfterDoc))
+    if (filters?.limit) {
+      q = query(q, limit(filters.limit))
+    }
+
+    if (filters?.startAfter) {
+      q = query(q, startAfter(filters.startAfter))
     }
 
     const querySnapshot = await getDocs(q)
@@ -670,12 +675,11 @@ export async function getOrders(
 
     return {
       orders,
-      lastDoc: querySnapshot.docs[querySnapshot.docs.length - 1],
-      hasMore: querySnapshot.docs.length === pageLimit,
+      lastDoc: querySnapshot.docs[querySnapshot.docs.length - 1] || null,
     }
   } catch (error) {
-    console.error("Error getting orders:", error)
-    throw error
+    console.error("Error fetching orders:", error)
+    throw new Error("Failed to fetch orders")
   }
 }
 
@@ -693,7 +697,7 @@ export async function deleteOrder(orderId: string, userId = "system"): Promise<{
       description: "Order permanently deleted",
       metadata: {
         deleted_by: userId,
-        deleted_at: new Date().toISOString(),
+        deleted_at: Timestamp.now().toISOString(),
       },
     })
 
@@ -719,7 +723,7 @@ export async function batchUpdateOrders(
       const orderRef = doc(db, "orders", orderId)
       batch.update(orderRef, {
         ...updates,
-        updated_at: new Date(),
+        updated_at: Timestamp.now(),
         batch_updated_by: userId,
       })
     })
@@ -746,5 +750,162 @@ export async function batchUpdateOrders(
   } catch (error) {
     console.error("Error batch updating orders:", error)
     throw error
+  }
+}
+
+export async function createOrder(orderData: Omit<Order, "id" | "created_at" | "updated_at">) {
+  try {
+    const ordersRef = collection(db, "orders")
+    const newOrder = {
+      ...orderData,
+      created_at: Timestamp.now(),
+      updated_at: Timestamp.now(),
+      status: orderData.status || "pending",
+    }
+
+    const docRef = await addDoc(ordersRef, newOrder)
+    return docRef.id
+  } catch (error) {
+    console.error("Error creating order:", error)
+    throw new Error("Failed to create order")
+  }
+}
+
+export async function updateOrder(orderId: string, updates: Partial<Order>) {
+  try {
+    if (!orderId || typeof orderId !== "string" || orderId.trim() === "") {
+      throw new Error("Invalid order ID provided")
+    }
+
+    const orderRef = doc(db, "orders", orderId.trim())
+    const updateData = {
+      ...updates,
+      updated_at: Timestamp.now(),
+    }
+
+    await updateDoc(orderRef, updateData)
+    return true
+  } catch (error) {
+    console.error("Error updating order:", error)
+    throw new Error("Failed to update order")
+  }
+}
+
+// Products API
+export async function getProducts(filters?: {
+  category?: string
+  status?: string
+  limit?: number
+  startAfter?: DocumentSnapshot
+}) {
+  try {
+    const productsRef = collection(db, "products")
+    let q = query(productsRef, orderBy("created_at", "desc"))
+
+    if (filters?.category) {
+      q = query(q, where("category", "==", filters.category))
+    }
+
+    if (filters?.status) {
+      q = query(q, where("status", "==", filters.status))
+    }
+
+    if (filters?.limit) {
+      q = query(q, limit(filters.limit))
+    }
+
+    if (filters?.startAfter) {
+      q = query(q, startAfter(filters.startAfter))
+    }
+
+    const querySnapshot = await getDocs(q)
+    const products = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }))
+
+    return {
+      products,
+      lastDoc: querySnapshot.docs[querySnapshot.docs.length - 1] || null,
+    }
+  } catch (error) {
+    console.error("Error fetching products:", error)
+    throw new Error("Failed to fetch products")
+  }
+}
+
+export async function getProductById(productId: string) {
+  try {
+    if (!productId || typeof productId !== "string" || productId.trim() === "") {
+      throw new Error("Invalid product ID provided")
+    }
+
+    const productRef = doc(db, "products", productId.trim())
+    const productSnap = await getDoc(productRef)
+
+    if (!productSnap.exists()) {
+      throw new Error("Product not found")
+    }
+
+    return {
+      id: productSnap.id,
+      ...productSnap.data(),
+    }
+  } catch (error) {
+    console.error("Error fetching product by ID:", error)
+    throw new Error("Failed to fetch product")
+  }
+}
+
+export async function createProduct(productData: any) {
+  try {
+    const productsRef = collection(db, "products")
+    const newProduct = {
+      ...productData,
+      created_at: Timestamp.now(),
+      updated_at: Timestamp.now(),
+      status: productData.status || "active",
+    }
+
+    const docRef = await addDoc(productsRef, newProduct)
+    return docRef.id
+  } catch (error) {
+    console.error("Error creating product:", error)
+    throw new Error("Failed to create product")
+  }
+}
+
+export async function updateProduct(productId: string, updates: any) {
+  try {
+    if (!productId || typeof productId !== "string" || productId.trim() === "") {
+      throw new Error("Invalid product ID provided")
+    }
+
+    const productRef = doc(db, "products", productId.trim())
+    const updateData = {
+      ...updates,
+      updated_at: Timestamp.now(),
+    }
+
+    await updateDoc(productRef, updateData)
+    return true
+  } catch (error) {
+    console.error("Error updating product:", error)
+    throw new Error("Failed to update product")
+  }
+}
+
+export async function deleteProduct(productId: string) {
+  try {
+    if (!productId || typeof productId !== "string" || productId.trim() === "") {
+      throw new Error("Invalid product ID provided")
+    }
+
+    const productRef = doc(db, "products", productId.trim())
+    await deleteDoc(productRef)
+    return true
+  } catch (error) {
+    console.error("Error deleting product:", error)
+    throw new Error("Failed to delete product")
   }
 }

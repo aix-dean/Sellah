@@ -12,7 +12,6 @@ import { X, ArrowLeft, Loader2, ImageIcon, FileVideo, AlertCircle } from "lucide
 import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs, orderBy } from "firebase/firestore"
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"
 import { db } from "@/lib/firebase"
-import DashboardLayout from "./dashboard-layout"
 import { useUserData } from "@/hooks/use-user-data"
 import { useAnimatedSuccess } from "@/hooks/use-animated-success"
 import { AnimatedSuccessMessage } from "./animated-success-message"
@@ -1540,7 +1539,6 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
 
   if (userError) {
     return (
-      <DashboardLayout activeItem="products">
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
             <h3 className="text-lg font-medium text-gray-900 mb-2">Authentication Error</h3>
@@ -1548,23 +1546,20 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
             <Button onClick={() => (window.location.href = "/login")}>Go to Login</Button>
           </div>
         </div>
-      </DashboardLayout>
     )
   }
 
   if (productLoading) {
     return (
-      <DashboardLayout activeItem="products">
         <div className="flex items-center justify-center min-h-96">
           <Loader2 className="w-8 h-8 animate-spin text-red-500" />
           <span className="ml-2 text-gray-600">Loading product...</span>
         </div>
-      </DashboardLayout>
     )
   }
 
   return (
-    <DashboardLayout activeItem="products">
+  <>
       {/* Animated Success Message */}
       <AnimatedSuccessMessage show={showSuccessAnimation} message={successMessage} isVisible={isSuccessVisible} />
 
@@ -1581,7 +1576,7 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Sidebar - Steps */}
           <div className="lg:col-span-1">
-            <StepNavigation currentStep={currentStep} steps={STEPS} onStepClick={goToStep} />
+            <StepNavigation currentStep={currentStep} steps={STEPS} />
           </div>
 
           {/* Right Content - Form */}
@@ -1619,6 +1614,6 @@ export default function EditProductPage({ productId }: EditProductPageProps): Re
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   )
 }

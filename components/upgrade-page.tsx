@@ -103,6 +103,7 @@ const ID_TYPES = [
   { value: "tin_id", label: "TIN ID" },
   { value: "senior_citizen_id", label: "Senior Citizen ID" },
   { value: "pwd_id", label: "PWD ID" },
+  { value: "umid", label: "UMID" },
 ]
 
 export default function UpgradePage() {

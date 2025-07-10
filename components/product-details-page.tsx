@@ -281,16 +281,11 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
     try {
       // Pass both productId and userId to the deleteProduct function
       await deleteProduct(productToDelete.id, product.userId)
-  const userRef = doc(db, "iboard_users", product.userId)
-    await updateDoc(userRef, {
-      product_count: increment(-1),
-    })
       toast({
         title: "Product deleted",
         description: `${productToDelete.name} has been successfully deleted and removed from your active inventory.`,
         variant: "default",
       })
-
       // Redirect back to products page after successful deletion
       window.location.href = "/dashboard/products"
     } catch (error: any) {

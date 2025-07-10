@@ -201,10 +201,7 @@ export default function ProductsPage() {
     try {
       // Call the soft delete function which updates active=false and deleted=true
       await deleteProduct(productToDelete.id, currentUser.uid)
-    const userRef = doc(db, "iboard_users", currentUser.uid)
-    await updateDoc(userRef, {
-      product_count: increment(-1),
-    })
+
       toast({
         title: "Product deleted",
         description: `${productToDelete.name} has been successfully deleted and removed from your active inventory.`,

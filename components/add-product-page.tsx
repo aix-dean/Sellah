@@ -1442,7 +1442,7 @@ export default function AddProductPage(): ReactElement {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1">
-            <StepNavigation currentStep={currentStep} steps={STEPS} onStepClick={goToStep} />
+            <StepNavigation currentStep={currentStep} steps={STEPS} onStepClick={} />
           </div>
 
           <div className="lg:col-span-2 bg-white rounded-lg shadow-sm border">

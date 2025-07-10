@@ -145,7 +145,7 @@ const maskString = (str: string | undefined | null, visibleChars = 3): string =>
   return str.substring(0, visibleChars) + "*".repeat(Math.max(0, str.length - visibleChars))
 }
 
-export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWrapperProps) {
+export function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWrapperProps) {
   const router = useRouter()
   const { currentUser } = useUserData()
   const [order, setOrder] = useState<Order | null>(null)
@@ -748,27 +748,27 @@ export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWra
   // Error State
   if (error) {
     return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-          <Card className="max-w-md w-full">
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Unable to Load Order</h3>
-                <p className="text-gray-600 mb-6">{error}</p>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Button onClick={handleRetry} className="flex-1">
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Try Again
-                  </Button>
-                  <Button variant="outline" onClick={() => router.push("/dashboard/orders")} className="flex-1">
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back to Orders
-                  </Button>
-                </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Unable to Load Order</h3>
+              <p className="text-gray-600 mb-6">{error}</p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button onClick={handleRetry} className="flex-1">
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Try Again
+                </Button>
+                <Button variant="outline" onClick={() => router.push("/dashboard/orders")} className="flex-1">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Orders
+                </Button>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     )
   }
 
@@ -876,5 +876,5 @@ export default function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWra
   }
 
   // For non-cancelled orders, show the full order details page
-  return <OrderDetailsPage />
+  return <OrderDetailsPage orderId={orderId} />
 }

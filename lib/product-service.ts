@@ -202,15 +202,8 @@ export async function createProduct(productData: Omit<Product, "id" | "createdAt
     // Create the product document
     const docRef = await addDoc(collection(db, "products"), product)
 
-    // Increment user's product count by 1
-    await updateUserProductCount(productData.userId, 1)
-
-    console.log("Product created successfully:", docRef.id)
-    console.log("User product count incremented by 1")
-
     return docRef.id
   } catch (error) {
-    console.error("Error creating product:", error)
     throw error
   }
 }
@@ -257,13 +250,7 @@ export async function deleteProduct(productId: string, userId: string): Promise<
       updatedAt: serverTimestamp(),
     })
 
-    // Decrease user's product count by 1
-    await updateUserProductCount(userId, -1)
-
-    console.log("Product soft deleted successfully:", productId)
-    console.log("User product count decremented by 1")
   } catch (error) {
-    console.error("Error deleting product:", error)
     throw error
   }
 }
@@ -292,14 +279,7 @@ export async function hardDeleteProduct(productId: string, userId: string): Prom
 
     // Delete product document
     await deleteDoc(productRef)
-
-    // Decrease user's product count by 1
-    await updateUserProductCount(userId, -1)
-
-    console.log("Product hard deleted successfully:", productId)
-    console.log("User product count decremented by 1")
   } catch (error) {
-    console.error("Error hard deleting product:", error)
     throw error
   }
 }
@@ -555,22 +535,7 @@ export async function getLowStockProducts(userId: string): Promise<Product[]> {
 }
 
 // Utility function to update user's product count
-export async function updateUserProductCount(userId: string, change: number): Promise<void> {
-  try {
-    const userRef = doc(db, "iboard_users", userId)
 
-    // Use increment to atomically update the product_count field
-    await updateDoc(userRef, {
-      product_count: increment(change),
-      updated_at: serverTimestamp(),
-    })
-
-    console.log(`Updated product count for user ${userId}: ${change > 0 ? "+" : ""}${change}`)
-  } catch (error) {
-    console.error("Error updating user product count:", error)
-    throw error
-  }
-}
 
 export async function getProductCategories(): Promise<string[]> {
   try {
@@ -678,7 +643,6 @@ export async function bulkDeleteProducts(productIds: string[], userId: string): 
     await batch.commit()
 
     // Decrease user's product count by the number of deleted products
-    await updateUserProductCount(userId, -productIds.length)
 
     console.log("Bulk delete completed for", productIds.length, "products")
     console.log(`User product count decremented by ${productIds.length}`)

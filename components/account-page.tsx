@@ -230,7 +230,7 @@ export default function AccountPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="absolute bottom-2 right-2 rounded-full w-5 h-5 p-0 bg-transparent"
+                    className="absolute bottom-0 rounded-full w-6 h-6 p-1"
                     disabled={uploadingPhoto}
                   >
                     <Camera className="w-4 h-4" />
