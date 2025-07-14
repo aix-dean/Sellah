@@ -1430,6 +1430,7 @@ export default function AddProductPage(): ReactElement {
   }
 
   return (
+  <>
       <AnimatedSuccessMessage show={showSuccessAnimation} message={successMessage} isVisible={isSuccessVisible} />
 
       <div className="max-w-7xl mx-auto space-y-6">
@@ -1477,5 +1478,6 @@ export default function AddProductPage(): ReactElement {
           </div>
         </div>
       </div>
+      </>
   )
 }
