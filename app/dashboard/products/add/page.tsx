@@ -16,11 +16,7 @@ function AddProductLoading() {
 
 // Main page component
 export default function AddProductPageRoute() {
-  return (
-    <Suspense fallback={<AddProductLoading />}>
-      <AddProductPage />
-    </Suspense>
-  )
+  return  <AddProductPage />
 }
 
 // Metadata for the page
