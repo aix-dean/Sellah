@@ -9,13 +9,14 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
-import { User, Building2, Camera, Edit3, Save, X, CheckCircle, AlertCircle, Calendar, Hash } from "lucide-react"
+import { User, Building2, Camera, Edit3, Save, X, CheckCircle, AlertCircle, Calendar, Hash,  ArrowLeft } from "lucide-react"
 import { useUserData } from "@/hooks/use-user-data"
 import { useCompanyData } from "@/hooks/use-company-data"
 import { doc, updateDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { toast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
+
 
 interface PersonalInfo {
   first_name: string
