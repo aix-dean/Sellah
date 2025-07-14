@@ -1,5 +1,6 @@
 "use client"
 import { Button } from "@/components/ui/button"
+
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { User, MapPin, Package, Calendar, CreditCard, CheckCircle, XCircle } from "lucide-react"
@@ -37,11 +38,11 @@ export function OrdersUnpaidTab({
   const [showOrderModal, setShowOrderModal] = useState(false)
 
   const getStatusBadge = (order: any) => {
-    if (order.approve_payment === false) {
+    if (order.approve_payment === false || !order.approve_payment) {
       return (
         <Badge
           variant="secondary"
-          className="bg-blue-100 text-blue-800 hover:bg-blue-100 cursor-pointer"
+          className="bg-blue-100 text-blue-800 hover:bg-blue-200 cursor-pointer transition-colors"
           onClick={() => onViewPaymentProof(order)}
         >
           Payment Proof
@@ -248,7 +249,6 @@ export function OrdersUnpaidTab({
                   <Button
                     size="sm"
                     onClick={() => onApprove(order)}
-                    disabled={!order.approve_payment}
                     className="flex-1 bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105"
                   >
                     <CheckCircle className="h-4 w-4 mr-1" />

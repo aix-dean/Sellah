@@ -1,18 +1,19 @@
+import { doc, setDoc, serverTimestamp } from "firebase/firestore"
+import { db } from "./firebase"
+
 export function generateLicenseKey(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-  const segments = 4
-  const segmentLength = 5
+  const segments = []
 
-  const generateSegment = () => {
+  for (let i = 0; i < 4; i++) {
     let segment = ""
-    for (let i = 0; i < segmentLength; i++) {
+    for (let j = 0; j < 5; j++) {
       segment += chars.charAt(Math.floor(Math.random() * chars.length))
     }
-    return segment
+    segments.push(segment)
   }
 
-  const licenseKey = Array.from({ length: segments }, generateSegment).join("-")
-  return licenseKey
+  return segments.join("-")
 }
 
 export function generateLicenseDocument(userId: string, companyId: string, licenseKey: string) {
@@ -51,8 +52,47 @@ export function generateLicenseDocument(userId: string, companyId: string, licen
   }
 }
 
-// Alias for backward compatibility
-export const createLicenseDocument = generateLicenseDocument
+// Create license document in Firestore
+export async function createLicenseDocument(licenseKey: string, userId: string): Promise<void> {
+  try {
+    const licenseDocRef = doc(db, "licenses", licenseKey)
+    await setDoc(licenseDocRef, {
+      license_key: licenseKey,
+      user_id: userId,
+      status: "active",
+      type: "standard",
+      created_at: serverTimestamp(),
+      updated_at: serverTimestamp(),
+      expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
+      features: {
+        max_products: 1000,
+        max_orders: 10000,
+        analytics: true,
+        api_access: true,
+        multi_user: false,
+        custom_branding: false,
+      },
+      metadata: {
+        activation_count: 0,
+        last_activated: null,
+        created_by: userId,
+        version: "1.0",
+        platform: "web",
+      },
+      permissions: {
+        can_create_products: true,
+        can_manage_orders: true,
+        can_view_analytics: true,
+        can_export_data: true,
+        can_manage_users: false,
+        can_access_api: true,
+      },
+    })
+  } catch (error) {
+    console.error("Error creating license document:", error)
+    throw error
+  }
+}
 
 export function validateLicenseKey(licenseKey: string): boolean {
   // Check format: XXXXX-XXXXX-XXXXX-XXXXX
@@ -60,7 +100,7 @@ export function validateLicenseKey(licenseKey: string): boolean {
   return licensePattern.test(licenseKey)
 }
 
-// Add the missing validateLicenseFormat export
+// Export with the correct name for backward compatibility
 export const validateLicenseFormat = validateLicenseKey
 
 export function isLicenseExpired(expiresAt: Date): boolean {
@@ -316,4 +356,13 @@ export function canPerformAction(license: any, action: string): boolean {
 
   const permission = permissionMap[action]
   return permission ? license.permissions[permission] : false
+}
+
+// Generate multiple license keys (for admin use)
+export function generateMultipleLicenseKeys(count: number): string[] {
+  const keys = []
+  for (let i = 0; i < count; i++) {
+    keys.push(generateLicenseKey())
+  }
+  return keys
 }

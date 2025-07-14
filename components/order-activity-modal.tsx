@@ -22,7 +22,7 @@ interface OrderActivityModalProps {
   onStatusUpdate?: (newStatus: string) => void
 }
 
-export default function OrderActivityModal({
+export function OrderActivityModal({
   orderId,
   orderNumber,
   onClose,

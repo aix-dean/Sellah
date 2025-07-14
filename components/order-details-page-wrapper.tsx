@@ -25,6 +25,8 @@ import { useUserData } from "@/hooks/use-user-data"
 import { updateOrderStatusWithStockManagement } from "@/lib/order-status-handler"
 import { useAuth } from "@/hooks/use-auth"
 import { OrderDetailsPage } from "./order-details-page"
+import OrderActivityHistoryModal from "./order-activity-history-modal"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 interface OrderDetailsPageWrapperProps {
   orderId: string
@@ -114,6 +116,7 @@ interface Order {
   cancellation_reason?: string
   cancellation_message?: string
   refund_status?: string
+  courier?: string
 }
 
 interface OrderData {
@@ -163,6 +166,8 @@ export function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWrapperProp
     open: false,
     order: null,
   })
+
+  const [showActivityModal, setShowActivityModal] = useState(false)
 
   const statusOptions = [
     { value: "pending", label: "PENDING", color: "bg-yellow-100 text-yellow-800 border-yellow-200" },
@@ -799,6 +804,12 @@ export function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWrapperProp
   if (order.status === "cancelled") {
     return (
       <div className="max-w-4xl mx-auto p-6 space-y-6">
+        {/* Back Button */}
+        <Button onClick={() => router.push("/dashboard/orders")} variant="outline" className="mb-4">
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Orders
+        </Button>
+
         {/* Header */}
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <div className="flex items-center space-x-2">
@@ -844,37 +855,77 @@ export function OrderDetailsPageWrapper({ orderId }: OrderDetailsPageWrapperProp
           </div>
         </div>
 
-        {/* Logistic Information */}
+        {/* Cancellation Information */}
         <div className="bg-white rounded-lg shadow-sm border p-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Logistic Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Cancellation Information</h2>
+          <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-gray-600">Courier</label>
-              <p className="text-gray-800">{order.courier || "Not specified"}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-600">Tracking Number</label>
-              <p className="text-gray-800 font-mono">{order.tracking_number || "Not available"}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Cancellation Reason */}
-        {order.cancellation_reason && (
-          <div className="bg-white rounded-lg shadow-sm border p-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">Cancellation Reason</h2>
-            <p className="text-gray-700">{order.cancellation_reason}</p>
-            {order.cancelled_at && (
-              <p className="text-sm text-gray-500 mt-2">
-                Cancelled on: {new Date(order.cancelled_at.toDate()).toLocaleDateString()}
+              <label className="text-sm font-medium text-gray-600">Cancelled By</label>
+              <p className="text-gray-800 capitalize">
+                {order.cancelled_by === "seller" ? "Seller" : order.cancelled_by_user ? "Customer" : "System"}
               </p>
+            </div>
+
+            {order.cancellation_reason && (
+              <div>
+                <label className="text-sm font-medium text-gray-600">Reason</label>
+                <p className="text-gray-800">{order.cancellation_reason}</p>
+              </div>
+            )}
+
+            {order.cancellation_message && (
+              <div>
+                <label className="text-sm font-medium text-gray-600">Additional Message</label>
+                <p className="text-gray-800 italic">"{order.cancellation_message}"</p>
+              </div>
+            )}
+
+            {order.cancelled_at && (
+              <div>
+                <label className="text-sm font-medium text-gray-600">Cancelled Date</label>
+                <p className="text-gray-800">{formatDate(order.cancelled_at)}</p>
+              </div>
+            )}
+
+            {order.refund_status && (
+              <div>
+                <label className="text-sm font-medium text-gray-600">Refund Status</label>
+                <Badge
+                  variant="secondary"
+                  className={
+                    order.refund_status === "completed"
+                      ? "bg-green-100 text-green-800"
+                      : order.refund_status === "pending"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : "bg-red-100 text-red-800"
+                  }
+                >
+                  {order.refund_status.charAt(0).toUpperCase() + order.refund_status.slice(1)}
+                </Badge>
+              </div>
             )}
           </div>
-        )}
+        </div>
       </div>
     )
   }
 
   // For non-cancelled orders, show the full order details page
-  return <OrderDetailsPage orderId={orderId} />
+  return (
+    <>
+      <OrderDetailsPage orderId={orderId} />
+
+      {/* Activity History Modal */}
+      <Dialog open={showActivityModal} onOpenChange={setShowActivityModal}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Order Activity History</DialogTitle>
+          </DialogHeader>
+          {order && <OrderActivityHistoryModal orderId={orderId} orderNumber={order.order_number || order.id} />}
+        </DialogContent>
+      </Dialog>
+    </>
+  )
 }
+
+export default OrderDetailsPageWrapper

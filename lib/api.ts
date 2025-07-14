@@ -21,6 +21,7 @@ import { orderActivityService } from "./order-activity-service"
 import { notificationService } from "./notification-service"
 import type { Order } from "@/types/order"
 
+// Order Management Functions
 export async function updateOrderStatus(
   orderId: string,
   newStatus: string,
@@ -182,6 +183,7 @@ export async function updateOrderOutForDelivery(
 export async function approveOrderPayment(
   orderId: string,
   userId = "system",
+  userName?: string,
 ): Promise<{ success: boolean; message: string }> {
   try {
     const orderRef = doc(db, "orders", orderId)
@@ -206,7 +208,7 @@ export async function approveOrderPayment(
         previous_status: "pending",
         timestamp: Timestamp.now(),
         changed_by: userId,
-        changed_by_name: "Admin User",
+        changed_by_name: userName || "Admin User",
         note: "Payment approved",
       }),
     })
@@ -222,7 +224,7 @@ export async function approveOrderPayment(
       metadata: {
         payment_status: "approved",
         approved_by: userId,
-        approved_at: Timestamp.now().toISOString(),
+        approved_at: new Date().toISOString(),
       },
     })
 
@@ -247,7 +249,7 @@ export async function approveOrderPayment(
   }
 }
 
-// Alias for backward compatibility
+// Add the missing export alias for backward compatibility
 export const updateOrderApprovePayment = approveOrderPayment
 
 export async function rejectOrderPayment(
@@ -364,7 +366,7 @@ export async function completeOrder(
       metadata: {
         completed_by: userId,
         completed_by_name: userName || "Admin User",
-        completed_at: Timestamp.now().toISOString(),
+        completed_at: new Date().toISOString(),
       },
     })
 
@@ -621,7 +623,6 @@ export async function restoreOrder(orderId: string, userId = "system"): Promise<
   }
 }
 
-// Get order by ID
 export async function getOrderById(orderId: string) {
   try {
     if (!orderId || typeof orderId !== "string" || orderId.trim() === "") {
@@ -645,7 +646,6 @@ export async function getOrderById(orderId: string) {
   }
 }
 
-// Get orders with pagination
 export async function getOrders(filters?: {
   status?: string
   limit?: number
@@ -683,7 +683,6 @@ export async function getOrders(filters?: {
   }
 }
 
-// Delete order (admin only)
 export async function deleteOrder(orderId: string, userId = "system"): Promise<{ success: boolean; message: string }> {
   try {
     const orderRef = doc(db, "orders", orderId)
@@ -697,7 +696,7 @@ export async function deleteOrder(orderId: string, userId = "system"): Promise<{
       description: "Order permanently deleted",
       metadata: {
         deleted_by: userId,
-        deleted_at: Timestamp.now().toISOString(),
+        deleted_at: new Date().toISOString(),
       },
     })
 
@@ -710,7 +709,6 @@ export async function deleteOrder(orderId: string, userId = "system"): Promise<{
   }
 }
 
-// Batch update orders
 export async function batchUpdateOrders(
   orderIds: string[],
   updates: any,
@@ -791,7 +789,7 @@ export async function updateOrder(orderId: string, updates: Partial<Order>) {
   }
 }
 
-// Products API
+// Product Management Functions
 export async function getProducts(filters?: {
   category?: string
   status?: string
@@ -907,5 +905,111 @@ export async function deleteProduct(productId: string) {
   } catch (error) {
     console.error("Error deleting product:", error)
     throw new Error("Failed to delete product")
+  }
+}
+
+// User Management Functions
+export async function getUserById(userId: string) {
+  try {
+    console.log("🔍 Fetching user with ID:", userId)
+
+    const userRef = doc(db, "users", userId)
+    const userSnap = await getDoc(userRef)
+
+    if (!userSnap.exists()) {
+      throw new Error(`User with ID "${userId}" not found`)
+    }
+
+    const userData = {
+      id: userSnap.id,
+      ...userSnap.data(),
+    }
+
+    console.log("👤 User data retrieved:", userData)
+    return userData
+  } catch (error) {
+    console.error("❌ Error fetching user:", error)
+    throw error
+  }
+}
+
+export async function updateUser(userId: string, updates: any): Promise<void> {
+  try {
+    console.log("📝 Updating user:", userId, updates)
+
+    const userRef = doc(db, "users", userId)
+    await updateDoc(userRef, {
+      ...updates,
+      updated_at: Timestamp.now(),
+    })
+
+    console.log("✅ User updated successfully")
+  } catch (error) {
+    console.error("❌ Error updating user:", error)
+    throw error
+  }
+}
+
+// Analytics Functions
+export async function getOrderStats(userId?: string) {
+  try {
+    console.log("📊 Fetching order statistics for user:", userId)
+
+    const ordersRef = collection(db, "orders")
+    let q = query(ordersRef)
+
+    if (userId) {
+      q = query(q, where("user_id", "==", userId))
+    }
+
+    const querySnapshot = await getDocs(q)
+    const orders = querySnapshot.docs.map((doc) => doc.data())
+
+    const stats = {
+      total: orders.length,
+      pending: orders.filter((order) => order.status === "pending").length,
+      processing: orders.filter((order) => order.status === "processing").length,
+      completed: orders.filter((order) => order.status === "completed").length,
+      cancelled: orders.filter((order) => order.status === "cancelled").length,
+      totalRevenue: orders
+        .filter((order) => order.status === "completed")
+        .reduce((sum, order) => sum + (order.total_amount || 0), 0),
+    }
+
+    console.log("📊 Order statistics:", stats)
+    return stats
+  } catch (error) {
+    console.error("❌ Error fetching order stats:", error)
+    throw error
+  }
+}
+
+export async function getProductStats(userId?: string) {
+  try {
+    console.log("📊 Fetching product statistics for user:", userId)
+
+    const productsRef = collection(db, "products")
+    let q = query(productsRef)
+
+    if (userId) {
+      q = query(q, where("user_id", "==", userId))
+    }
+
+    const querySnapshot = await getDocs(q)
+    const products = querySnapshot.docs.map((doc) => doc.data())
+
+    const stats = {
+      total: products.length,
+      active: products.filter((product) => product.status === "active").length,
+      inactive: products.filter((product) => product.status === "inactive").length,
+      outOfStock: products.filter((product) => (product.stock || 0) === 0).length,
+      lowStock: products.filter((product) => (product.stock || 0) > 0 && (product.stock || 0) <= 10).length,
+    }
+
+    console.log("📊 Product statistics:", stats)
+    return stats
+  } catch (error) {
+    console.error("❌ Error fetching product stats:", error)
+    throw error
   }
 }

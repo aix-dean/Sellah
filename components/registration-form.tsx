@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { createUserWithEmail } from "@/lib/auth"
+import { registerUser } from "@/lib/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,8 +15,10 @@ import { ExclamationTriangleIcon } from "@radix-ui/react-icons"
 
 export default function RegistrationForm() {
   const [firstName, setFirstName] = useState("")
+  const [middleName, setMiddleName] = useState("")
   const [lastName, setLastName] = useState("")
   const [email, setEmail] = useState("")
+  const [phoneNumber, setPhoneNumber] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -24,6 +26,22 @@ export default function RegistrationForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const router = useRouter()
+
+  const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, "") // Remove all non-digits
+
+    // Ensure it starts with 9
+    if (value.length > 0 && !value.startsWith("9")) {
+      value = "9" + value.slice(1)
+    }
+
+    // Limit to 10 digits
+    if (value.length > 10) {
+      value = value.slice(0, 10)
+    }
+
+    setPhoneNumber(value)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,8 +54,24 @@ export default function RegistrationForm() {
       return
     }
 
+    // Validate phone number
+    if (phoneNumber && (phoneNumber.length !== 10 || !phoneNumber.startsWith("9"))) {
+      setError("Phone number must be 10 digits and start with 9.")
+      setLoading(false)
+      return
+    }
+
     try {
-      const result = await createUserWithEmail(firstName, lastName, email, password)
+      const fullPhoneNumber = phoneNumber ? `+63${phoneNumber}` : ""
+
+      const result = await registerUser({
+        firstName,
+        middleName,
+        lastName,
+        email,
+        password,
+        phoneNumber: fullPhoneNumber,
+      })
 
       if (result.success) {
         router.push("/dashboard")
@@ -83,18 +117,31 @@ export default function RegistrationForm() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name</Label>
+                <Label htmlFor="middleName">Middle Name</Label>
                 <Input
-                  id="lastName"
+                  id="middleName"
                   type="text"
-                  placeholder="Last Name"
-                  required
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Middle Name"
+                  value={middleName}
+                  onChange={(e) => setMiddleName(e.target.value)}
                   disabled={loading}
                 />
               </div>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Last Name</Label>
+              <Input
+                id="lastName"
+                type="text"
+                placeholder="Last Name"
+                required
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -107,6 +154,27 @@ export default function RegistrationForm() {
                 disabled={loading}
               />
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phoneNumber">Phone Number</Label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500 pointer-events-none">
+                  +63
+                </div>
+                <Input
+                  id="phoneNumber"
+                  type="tel"
+                  placeholder="9XXXXXXXXX"
+                  value={phoneNumber}
+                  onChange={handlePhoneNumberChange}
+                  disabled={loading}
+                  className="pl-12"
+                  maxLength={10}
+                />
+              </div>
+              <p className="text-xs text-gray-500">Enter 10 digits starting with 9 (e.g., 9171234567)</p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <div className="relative">
@@ -132,6 +200,7 @@ export default function RegistrationForm() {
                 </Button>
               </div>
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm Password</Label>
               <div className="relative">
@@ -159,6 +228,7 @@ export default function RegistrationForm() {
                 </Button>
               </div>
             </div>
+
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? (
                 <>

@@ -37,7 +37,7 @@ interface OrderActivityTimelineProps {
   orderId: string
 }
 
-export default function OrderActivityTimeline({ orderId }: OrderActivityTimelineProps) {
+export function OrderActivityTimeline({ orderId }: OrderActivityTimelineProps) {
   const [activities, setActivities] = useState<OrderActivity[]>([])
   const [filteredActivities, setFilteredActivities] = useState<OrderActivity[]>([])
   const [loading, setLoading] = useState(true)

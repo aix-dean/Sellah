@@ -1,93 +1,112 @@
 "use client"
 
-import { useState } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { CheckCircle, Loader2 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { CheckCircle, Package, User, Calendar, CreditCard } from "lucide-react"
 
 interface OrderApprovalDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   order: any
-  onConfirm: () => Promise<void>
+  onConfirm: () => void
 }
 
 export function OrderApprovalDialog({ open, onOpenChange, order, onConfirm }: OrderApprovalDialogProps) {
-  const [isLoading, setIsLoading] = useState(false)
+  if (!order) return null
 
-  const handleConfirm = async () => {
-    setIsLoading(true)
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return "N/A"
     try {
-      await onConfirm()
-      onOpenChange(false)
+      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      })
     } catch (error) {
-      console.error("Error approving order:", error)
-    } finally {
-      setIsLoading(false)
+      return "Invalid Date"
     }
+  }
+
+  const formatCurrency = (amount: number) => {
+    return `₱${amount.toFixed(2)}`
+  }
+
+  const handleConfirm = () => {
+    onConfirm()
+    onOpenChange(false)
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
             <CheckCircle className="w-5 h-5 text-green-600" />
             <span>Approve Order</span>
           </DialogTitle>
-          <DialogDescription>
-            Are you sure you want to approve this order? This action will change the order status to "Confirmed" and
-            notify the customer.
-          </DialogDescription>
         </DialogHeader>
 
-        {order && (
-          <div className="space-y-4">
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="font-medium text-gray-700">Order ID:</span>
-                  <p className="text-gray-900">{order.order_number}</p>
+        <div className="space-y-4">
+          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+            <p className="text-sm text-green-800 mb-2">You are about to approve this order. This action will:</p>
+            <ul className="text-xs text-green-700 space-y-1 ml-4">
+              <li>• Change order status to "Preparing"</li>
+              <li>• Move order to "To Ship" tab</li>
+              <li>• Notify the customer</li>
+              <li>• Begin order processing</li>
+            </ul>
+          </div>
+
+          {/* Order Summary */}
+          <div className="border rounded-lg p-4 space-y-3">
+            <div className="flex justify-between items-start">
+              <div>
+                <h4 className="font-medium text-gray-900">{order.order_number}</h4>
+                <div className="flex items-center space-x-2 mt-1">
+                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                    {order.status}
+                  </Badge>
                 </div>
-                <div>
-                  <span className="font-medium text-gray-700">Customer:</span>
-                  <p className="text-gray-900">{order.customer_name}</p>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-700">Total Amount:</span>
-                  <p className="text-gray-900">
-                    ₱{order.total_amount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
-                  </p>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-700">Items:</span>
-                  <p className="text-gray-900">{order.items.length} item(s)</p>
-                </div>
+              </div>
+              <div className="text-right">
+                <div className="font-semibold text-gray-900">{formatCurrency(order.total_amount)}</div>
+                <div className="text-xs text-gray-500">{order.items?.length || 0} items</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="flex items-center space-x-2">
+                <User className="w-4 h-4 text-gray-400" />
+                <span className="text-gray-700">{order.customer_name}</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Calendar className="w-4 h-4 text-gray-400" />
+                <span className="text-gray-700">{formatDate(order.created_at)}</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Package className="w-4 h-4 text-gray-400" />
+                <span className="text-gray-700">{order.is_pickup ? "Pickup" : "Delivery"}</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <CreditCard className="w-4 h-4 text-gray-400" />
+                <span className="text-gray-700 capitalize">{order.payment_method || "N/A"}</span>
               </div>
             </div>
           </div>
-        )}
+        </div>
 
         <DialogFooter className="flex space-x-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleConfirm} disabled={isLoading} className="bg-green-600 hover:bg-green-700">
-            {isLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Approving...
-              </>
-            ) : (
-              "Approve Order"
-            )}
+          <Button onClick={handleConfirm} className="bg-green-600 hover:bg-green-700 text-white">
+            <CheckCircle className="w-4 h-4 mr-2" />
+            Approve Order
           </Button>
         </DialogFooter>
       </DialogContent>

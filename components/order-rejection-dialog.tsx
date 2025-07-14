@@ -1,169 +1,183 @@
 "use client"
 
 import { useState } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
-import { XCircle, Loader2 } from "lucide-react"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { XCircle, Package, User, Calendar, CreditCard, AlertTriangle } from "lucide-react"
 
 interface OrderRejectionDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   order: any
-  onConfirm: (reason: string) => Promise<void>
+  onConfirm: (reason: string) => void
 }
 
-const REJECTION_REASONS = [
-  "Out of stock",
-  "Wrong listing",
-  "Invalid shipping address",
-  "Buyer requested cancellation",
-  "Other",
-]
-
 export function OrderRejectionDialog({ open, onOpenChange, order, onConfirm }: OrderRejectionDialogProps) {
-  const [isLoading, setIsLoading] = useState(false)
-  const [selectedReasons, setSelectedReasons] = useState<string[]>([])
-  const [customReason, setCustomReason] = useState("")
-  const [showCustomReason, setShowCustomReason] = useState(false)
+  const [reason, setReason] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleReasonChange = (reason: string, checked: boolean) => {
-    if (reason === "Other") {
-      setShowCustomReason(checked)
-      if (!checked) {
-        setCustomReason("")
-      }
-    }
+  if (!order) return null
 
-    if (checked) {
-      setSelectedReasons((prev) => [...prev, reason])
-    } else {
-      setSelectedReasons((prev) => prev.filter((r) => r !== reason))
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return "N/A"
+    try {
+      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      })
+    } catch (error) {
+      return "Invalid Date"
     }
+  }
+
+  const formatCurrency = (amount: number) => {
+    return `₱${amount.toFixed(2)}`
   }
 
   const handleConfirm = async () => {
-    if (selectedReasons.length === 0) {
-      return
-    }
+    if (!reason.trim()) return
 
-    setIsLoading(true)
+    setIsSubmitting(true)
     try {
-      let finalReason = selectedReasons.filter((r) => r !== "Other").join(", ")
-      if (selectedReasons.includes("Other") && customReason.trim()) {
-        finalReason = finalReason ? `${finalReason}, ${customReason.trim()}` : customReason.trim()
-      }
-
-      await onConfirm(finalReason)
+      await onConfirm(reason.trim())
       onOpenChange(false)
-      // Reset form
-      setSelectedReasons([])
-      setCustomReason("")
-      setShowCustomReason(false)
+      setReason("")
     } catch (error) {
       console.error("Error rejecting order:", error)
     } finally {
-      setIsLoading(false)
+      setIsSubmitting(false)
     }
   }
 
-  const handleClose = () => {
+  const handleCancel = () => {
     onOpenChange(false)
-    // Reset form
-    setSelectedReasons([])
-    setCustomReason("")
-    setShowCustomReason(false)
+    setReason("")
   }
 
+  const commonReasons = [
+    "Insufficient stock",
+    "Payment verification failed",
+    "Invalid customer information",
+    "Shipping address issues",
+    "Product discontinued",
+    "Pricing error",
+  ]
+
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
             <XCircle className="w-5 h-5 text-red-600" />
             <span>Reject Order</span>
           </DialogTitle>
-          <DialogDescription>
-            Please select the reason(s) for rejecting this order. This action will cancel the order and notify the
-            customer.
-          </DialogDescription>
         </DialogHeader>
 
-        {order && (
-          <div className="space-y-4">
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="font-medium text-gray-700">Order ID:</span>
-                  <p className="text-gray-900">{order.order_number}</p>
+        <div className="space-y-4">
+          <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+            <div className="flex items-start space-x-2">
+              <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-sm text-red-800 mb-2">You are about to reject this order. This action will:</p>
+                <ul className="text-xs text-red-700 space-y-1 ml-2">
+                  <li>• Cancel the order permanently</li>
+                  <li>• Move order to "Cancelled" tab</li>
+                  <li>• Notify the customer with reason</li>
+                  <li>• This action cannot be undone</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Order Summary */}
+          <div className="border rounded-lg p-4 space-y-3">
+            <div className="flex justify-between items-start">
+              <div>
+                <h4 className="font-medium text-gray-900">{order.order_number}</h4>
+                <div className="flex items-center space-x-2 mt-1">
+                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                    {order.status}
+                  </Badge>
                 </div>
-                <div>
-                  <span className="font-medium text-gray-700">Customer:</span>
-                  <p className="text-gray-900">{order.customer_name}</p>
-                </div>
+              </div>
+              <div className="text-right">
+                <div className="font-semibold text-gray-900">{formatCurrency(order.total_amount)}</div>
+                <div className="text-xs text-gray-500">{order.items?.length || 0} items</div>
               </div>
             </div>
 
-            <div className="space-y-3">
-              <h4 className="font-medium text-gray-900">Reason for rejection:</h4>
-              {REJECTION_REASONS.map((reason) => (
-                <div key={reason} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={reason}
-                    checked={selectedReasons.includes(reason)}
-                    onCheckedChange={(checked) => handleReasonChange(reason, checked as boolean)}
-                  />
-                  <label htmlFor={reason} className="text-sm text-gray-700 cursor-pointer">
-                    {reason}
-                  </label>
-                </div>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="flex items-center space-x-2">
+                <User className="w-4 h-4 text-gray-400" />
+                <span className="text-gray-700">{order.customer_name}</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Calendar className="w-4 h-4 text-gray-400" />
+                <span className="text-gray-700">{formatDate(order.created_at)}</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Package className="w-4 h-4 text-gray-400" />
+                <span className="text-gray-700">{order.is_pickup ? "Pickup" : "Delivery"}</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <CreditCard className="w-4 h-4 text-gray-400" />
+                <span className="text-gray-700 capitalize">{order.payment_method || "N/A"}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Rejection Reason */}
+          <div className="space-y-3">
+            <Label htmlFor="reason" className="text-sm font-medium">
+              Reason for rejection <span className="text-red-500">*</span>
+            </Label>
+
+            {/* Quick Reason Buttons */}
+            <div className="grid grid-cols-2 gap-2">
+              {commonReasons.map((commonReason) => (
+                <Button
+                  key={commonReason}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setReason(commonReason)}
+                  className="text-xs h-8 justify-start"
+                >
+                  {commonReason}
+                </Button>
               ))}
             </div>
 
-            {showCustomReason && (
-              <div className="space-y-2">
-                <label htmlFor="custom-reason" className="text-sm font-medium text-gray-700">
-                  Please specify:
-                </label>
-                <Textarea
-                  id="custom-reason"
-                  placeholder="Enter your reason..."
-                  value={customReason}
-                  onChange={(e) => setCustomReason(e.target.value)}
-                  rows={3}
-                />
-              </div>
-            )}
+            <Textarea
+              id="reason"
+              placeholder="Enter the reason for rejecting this order..."
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="min-h-[80px] resize-none"
+              maxLength={500}
+            />
+            <div className="text-xs text-gray-500 text-right">{reason.length}/500</div>
           </div>
-        )}
+        </div>
 
         <DialogFooter className="flex space-x-2">
-          <Button variant="outline" onClick={handleClose} disabled={isLoading}>
+          <Button variant="outline" onClick={handleCancel} disabled={isSubmitting}>
             Cancel
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={
-              isLoading || selectedReasons.length === 0 || (selectedReasons.includes("Other") && !customReason.trim())
-            }
-            className="bg-red-600 hover:bg-red-700"
+            disabled={!reason.trim() || isSubmitting}
+            className="bg-red-600 hover:bg-red-700 text-white"
           >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Rejecting...
-              </>
-            ) : (
-              "Reject Order"
-            )}
+            <XCircle className="w-4 h-4 mr-2" />
+            {isSubmitting ? "Rejecting..." : "Reject Order"}
           </Button>
         </DialogFooter>
       </DialogContent>

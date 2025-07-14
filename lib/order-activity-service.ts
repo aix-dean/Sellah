@@ -36,7 +36,7 @@ export interface OrderActivity {
 
 // Order Activity Service Class
 class OrderActivityService {
-  private collectionName = "order_activities"
+  private collectionName = "order_activity"
 
   // Create a new activity
   async createActivity(activity: Omit<OrderActivity, "id" | "timestamp">) {
@@ -69,6 +69,8 @@ class OrderActivityService {
     try {
       const { limit: pageLimit = 20, startAfterDoc, activityType } = options
 
+      console.log("🔍 Service: Fetching activities for orderId:", orderId)
+
       let q = query(
         collection(db, this.collectionName),
         where("order_id", "==", orderId),
@@ -91,10 +93,18 @@ class OrderActivityService {
       }
 
       const querySnapshot = await getDocs(q)
-      const activities = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as OrderActivity[]
+      console.log("📊 Service: Query snapshot size:", querySnapshot.size)
+
+      const activities = querySnapshot.docs.map((doc) => {
+        const data = doc.data()
+        console.log("📄 Service: Document data:", { id: doc.id, ...data })
+        return {
+          id: doc.id,
+          ...data,
+        }
+      }) as OrderActivity[]
+
+      console.log("✅ Service: Final activities array:", activities)
 
       return {
         activities,
@@ -102,7 +112,7 @@ class OrderActivityService {
         hasMore: querySnapshot.docs.length === pageLimit,
       }
     } catch (error) {
-      console.error("Error getting order activities:", error)
+      console.error("❌ Service: Error getting order activities:", error)
       throw error
     }
   }
@@ -159,6 +169,8 @@ class OrderActivityService {
   // Get order lifecycle summary
   async getOrderLifecycleSummary(orderId: string) {
     try {
+      console.log("📈 Service: Fetching lifecycle summary for orderId:", orderId)
+
       const q = query(
         collection(db, this.collectionName),
         where("order_id", "==", orderId),
@@ -169,15 +181,25 @@ class OrderActivityService {
       const querySnapshot = await getDocs(q)
       const statusChanges = querySnapshot.docs.map((doc) => doc.data())
 
-      return {
+      console.log("📊 Service: Status changes found:", statusChanges.length)
+
+      // Also get total activities count
+      const allActivitiesQuery = query(collection(db, this.collectionName), where("order_id", "==", orderId))
+      const allActivitiesSnapshot = await getDocs(allActivitiesQuery)
+
+      const summary = {
         total_status_changes: statusChanges.length,
+        total_activities: allActivitiesSnapshot.size,
         status_timeline: statusChanges,
         current_status: statusChanges[statusChanges.length - 1]?.new_value || "unknown",
         created_at: statusChanges[0]?.timestamp || null,
         last_updated: statusChanges[statusChanges.length - 1]?.timestamp || null,
       }
+
+      console.log("✅ Service: Lifecycle summary:", summary)
+      return summary
     } catch (error) {
-      console.error("Error getting order lifecycle summary:", error)
+      console.error("❌ Service: Error getting order lifecycle summary:", error)
       throw error
     }
   }

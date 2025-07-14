@@ -10,7 +10,7 @@ import { db } from "@/lib/firebase"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Home, Package, ShoppingCart, Users, Bell, MessageSquare, ChevronDown, LogOut, X } from "lucide-react"
+import { Package, ShoppingCart, Users, Bell, MessageSquare, ChevronDown, LogOut, X } from "lucide-react"
 import { useRouter, usePathname } from "next/navigation"
 import { signOut } from "@/lib/auth"
 
@@ -33,7 +33,6 @@ export default function DashboardLayout({ children, activeItem, userName = "" }:
 
   // Main navigation items
   const menuItems = [
-    { id: "home", label: "Home", icon: Home, href: "/dashboard" },
     { id: "inventory", label: "Inventory", icon: Package, href: "/dashboard/products" },
     { id: "orders", label: "Orders", icon: ShoppingCart, href: "/dashboard/orders" },
     { id: "account", label: "Account", icon: Users, href: "/dashboard/account" },
@@ -43,12 +42,11 @@ export default function DashboardLayout({ children, activeItem, userName = "" }:
   const getActiveItem = () => {
     if (activeItem) return activeItem
 
-    if (pathname === "/dashboard") return "home"
     if (pathname.startsWith("/dashboard/products")) return "inventory"
     if (pathname.startsWith("/dashboard/orders")) return "orders"
     if (pathname.startsWith("/dashboard/account")) return "account"
 
-    return "home" // default fallback
+    return "inventory" // default fallback
   }
 
   const currentActiveItem = getActiveItem()

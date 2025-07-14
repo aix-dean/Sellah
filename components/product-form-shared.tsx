@@ -288,7 +288,7 @@ export function CategorySelection({
             {categories.map((category) => (
               <label key={category.id} className="flex items-center space-x-2 cursor-pointer select-none">
                 <input
-                  type="checkbox"
+                  type="radio"
                   checked={selectedCategories.includes(category.id)}
                   onChange={(e) => onCategoryChange(category.id, e.target.checked)}
                   className="rounded border-gray-300 text-red-500 focus:ring-red-500"

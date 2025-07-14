@@ -2,326 +2,330 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Package, User, MapPin, Calendar, Clock, CheckCircle, XCircle } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { toast } from "@/hooks/use-toast"
-import {
-  doc,
-  getDoc,
-  updateDoc,
-  collection,
-  query,
-  where,
-  orderBy,
-  limit,
-  getDocs,
-  Timestamp,
-} from "firebase/firestore"
+import { doc, getDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-
-interface OrderItem {
-  name: string
-  quantity: number
-  price: number
-  image?: string
-}
-
-interface Order {
-  id: string
-  status: string
-  customerName: string
-  customerEmail: string
-  customerPhone?: string
-  items: OrderItem[]
-  totalAmount: number
-  subtotal?: number
-  tax?: number
-  shipping?: number
-  payment_method?: string
-  payment_status?: string
-  tracking_number?: string
-  shipping_address?: {
-    street: string
-    city: string
-    state: string
-    zip: string
-    country: string
-  }
-  created_at: any
-  updated_at?: any
-}
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
+import {
+  ArrowLeft,
+  Package,
+  User,
+  CreditCard,
+  Calendar,
+  Truck,
+  Store,
+  AlertCircle,
+  Loader2,
+  Copy,
+  Tag,
+  Palette,
+  Ruler,
+  Weight,
+  Activity,
+} from "lucide-react"
+import { toast } from "@/hooks/use-toast"
+import { useAuth } from "@/hooks/use-auth"
+import OrderActivityHistoryModal from "./order-activity-history-modal"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 interface OrderDetailsPageProps {
   orderId: string
 }
 
+interface OrderItem {
+  product_id: string
+  product_name: string
+  quantity: number
+  unit_price: number
+  total_price: number
+  specifications?: any
+  product_image?: string
+  sku?: string
+  variation_data?: {
+    color?: string
+    height?: string
+    id?: string
+    length?: string
+    media?: string
+    name?: string
+    price?: number
+    sku?: string
+    stock?: number
+    weight?: string
+    [key: string]: any
+  }
+  variation_id?: string
+  variation_name?: string
+}
+
+interface ShippingAddress {
+  recipient_name?: string
+  phone_number?: string
+  street?: string
+  city?: string
+  province?: string
+  postal_code?: string
+  country?: string
+  notes?: string
+}
+
+interface Order {
+  id: string
+  order_number: string
+  status: string
+  payment_status: string
+  customer_name: string
+  customer_email: string
+  customer_phone: string
+  items: OrderItem[]
+  subtotal: number
+  shipping_fee: number
+  tax_amount: number
+  discount_amount?: number
+  total_amount: number
+  payment_method: string
+  payment_reference?: string
+  shipping_address?: ShippingAddress
+  billing_address?: ShippingAddress
+  delivery_method: string
+  tracking_number?: string
+  estimated_delivery?: any
+  special_instructions?: string
+  created_at: any
+  updated_at: any
+  customer_rating?: number
+  customer_review?: string
+  notes?: Array<{
+    note: string
+    timestamp: any
+    added_by: string
+    user_name: string
+  }>
+  approve_payment?: boolean
+  is_pickup?: boolean
+  pickup_info?: {
+    pickup_location?: string
+    pickup_address?: string
+    pickup_contact?: string
+    pickup_hours?: string
+    pickup_instructions?: string
+    [key: string]: any
+  }
+  cancelled_by_user?: boolean
+  cancelled_at?: any
+  cancellation_reason?: string
+  cancellation_message?: string
+  refund_status?: string
+  courier?: string
+}
+
 export function OrderDetailsPage({ orderId }: OrderDetailsPageProps) {
   const router = useRouter()
+  const { user } = useAuth()
   const [order, setOrder] = useState<Order | null>(null)
-  const [activities, setActivities] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [updating, setUpdating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showActivityModal, setShowActivityModal] = useState(false)
 
   useEffect(() => {
-    console.log("OrderDetailsPage useEffect triggered with orderId:", orderId)
-    console.log("orderId type:", typeof orderId)
-    console.log("orderId length:", orderId?.length)
+    const fetchOrder = async () => {
+      if (!user || !orderId) return
 
-    if (orderId && typeof orderId === "string" && orderId.trim() !== "") {
-      fetchOrderDetails()
-      fetchOrderActivities()
-    } else {
-      console.error("Invalid orderId provided:", orderId)
-      setError("Invalid order ID provided")
-      setLoading(false)
-    }
-  }, [orderId])
+      try {
+        setLoading(true)
+        const orderDoc = await getDoc(doc(db, "orders", orderId))
 
-  const fetchOrderDetails = async () => {
-    try {
-      console.log("Starting fetchOrderDetails with orderId:", orderId)
-      setLoading(true)
-      setError(null)
-
-      // Clean the orderId
-      const cleanOrderId = orderId.trim()
-      console.log("Clean orderId:", cleanOrderId)
-
-      // Try to get the document
-      const orderRef = doc(db, "orders", cleanOrderId)
-      console.log("Created orderRef for path:", `orders/${cleanOrderId}`)
-
-      const orderSnap = await getDoc(orderRef)
-      console.log("getDoc completed. Document exists:", orderSnap.exists())
-
-      if (!orderSnap.exists()) {
-        console.error("Order document does not exist in Firestore")
-
-        // Let's try to list all orders to see what's available
-        try {
-          const ordersRef = collection(db, "orders")
-          const allOrdersQuery = query(ordersRef, limit(10))
-          const allOrdersSnap = await getDocs(allOrdersQuery)
-
-          console.log("Available orders in database:")
-          allOrdersSnap.docs.forEach((doc) => {
-            console.log("- Order ID:", doc.id, "Data:", doc.data())
-          })
-        } catch (listError) {
-          console.error("Error listing orders:", listError)
+        if (orderDoc.exists()) {
+          const orderData = { id: orderDoc.id, ...orderDoc.data() } as Order
+          setOrder(orderData)
+        } else {
+          setError("Order not found")
         }
-
-        throw new Error(`Order with ID "${cleanOrderId}" not found in database`)
+      } catch (err) {
+        console.error("Error fetching order:", err)
+        setError("Failed to load order details")
+      } finally {
+        setLoading(false)
       }
-
-      const orderData = {
-        id: orderSnap.id,
-        ...orderSnap.data(),
-      } as Order
-
-      console.log("Order data successfully retrieved:", orderData)
-      setOrder(orderData)
-    } catch (err: any) {
-      console.error("Error in fetchOrderDetails:", err)
-      console.error("Error message:", err?.message)
-      console.error("Error code:", err?.code)
-
-      const errorMessage = err?.message || "Failed to load order details"
-      setError(errorMessage)
-
-      toast({
-        title: "Error Loading Order",
-        description: errorMessage,
-        variant: "destructive",
-      })
-    } finally {
-      console.log("fetchOrderDetails completed, setting loading to false")
-      setLoading(false)
     }
-  }
 
-  const fetchOrderActivities = async () => {
+    fetchOrder()
+  }, [user, orderId])
+
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return "N/A"
     try {
-      if (!orderId || orderId.trim() === "") {
-        console.log("No orderId for activities, skipping")
-        return
-      }
-
-      console.log("Fetching activities for order:", orderId)
-      const activitiesRef = collection(db, "order_activities")
-      const q = query(activitiesRef, where("order_id", "==", orderId.trim()), orderBy("timestamp", "desc"), limit(20))
-
-      const querySnapshot = await getDocs(q)
-      const activitiesData = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }))
-
-      console.log("Activities retrieved:", activitiesData.length, "activities")
-      setActivities(activitiesData)
-    } catch (err) {
-      console.error("Error fetching activities:", err)
-      // Don't fail the whole page if activities fail
+      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      })
+    } catch (error) {
+      return "Invalid Date"
     }
   }
 
-  const handleStatusUpdate = async (newStatus: string) => {
-    if (!order || !orderId) {
-      console.error("Cannot update status: missing order or orderId")
-      return
-    }
-
-    try {
-      setUpdating(true)
-      console.log(`Updating order ${orderId} status to ${newStatus}`)
-
-      const orderRef = doc(db, "orders", orderId)
-      await updateDoc(orderRef, {
-        status: newStatus,
-        updated_at: Timestamp.now(),
-        [`${newStatus}_at`]: Timestamp.now(),
-      })
-
-      console.log("Status update successful")
-      toast({
-        title: "Success",
-        description: `Order status updated to ${newStatus}`,
-      })
-
-      // Refresh order details
-      await fetchOrderDetails()
-      await fetchOrderActivities()
-    } catch (err: any) {
-      console.error("Error updating status:", err)
-      toast({
-        title: "Error",
-        description: err?.message || "Failed to update order status",
-        variant: "destructive",
-      })
-    } finally {
-      setUpdating(false)
-    }
-  }
-
-  const handleCompleteOrder = async () => {
-    if (!order || !orderId) return
-
-    try {
-      setUpdating(true)
-
-      const orderRef = doc(db, "orders", orderId)
-      await updateDoc(orderRef, {
-        status: "completed",
-        completed_at: Timestamp.now(),
-        updated_at: Timestamp.now(),
-      })
-
-      toast({
-        title: "Success",
-        description: "Order completed successfully",
-      })
-
-      await fetchOrderDetails()
-      await fetchOrderActivities()
-    } catch (err: any) {
-      console.error("Error completing order:", err)
-      toast({
-        title: "Error",
-        description: err?.message || "Failed to complete order",
-        variant: "destructive",
-      })
-    } finally {
-      setUpdating(false)
-    }
-  }
-
-  const getStatusColor = (status: string) => {
-    if (!status) return "bg-gray-100 text-gray-800"
-
-    switch (status.toLowerCase()) {
-      case "pending":
-        return "bg-yellow-100 text-yellow-800"
-      case "processing":
-        return "bg-blue-100 text-blue-800"
-      case "shipped":
-        return "bg-purple-100 text-purple-800"
-      case "delivered":
-        return "bg-green-100 text-green-800"
-      case "completed":
-        return "bg-green-100 text-green-800"
-      case "cancelled":
-        return "bg-red-100 text-red-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
-  }
-
-  const formatCurrency = (amount: number | undefined) => {
-    if (typeof amount !== "number" || isNaN(amount)) return "₱0.00"
-
+  const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-PH", {
       style: "currency",
       currency: "PHP",
     }).format(amount)
   }
 
-  const formatDate = (date: any) => {
-    if (!date) return "N/A"
-
+  const copyToClipboard = async (text: string, label: string) => {
     try {
-      let dateObj: Date
-      if (date.toDate && typeof date.toDate === "function") {
-        dateObj = date.toDate()
-      } else if (date instanceof Date) {
-        dateObj = date
-      } else if (typeof date === "string" || typeof date === "number") {
-        dateObj = new Date(date)
-      } else {
-        return "N/A"
-      }
-
-      if (isNaN(dateObj.getTime())) {
-        return "N/A"
-      }
-
-      return dateObj.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
+      await navigator.clipboard.writeText(text)
+      toast({
+        title: "Copied to clipboard",
+        description: `${label} copied successfully`,
       })
-    } catch (err) {
-      console.error("Error formatting date:", err)
-      return "N/A"
+    } catch (error) {
+      toast({
+        title: "Copy failed",
+        description: "Could not copy to clipboard",
+        variant: "destructive",
+      })
     }
   }
 
-  // Debug render state
-  console.log("Render state:", { loading, error: !!error, order: !!order, orderId })
+  const getStatusBadge = (status: string) => {
+    const statusColors: { [key: string]: string } = {
+      pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
+      "settle payment": "bg-red-100 text-red-800 border-red-200",
+      "payment sent": "bg-orange-100 text-orange-800 border-orange-200",
+      preparing: "bg-blue-100 text-blue-800 border-blue-200",
+      "in transit": "bg-purple-100 text-purple-800 border-purple-200",
+      out_for_delivery: "bg-indigo-100 text-indigo-800 border-indigo-200",
+      completed: "bg-green-100 text-green-800 border-green-200",
+      cancelled: "bg-red-100 text-red-800 border-red-200",
+    }
+
+    return statusColors[status] || "bg-gray-100 text-gray-800 border-gray-200"
+  }
+
+  const getPaymentStatusBadge = (status: string) => {
+    const statusColors: { [key: string]: string } = {
+      pending: "bg-yellow-100 text-yellow-800",
+      paid: "bg-green-100 text-green-800",
+      failed: "bg-red-100 text-red-800",
+      refunded: "bg-gray-100 text-gray-800",
+      cancelled: "bg-red-100 text-red-800",
+    }
+
+    return statusColors[status] || "bg-gray-100 text-gray-800"
+  }
+
+  // Render variation data for an item
+  const renderVariationData = (item: OrderItem) => {
+    if (!item.variation_data) return null
+
+    const variationData = item.variation_data
+    const hasVariationInfo = variationData.name || variationData.color || variationData.sku || variationData.price
+
+    if (!hasVariationInfo) return null
+
+    return (
+      <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+        <div className="flex items-center space-x-2 mb-2">
+          <Tag className="w-4 h-4 text-blue-600" />
+          <span className="text-sm font-medium text-blue-800">Product Variation</span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 text-sm text-left">
+          {variationData.name && (
+            <div>
+              <span className="text-gray-600">Name:</span>
+              <span className="ml-2 font-medium text-gray-900">{variationData.name}</span>
+            </div>
+          )}
+
+          {variationData.color && (
+            <div className="flex items-center">
+              <Palette className="w-3 h-3 text-gray-500 mr-1" />
+              <span className="text-gray-600">Color:</span>
+              <span className="ml-2 font-medium text-gray-900">{variationData.color}</span>
+            </div>
+          )}
+
+          {variationData.sku && (
+            <div>
+              <span className="text-gray-600">SKU:</span>
+              <span className="ml-2 font-mono text-xs bg-gray-100 px-2 py-1 rounded">{variationData.sku}</span>
+            </div>
+          )}
+
+          {variationData.price && (
+            <div>
+              <span className="text-gray-600">Price:</span>
+              <span className="ml-2 font-medium text-gray-900">{formatCurrency(variationData.price)}</span>
+            </div>
+          )}
+
+          {variationData.stock && (
+            <div>
+              <span className="text-gray-600">Stock:</span>
+              <span className="ml-2 font-medium text-gray-900">{variationData.stock}</span>
+            </div>
+          )}
+
+          {(variationData.height || variationData.length || variationData.weight) && (
+            <div className="col-span-2">
+              <div className="flex items-center space-x-4">
+                {variationData.height && (
+                  <div className="flex items-center">
+                    <Ruler className="w-3 h-3 text-gray-500 mr-1" />
+                    <span className="text-gray-600">H:</span>
+                    <span className="ml-1 text-gray-900">{variationData.height}</span>
+                  </div>
+                )}
+                {variationData.length && (
+                  <div className="flex items-center">
+                    <Ruler className="w-3 h-3 text-gray-500 mr-1" />
+                    <span className="text-gray-600">L:</span>
+                    <span className="ml-1 text-gray-900">{variationData.length}</span>
+                  </div>
+                )}
+                {variationData.weight && (
+                  <div className="flex items-center">
+                    <Weight className="w-3 h-3 text-gray-500 mr-1" />
+                    <span className="text-gray-600">Weight:</span>
+                    <span className="ml-1 text-gray-900">{variationData.weight}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {variationData.media && (
+          <div className="mt-3">
+            <span className="text-sm text-gray-600">Variation Image:</span>
+            <img
+              src={variationData.media || "/placeholder.svg"}
+              alt={`${variationData.name || "Variation"} image`}
+              className="mt-2 w-16 h-16 rounded-lg object-cover border border-gray-200"
+              onError={(e) => {
+                e.currentTarget.src = "/placeholder.svg?height=80&width=80"
+              }}
+            />
+          </div>
+        )}
+      </div>
+    )
+  }
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="mb-4">
-          <p className="text-sm text-gray-500">Loading order: {orderId}</p>
-        </div>
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              <div className="h-64 bg-gray-200 rounded"></div>
-              <div className="h-48 bg-gray-200 rounded"></div>
-            </div>
-            <div className="space-y-6">
-              <div className="h-32 bg-gray-200 rounded"></div>
-              <div className="h-48 bg-gray-200 rounded"></div>
-            </div>
-          </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center space-y-4">
+          <Loader2 className="w-8 h-8 animate-spin text-red-500" />
+          <p className="text-gray-600">Loading order details...</p>
         </div>
       </div>
     )
@@ -329,270 +333,437 @@ export function OrderDetailsPage({ orderId }: OrderDetailsPageProps) {
 
   if (error || !order) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="text-center py-12">
-          <XCircle className="mx-auto h-12 w-12 text-red-500 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Order Not Found</h3>
-          <p className="text-gray-500 mb-2">{error || "The requested order could not be found."}</p>
-          <p className="text-sm text-gray-400 mb-4">Order ID: {orderId}</p>
-          <div className="space-y-2">
-            <Button onClick={() => router.back()}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Go Back
-            </Button>
-            <Button variant="outline" onClick={() => window.location.reload()}>
-              Retry
-            </Button>
-          </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Order Not Found</h2>
+          <p className="text-gray-600 mb-4">{error || "The requested order could not be found."}</p>
+          <Button onClick={() => router.push("/dashboard/orders")} variant="outline">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Orders
+          </Button>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Button variant="ghost" onClick={() => router.back()}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">Order Details</h1>
-            <p className="text-gray-500">Order #{order.id}</p>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-6xl mx-auto p-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push("/dashboard/orders")}
+              className="flex items-center space-x-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to Orders</span>
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Order Details</h1>
+              <p className="text-gray-600">Order #{order.order_number || order.id}</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-3">
+            <Badge className={getStatusBadge(order.status)} variant="outline">
+              {order.status.toUpperCase()}
+            </Badge>
+            <Badge className={getPaymentStatusBadge(order.payment_status)} variant="outline">
+              {order.payment_status?.toUpperCase() || "PENDING"}
+            </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowActivityModal(true)}
+              className="flex items-center space-x-2"
+            >
+              <Activity className="w-4 h-4" />
+              <span>Activity</span>
+            </Button>
           </div>
         </div>
-        <Badge className={getStatusColor(order.status || "")}>
-          {order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : "Unknown"}
-        </Badge>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Order Items */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Package className="h-5 w-5 mr-2" />
-                Order Items
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {order.items && order.items.length > 0 ? (
-                  order.items.map((item, index) => (
-                    <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
-                          {item.image ? (
-                            <img
-                              src={item.image || "/placeholder.svg"}
-                              alt={item.name}
-                              className="w-full h-full object-cover rounded-lg"
-                            />
-                          ) : (
-                            <Package className="h-6 w-6 text-gray-400" />
-                          )}
-                        </div>
-                        <div>
-                          <h4 className="font-medium">{item.name || "Unknown Item"}</h4>
-                          <p className="text-sm text-gray-500">Quantity: {item.quantity || 1}</p>
-                        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Order Items */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Package className="w-5 h-5" />
+                  <span>Order Items ({order.items?.length || 0})</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {order.items?.map((item, index) => (
+                  <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
+                        <img
+                          src={
+                            item.product_image || item.variation_data?.media || "/placeholder.svg?height=64&width=64"
+                          }
+                          alt={item.product_name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = "/placeholder.svg?height=64&width=64"
+                          }}
+                        />
                       </div>
-                      <div className="text-right">
-                        <p className="font-medium">{formatCurrency(item.price)}</p>
-                        <p className="text-sm text-gray-500">
-                          Total: {formatCurrency((item.price || 0) * (item.quantity || 1))}
-                        </p>
+                      <div className="flex-1">
+                        <h3 className="font-medium text-gray-900">{item.product_name}</h3>
+                        {item.variation_data?.name && (
+                          <p className="text-sm text-gray-600">Variation: {item.variation_data.name}</p>
+                        )}
+                        {item.variation_data?.color && (
+                          <p className="text-sm text-gray-600">Color: {item.variation_data.color}</p>
+                        )}
+                        {item.sku && (
+                          <p className="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded inline-block mt-1">
+                            SKU: {item.sku}
+                          </p>
+                        )}
+                        <p className="text-sm text-gray-600 mt-1">Quantity: {item.quantity}</p>
+                        {renderVariationData(item)}
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <p className="text-gray-500 text-center py-4">No items found</p>
-                )}
-              </div>
+                    <div className="text-right">
+                      <p className="font-medium text-gray-900">{formatCurrency(item.unit_price)}</p>
+                      <p className="text-sm text-gray-600">each</p>
+                      <p className="font-semibold text-lg text-gray-900 mt-1">{formatCurrency(item.total_price)}</p>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
 
-              <Separator className="my-4" />
-
-              <div className="space-y-2">
+            {/* Order Summary */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Order Summary</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
                 <div className="flex justify-between">
-                  <span>Subtotal:</span>
-                  <span>{formatCurrency(order.subtotal || order.totalAmount)}</span>
+                  <span className="text-gray-600">Subtotal</span>
+                  <span className="font-medium">{formatCurrency(order.subtotal || 0)}</span>
                 </div>
-                {order.tax && order.tax > 0 && (
+                {order.shipping_fee > 0 && (
                   <div className="flex justify-between">
-                    <span>Tax:</span>
-                    <span>{formatCurrency(order.tax)}</span>
+                    <span className="text-gray-600">Shipping Fee</span>
+                    <span className="font-medium">{formatCurrency(order.shipping_fee)}</span>
                   </div>
                 )}
-                {order.shipping && order.shipping > 0 && (
+                {order.tax_amount > 0 && (
                   <div className="flex justify-between">
-                    <span>Shipping:</span>
-                    <span>{formatCurrency(order.shipping)}</span>
+                    <span className="text-gray-600">Tax</span>
+                    <span className="font-medium">{formatCurrency(order.tax_amount)}</span>
+                  </div>
+                )}
+                {order.discount_amount && order.discount_amount > 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Discount</span>
+                    <span className="font-medium">-{formatCurrency(order.discount_amount)}</span>
                   </div>
                 )}
                 <Separator />
-                <div className="flex justify-between font-bold text-lg">
-                  <span>Total:</span>
-                  <span>{formatCurrency(order.totalAmount)}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Order Timeline */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Clock className="h-5 w-5 mr-2" />
-                Order Timeline
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {activities.length > 0 ? (
-                <div className="space-y-4">
-                  {activities.map((activity, index) => (
-                    <div key={activity.id || index} className="flex items-start space-x-3">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium">{activity.description || "Activity recorded"}</p>
-                        <p className="text-sm text-gray-500">{formatDate(activity.timestamp)}</p>
-                        {activity.note && <p className="text-sm text-gray-600 mt-1">{activity.note}</p>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500 text-center py-4">No activity recorded yet</p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Customer Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <User className="h-5 w-5 mr-2" />
-                Customer Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <p className="font-medium">{order.customerName || "Unknown Customer"}</p>
-                <p className="text-sm text-gray-500">{order.customerEmail || "No email"}</p>
-                {order.customerPhone && <p className="text-sm text-gray-500">{order.customerPhone}</p>}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Shipping Information */}
-          {order.shipping_address && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <MapPin className="h-5 w-5 mr-2" />
-                  Shipping Address
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm space-y-1">
-                  <p>{order.shipping_address.street || ""}</p>
-                  <p>
-                    {order.shipping_address.city || ""}
-                    {order.shipping_address.state ? `, ${order.shipping_address.state}` : ""}
-                  </p>
-                  <p>
-                    {order.shipping_address.zip || ""} {order.shipping_address.country || ""}
-                  </p>
+                <div className="flex justify-between text-lg font-semibold">
+                  <span>Total</span>
+                  <span>{formatCurrency(order.total_amount)}</span>
                 </div>
               </CardContent>
             </Card>
-          )}
+          </div>
 
-          {/* Order Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Calendar className="h-5 w-5 mr-2" />
-                Order Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <p className="text-sm text-gray-500">Order Date</p>
-                <p className="font-medium">{formatDate(order.created_at)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Payment Method</p>
-                <p className="font-medium">{order.payment_method || "N/A"}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Payment Status</p>
-                <Badge variant="outline" className="mt-1">
-                  {order.payment_status || "Pending"}
-                </Badge>
-              </div>
-              {order.tracking_number && (
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Customer Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <User className="w-5 h-5" />
+                  <span>Customer Information</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
                 <div>
-                  <p className="text-sm text-gray-500">Tracking Number</p>
-                  <p className="font-medium">{order.tracking_number}</p>
+                  <label className="text-sm font-medium text-gray-600">Name</label>
+                  <p className="text-gray-900">{order.customer_name}</p>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Email</label>
+                  <div className="flex items-center space-x-2">
+                    <p className="text-gray-900">{order.customer_email}</p>
+                    <Button variant="ghost" size="sm" onClick={() => copyToClipboard(order.customer_email, "Email")}>
+                      <Copy className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Phone</label>
+                  <div className="flex items-center space-x-2">
+                    <p className="text-gray-900">{order.customer_phone}</p>
+                    <Button variant="ghost" size="sm" onClick={() => copyToClipboard(order.customer_phone, "Phone")}>
+                      <Copy className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-          {/* Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {order.status === "pending" && (
-                <Button onClick={() => handleStatusUpdate("processing")} disabled={updating} className="w-full">
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  {updating ? "Updating..." : "Approve Order"}
-                </Button>
-              )}
+            {/* Delivery/Pickup Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  {order.is_pickup ? (
+                    <>
+                      <Store className="w-5 h-5 text-blue-600" />
+                      <span>Pickup Information</span>
+                    </>
+                  ) : (
+                    <>
+                      <Truck className="w-5 h-5 text-green-600" />
+                      <span>Delivery Information</span>
+                    </>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Method</label>
+                  <div className="flex items-center space-x-2">
+                    {order.is_pickup ? (
+                      <>
+                        <Store className="w-4 h-4 text-blue-600" />
+                        <span className="text-blue-800 font-medium">Store Pickup</span>
+                      </>
+                    ) : (
+                      <>
+                        <Truck className="w-4 h-4 text-green-600" />
+                        <span className="text-green-800 font-medium">Home Delivery</span>
+                      </>
+                    )}
+                  </div>
+                </div>
 
-              {order.status === "processing" && (
-                <Button onClick={() => handleStatusUpdate("shipped")} disabled={updating} className="w-full">
-                  {updating ? "Updating..." : "Mark as Shipped"}
-                </Button>
-              )}
+                {order.is_pickup ? (
+                  // Pickup Information
+                  <div className="space-y-3">
+                    {order.pickup_info?.pickup_location && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Pickup Location</label>
+                        <p className="text-gray-900">{order.pickup_info.pickup_location}</p>
+                      </div>
+                    )}
+                    {order.pickup_info?.pickup_address && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Store Address</label>
+                        <p className="text-gray-900">{order.pickup_info.pickup_address}</p>
+                      </div>
+                    )}
+                    {order.pickup_info?.pickup_contact && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Contact Number</label>
+                        <div className="flex items-center space-x-2">
+                          <p className="text-gray-900">{order.pickup_info.pickup_contact}</p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyToClipboard(order.pickup_info?.pickup_contact || "", "Contact")}
+                          >
+                            <Copy className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    {order.pickup_info?.pickup_hours && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Pickup Hours</label>
+                        <p className="text-gray-900">{order.pickup_info.pickup_hours}</p>
+                      </div>
+                    )}
+                    {order.pickup_info?.pickup_instructions && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Special Instructions</label>
+                        <p className="text-gray-900">{order.pickup_info.pickup_instructions}</p>
+                      </div>
+                    )}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <div className="flex items-start space-x-2">
+                        <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5" />
+                        <div className="text-sm text-blue-800">
+                          <p className="font-medium">Pickup Notice</p>
+                          <p>Please bring a valid ID and your order number when picking up your order.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  // Delivery Information
+                  <div className="space-y-3">
+                    {order.shipping_address && (
+                      <>
+                        <div>
+                          <label className="text-sm font-medium text-gray-600">Recipient</label>
+                          <p className="text-gray-900">
+                            {order.shipping_address.recipient_name || order.customer_name}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-600">Phone Number</label>
+                          <div className="flex items-center space-x-2">
+                            <p className="text-gray-900">
+                              {order.shipping_address.phone_number || order.customer_phone}
+                            </p>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                copyToClipboard(order.shipping_address?.phone_number || order.customer_phone, "Phone")
+                              }
+                            >
+                              <Copy className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-600">Delivery Address</label>
+                          <div className="text-gray-900 space-y-1">
+                            <p>{order.shipping_address.street}</p>
+                            <p>
+                              {order.shipping_address.city && `${order.shipping_address.city}`}
+                              {order.shipping_address.province && `, ${order.shipping_address.province}`}
+                            </p>
+                            <p>
+                              {order.shipping_address.postal_code && `${order.shipping_address.postal_code} `}
+                              {order.shipping_address.country || "Philippines"}
+                            </p>
+                          </div>
+                        </div>
+                        {order.shipping_address.notes && (
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Delivery Notes</label>
+                            <p className="text-gray-900">{order.shipping_address.notes}</p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    {order.tracking_number && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Tracking Number</label>
+                        <div className="flex items-center space-x-2">
+                          <p className="text-gray-900 font-mono">{order.tracking_number}</p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyToClipboard(order.tracking_number || "", "Tracking Number")}
+                          >
+                            <Copy className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-              {order.status === "shipped" && (
-                <Button onClick={() => handleStatusUpdate("delivered")} disabled={updating} className="w-full">
-                  {updating ? "Updating..." : "Mark as Delivered"}
-                </Button>
-              )}
+            {/* Payment Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <CreditCard className="w-5 h-5" />
+                  <span>Payment Information</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Payment Method</label>
+                  <p className="text-gray-900">{order.payment_method}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Payment Status</label>
+                  <Badge className={getPaymentStatusBadge(order.payment_status)} variant="outline">
+                    {order.payment_status?.toUpperCase() || "PENDING"}
+                  </Badge>
+                </div>
+                {order.payment_reference && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Reference Number</label>
+                    <div className="flex items-center space-x-2">
+                      <p className="text-gray-900 font-mono">{order.payment_reference}</p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => copyToClipboard(order.payment_reference || "", "Reference Number")}
+                      >
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Total Amount</label>
+                  <p className="text-lg font-semibold text-gray-900">{formatCurrency(order.total_amount)}</p>
+                </div>
+              </CardContent>
+            </Card>
 
-              {order.status === "delivered" && (
-                <Button onClick={handleCompleteOrder} disabled={updating} className="w-full">
-                  {updating ? "Completing..." : "Complete Order"}
-                </Button>
-              )}
-
-              {order.status !== "cancelled" && order.status !== "completed" && (
-                <Button
-                  onClick={() => handleStatusUpdate("cancelled")}
-                  disabled={updating}
-                  variant="destructive"
-                  className="w-full"
-                >
-                  <XCircle className="h-4 w-4 mr-2" />
-                  {updating ? "Cancelling..." : "Cancel Order"}
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+            {/* Order Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Calendar className="w-5 h-5" />
+                  <span>Order Information</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Order ID</label>
+                  <div className="flex items-center space-x-2">
+                    <p className="text-gray-900 font-mono">{order.order_number || order.id}</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyToClipboard(order.order_number || order.id, "Order ID")}
+                    >
+                      <Copy className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Order Date</label>
+                  <p className="text-gray-900">{formatDate(order.created_at)}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Last Updated</label>
+                  <p className="text-gray-900">{formatDate(order.updated_at)}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Delivery Method</label>
+                  <p className="text-gray-900">{order.is_pickup ? "Store Pickup" : "Home Delivery"}</p>
+                </div>
+                {order.special_instructions && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Special Instructions</label>
+                    <p className="text-gray-900">{order.special_instructions}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </div>
+        {/* Activity History Modal */}
+        <Dialog open={showActivityModal} onOpenChange={setShowActivityModal}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Order Activity History</DialogTitle>
+            </DialogHeader>
+            <OrderActivityHistoryModal orderId={orderId} orderNumber={order.order_number || order.id} />
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )

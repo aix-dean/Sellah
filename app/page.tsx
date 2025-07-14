@@ -17,7 +17,7 @@ export default function Home() {
 
       // If user is logged in, redirect to dashboard
       if (currentUser) {
-        window.location.href = "/dashboard"
+        window.location.href = "/dashboard/products"
       }
     })
 

@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { User, Building2, Camera, Edit3, Save, X, CheckCircle, AlertCircle, Calendar, Hash } from "lucide-react"
 import { useUserData } from "@/hooks/use-user-data"
+import { useCompanyData } from "@/hooks/use-company-data"
 import { doc, updateDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { toast } from "@/hooks/use-toast"
@@ -25,15 +26,17 @@ interface PersonalInfo {
 }
 
 interface CompanyInfo {
-  company_name: string
+  name: string
   position: string
-  street_address: string
+  street: string
   city: string
   province: string
+  phone: string
 }
 
 export default function AccountPage() {
   const { userData, loading, error } = useUserData()
+  const { company, loading: companyLoading } = useCompanyData(userData?.company_id || null)
   const router = useRouter()
 
   // Personal info state
@@ -49,11 +52,12 @@ export default function AccountPage() {
 
   // Company info state
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>({
-    company_name: "",
+    name: "",
     position: "",
-    street_address: "",
+    street: "",
     city: "",
     province: "",
+    phone: "",
   })
   const [editingCompany, setEditingCompany] = useState(false)
   const [savingCompany, setSavingCompany] = useState(false)
@@ -71,16 +75,22 @@ export default function AccountPage() {
         email: userData.email || "",
         phone_number: userData.phone_number || "",
       })
-
-      setCompanyInfo({
-        company_name: userData.company_name || "",
-        position: userData.position || "",
-        street_address: userData.street_address || "",
-        city: userData.city || "",
-        province: userData.province || "",
-      })
     }
   }, [userData])
+
+  // Load company data when available
+  useEffect(() => {
+    console.log("Company data:", company)
+    if (company) {
+      setCompanyInfo({
+        name: company.name || "",
+        street: company.address?.street || "",
+        city: company.address?.city || "",
+        province: company.address?.province || "",
+        position: company.position || "",
+      })
+    }
+  }, [company, userData])
 
   // Get status badge configuration
   const getStatusBadge = (status: string) => {
@@ -141,17 +151,27 @@ export default function AccountPage() {
   }
 
   const handleCompanySave = async () => {
-    if (!userData?.uid) return
+    if (!userData?.uid || !userData?.company_id) return
 
     setSavingCompany(true)
     try {
+      // Update company information
+      const companyRef = doc(db, "companies", userData.company_id)
+      await updateDoc(companyRef, {
+        name: companyInfo.name,
+        address: {
+          street: companyInfo.street,
+          city: companyInfo.city,
+          province: companyInfo.province,
+        },
+        phone: companyInfo.phone,
+        updated_at: new Date(),
+      })
+
+      // Update user position
       const userRef = doc(db, "iboard_users", userData.uid)
       await updateDoc(userRef, {
-        company_name: companyInfo.company_name,
         position: companyInfo.position,
-        street_address: companyInfo.street_address,
-        city: companyInfo.city,
-        province: companyInfo.province,
         updated_at: new Date(),
       })
 
@@ -176,7 +196,7 @@ export default function AccountPage() {
     router.push("/dashboard/account/upgrade")
   }
 
-  if (loading) {
+  if (loading || companyLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
@@ -199,7 +219,7 @@ export default function AccountPage() {
     )
   }
 
-  const statusBadge = getStatusBadge(userData.status)
+  const statusBadge = getStatusBadge(userData?.status || "UNKNOWN")
   const StatusIcon = statusBadge.icon
 
   return (
@@ -230,7 +250,7 @@ export default function AccountPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="absolute bottom-0 rounded-full w-6 h-6 p-1"
+                    className="absolute bottom-0 rounded-full w-6 h-6 p-1 bg-transparent"
                     disabled={uploadingPhoto}
                   >
                     <Camera className="w-4 h-4" />
@@ -442,13 +462,16 @@ export default function AccountPage() {
                         onClick={() => {
                           setEditingCompany(false)
                           // Reset to original values
-                          setCompanyInfo({
-                            company_name: userData?.company_name || "",
-                            position: userData?.position || "",
-                            street_address: userData?.street_address || "",
-                            city: userData?.city || "",
-                            province: userData?.province || "",
-                          })
+                          if (company) {
+                            setCompanyInfo({
+                              name: company.name || "",
+                              position: userData?.position || "",
+                              street: company.address?.street || "",
+                              city: company.address?.city || "",
+                              province: company.address?.province || "",
+                              phone: company.phone || "",
+                            })
+                          }
                         }}
                         disabled={savingCompany}
                       >
@@ -469,13 +492,13 @@ export default function AccountPage() {
                       {editingCompany ? (
                         <Input
                           id="company_name"
-                          value={companyInfo.company_name}
-                          onChange={(e) => setCompanyInfo((prev) => ({ ...prev, company_name: e.target.value }))}
+                          value={companyInfo.name}
+                          onChange={(e) => setCompanyInfo((prev) => ({ ...prev, name: e.target.value }))}
                           placeholder="Enter company name"
                         />
                       ) : (
                         <div className="mt-1 p-2 bg-gray-100 rounded-md min-h-[40px] flex items-center">
-                          {companyInfo.company_name || "Not provided"}
+                          {companyInfo.name || "Not provided"}
                         </div>
                       )}
                     </div>
@@ -501,13 +524,13 @@ export default function AccountPage() {
                       {editingCompany ? (
                         <Input
                           id="street_address"
-                          value={companyInfo.street_address}
-                          onChange={(e) => setCompanyInfo((prev) => ({ ...prev, street_address: e.target.value }))}
+                          value={companyInfo.street}
+                          onChange={(e) => setCompanyInfo((prev) => ({ ...prev, street: e.target.value }))}
                           placeholder="Enter street address"
                         />
                       ) : (
                         <div className="mt-1 p-2 bg-gray-100 rounded-md min-h-[40px] flex items-center">
-                          {companyInfo.street_address || "Not provided"}
+                          {companyInfo.street || "Not provided"}
                         </div>
                       )}
                     </div>

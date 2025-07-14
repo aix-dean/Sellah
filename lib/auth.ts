@@ -9,7 +9,7 @@ import {
 } from "firebase/auth"
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore"
 import { auth, db } from "./firebase"
-import { validateLicenseFormat, createLicenseDocument } from "./license-generator"
+import { validateLicenseFormat, createLicenseDocument, generateLicenseKey } from "./license-generator"
 
 // User data interface
 export interface UserData {
@@ -45,7 +45,6 @@ export interface RegistrationData {
   middleName?: string
   lastName: string
   phoneNumber?: string
-  licenseKey: string
   gender?: string
   aboutMe?: string
 }
@@ -64,6 +63,7 @@ export interface RegistrationResult {
   user?: User
   error?: string
   requiresEmailVerification?: boolean
+  licenseKey?: string
 }
 
 // Session management constants
@@ -141,6 +141,26 @@ export async function isLicenseKeyUsed(licenseKey: string): Promise<boolean> {
   }
 }
 
+// Generate unique license key
+async function generateUniqueLicenseKey(): Promise<string> {
+  let licenseKey: string
+  let isUsed = true
+  let attempts = 0
+  const maxAttempts = 10
+
+  do {
+    licenseKey = generateLicenseKey()
+    isUsed = await isLicenseKeyUsed(licenseKey)
+    attempts++
+  } while (isUsed && attempts < maxAttempts)
+
+  if (isUsed) {
+    throw new Error("Unable to generate unique license key after multiple attempts")
+  }
+
+  return licenseKey
+}
+
 // Sign in with email and password
 export async function signInWithEmail(email: string, password: string): Promise<LoginResult> {
   try {
@@ -207,22 +227,8 @@ export async function signInWithEmail(email: string, password: string): Promise<
 // Register new user
 export async function registerUser(data: RegistrationData): Promise<RegistrationResult> {
   try {
-    // Validate license key format
-    if (!isValidLicenseKeyFormat(data.licenseKey)) {
-      return {
-        success: false,
-        error: "Invalid license key format. Please use format: XXXXX-XXXXX-XXXXX-XXXXX",
-      }
-    }
-
-    // Check if license key is already used
-    const licenseUsed = await isLicenseKeyUsed(data.licenseKey)
-    if (licenseUsed) {
-      return {
-        success: false,
-        error: "This license key has already been registered. Please use a different license key.",
-      }
-    }
+    // Generate unique license key automatically
+    const licenseKey = await generateUniqueLicenseKey()
 
     // Create Firebase Auth user
     const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password)
@@ -245,7 +251,7 @@ export async function registerUser(data: RegistrationData): Promise<Registration
       last_name: data.lastName,
       gender: data.gender || "",
       about_me: data.aboutMe || "",
-      license_key: data.licenseKey,
+      license_key: licenseKey,
       active: true,
       onboarding: false,
       type: "SELLAH",
@@ -265,7 +271,7 @@ export async function registerUser(data: RegistrationData): Promise<Registration
 
     // Create license document
     try {
-      await createLicenseDocument(data.licenseKey, user.uid)
+      await createLicenseDocument(licenseKey, user.uid)
     } catch (licenseError) {
       console.error("Error creating license document:", licenseError)
       // Don't fail registration if license document creation fails
@@ -275,6 +281,7 @@ export async function registerUser(data: RegistrationData): Promise<Registration
       success: true,
       user,
       requiresEmailVerification: !user.emailVerified,
+      licenseKey: licenseKey,
     }
   } catch (error) {
     console.error("Registration error:", error)

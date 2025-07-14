@@ -160,6 +160,7 @@ export default function OrdersPage() {
   const handleApproveOrder = async (order: any) => {
     console.log("🔄 Approving order:", order)
     try {
+      setUpdatingOrderId(order.id)
       await updateOrderStatus(
         order.id,
         "preparing",
@@ -186,6 +187,8 @@ export default function OrdersPage() {
         description: "Failed to approve order. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setUpdatingOrderId(null)
     }
   }
 
@@ -193,6 +196,7 @@ export default function OrdersPage() {
   const handleRejectOrder = async (order: any, reason: string) => {
     console.log("🔄 Rejecting order:", order, "Reason:", reason)
     try {
+      setUpdatingOrderId(order.id)
       await updateOrderStatus(
         order.id,
         "cancelled",
@@ -219,6 +223,8 @@ export default function OrdersPage() {
         description: "Failed to reject order. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setUpdatingOrderId(null)
     }
   }
 
@@ -226,6 +232,7 @@ export default function OrdersPage() {
   const handlePaymentApprovalSuccess = async (order: any) => {
     console.log("🔄 Payment approved for order:", order)
     try {
+      setUpdatingOrderId(order.id)
       await approveOrderPayment(order.id, currentUser?.uid || "system", currentUser?.displayName || "System")
       toast({
         title: "Payment Approved",
@@ -240,6 +247,8 @@ export default function OrdersPage() {
         description: "Failed to approve payment. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setUpdatingOrderId(null)
     }
   }
 
@@ -247,6 +256,7 @@ export default function OrdersPage() {
   const handleRejectPayment = async (order: any) => {
     console.log("🔄 Rejecting payment for order:", order)
     try {
+      setUpdatingOrderId(order.id)
       await updateOrderStatus(
         order.id,
         "settle payment",
@@ -268,6 +278,8 @@ export default function OrdersPage() {
         description: "Failed to reject payment. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setUpdatingOrderId(null)
     }
   }
 
@@ -275,6 +287,7 @@ export default function OrdersPage() {
   const handleReadyToShip = async (order: any) => {
     console.log("🔄 Handling ready to ship for order:", order)
     try {
+      setUpdatingOrderId(order.id)
       await updateOrderStatus(
         order.id,
         "in transit",
@@ -301,6 +314,8 @@ export default function OrdersPage() {
         description: "Failed to update order status. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setUpdatingOrderId(null)
     }
   }
 
@@ -308,6 +323,7 @@ export default function OrdersPage() {
   const handleOutForDelivery = async (order: any) => {
     console.log("🚚 Handling out for delivery for order:", order)
     try {
+      setUpdatingOrderId(order.id)
       await updateOrderOutForDelivery(order.id, currentUser?.uid || "system", currentUser?.displayName || "System")
       toast({
         title: "Order Out for Delivery",
@@ -322,6 +338,8 @@ export default function OrdersPage() {
         description: "Failed to update order delivery status. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setUpdatingOrderId(null)
     }
   }
 
@@ -329,6 +347,7 @@ export default function OrdersPage() {
   const handlePickedUpByBuyer = async (order: any) => {
     console.log("📦 Handling picked up by buyer/order received for order:", order)
     try {
+      setUpdatingOrderId(order.id)
       await completeOrder(order.id, currentUser?.uid || "system", currentUser?.displayName || "System")
 
       const actionText = order.is_pickup ? "picked up by buyer" : "received by customer"
@@ -350,6 +369,8 @@ export default function OrdersPage() {
         description: "Failed to complete order. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setUpdatingOrderId(null)
     }
   }
 
@@ -385,8 +406,14 @@ export default function OrdersPage() {
               console.log("🔍 Opening payment proof modal for order:", order)
               setPaymentProofModal({ open: true, order })
             }}
-            onApprove={(order) => setApprovalDialog({ open: true, order })}
-            onReject={(order) => setRejectionDialog({ open: true, order })}
+            onApprove={(order) => {
+              console.log("✅ Approve button clicked for order:", order)
+              setApprovalDialog({ open: true, order })
+            }}
+            onReject={(order) => {
+              console.log("❌ Reject button clicked for order:", order)
+              setRejectionDialog({ open: true, order })
+            }}
             onViewOrder={handleViewOrder}
           />
         )
@@ -422,126 +449,123 @@ export default function OrdersPage() {
 
   if (userError) {
     return (
-
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Authentication Error</h3>
-            <p className="text-gray-500 mb-4">{userError}</p>
-            <Button onClick={() => (window.location.href = "/login")}>Go to Login</Button>
-          </div>
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Authentication Error</h3>
+          <p className="text-gray-500 mb-4">{userError}</p>
+          <Button onClick={() => (window.location.href = "/login")}>Go to Login</Button>
         </div>
-
+      </div>
     )
   }
 
   return (
-      <div className="min-h-screen bg-gray-50 text-left">
-        {/* Animated Success Message */}
-        <AnimatedSuccessMessage show={showSuccessAnimation} message={successMessage} isVisible={isSuccessVisible} />
+    <div className="min-h-screen bg-gray-50 text-left">
+      {/* Animated Success Message */}
+      <AnimatedSuccessMessage show={showSuccessAnimation} message={successMessage} isVisible={isSuccessVisible} />
 
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200">
-          <div className="px-4 sm:px-6 py-3">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 space-y-4 sm:space-y-0">
-              <h1 className="text-2xl font-bold text-gray-900 text-left">My Orders</h1>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-3">
-                <Button
-                  variant="outline"
-                  onClick={handleRefresh}
-                  disabled={loading}
-                  className="flex items-center justify-center space-x-2 bg-transparent"
-                >
-                  <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-                  <span>Refresh</span>
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="flex items-center justify-center space-x-2 bg-transparent">
-                      <Filter className="w-4 h-4" />
-                      <span className="hidden sm:inline">Status: {activeTab}</span>
-                      <span className="sm:hidden">Filter</span>
-                      <ChevronDown className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {statusTabs.map((tab) => (
-                      <DropdownMenuItem key={tab.key} onClick={() => setActiveTab(tab.key)}>
-                        {tab.label} ({tab.count})
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Status Tabs */}
-        <div className="flex space-x-8 border-b border-gray-200 overflow-x-auto scrollbar-hide mt-3">
-          {statusTabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`pb-3 px-1 text-sm font-medium border-b-2 transition-all duration-300 whitespace-nowrap flex-shrink-0 ${
-                activeTab === tab.key
-                  ? "text-red-600 border-red-600"
-                  : "text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300"
-              } ${shouldSwitchTab === tab.key ? "animate-pulse bg-red-50 rounded-t-md" : ""}`}
-            >
-              {tab.label}
-              {tab.count > 0 && <span className="ml-1">({tab.count})</span>}
-            </button>
-          ))}
-        </div>
-
-        {/* Content */}
-        <div className="px-4 sm:px-6 py-6">
-          {/* Order Count and Search */}
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="px-4 sm:px-6 py-3">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 space-y-4 sm:space-y-0">
-            <h2 className="text-lg font-semibold text-gray-900">{filteredOrders.length} Orders</h2>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
+            <h1 className="text-2xl font-bold text-gray-900 text-left">My Orders</h1>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-3">
+              <Button
+                variant="outline"
+                onClick={handleRefresh}
+                disabled={loading}
+                className="flex items-center justify-center space-x-2 bg-transparent"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+                <span>Refresh</span>
+              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="flex items-center justify-center space-x-2 bg-transparent">
-                    <span>Order ID</span>
+                    <Filter className="w-4 h-4" />
+                    <span className="hidden sm:inline">Status: {activeTab}</span>
+                    <span className="sm:hidden">Filter</span>
                     <ChevronDown className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem>Order ID</DropdownMenuItem>
-                  <DropdownMenuItem>Customer Name</DropdownMenuItem>
-                  <DropdownMenuItem>Product Name</DropdownMenuItem>
+                <DropdownMenuContent align="end">
+                  {statusTabs.map((tab) => (
+                    <DropdownMenuItem key={tab.key} onClick={() => setActiveTab(tab.key)}>
+                      {tab.label} ({tab.count})
+                    </DropdownMenuItem>
+                  ))}
                 </DropdownMenuContent>
               </DropdownMenu>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  placeholder="Search orders..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-full sm:w-64"
-                />
-              </div>
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* Tab Content */}
-          {renderTabContent()}
+      {/* Status Tabs */}
+      <div className="flex space-x-8 border-b border-gray-200 overflow-x-auto scrollbar-hide mt-3">
+        {statusTabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`pb-3 px-1 text-sm font-medium border-b-2 transition-all duration-300 whitespace-nowrap flex-shrink-0 ${
+              activeTab === tab.key
+                ? "text-red-600 border-red-600"
+                : "text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300"
+            } ${shouldSwitchTab === tab.key ? "animate-pulse bg-red-50 rounded-t-md" : ""}`}
+          >
+            {tab.label}
+            {tab.count > 0 && <span className="ml-1">({tab.count})</span>}
+          </button>
+        ))}
+      </div>
 
-          {/* Pagination */}
-          {filteredOrders.length > 0 && (
-            <div className="mt-6">
-              <InfiniteScroll
-                hasMore={hasMore}
-                loading={loading}
-                onLoadMore={loadMore}
-                className="mt-6"
-                loadingText="Loading more orders..."
-                endText={`Showing all ${totalLoaded} orders`}
+      {/* Content */}
+      <div className="px-4 sm:px-6 py-6">
+        {/* Order Count and Search */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 space-y-4 sm:space-y-0">
+          <h2 className="text-lg font-semibold text-gray-900">{filteredOrders.length} Orders</h2>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="flex items-center justify-center space-x-2 bg-transparent">
+                  <span>Order ID</span>
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem>Order ID</DropdownMenuItem>
+                <DropdownMenuItem>Customer Name</DropdownMenuItem>
+                <DropdownMenuItem>Product Name</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                placeholder="Search orders..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 w-full sm:w-64"
               />
             </div>
-          )}
+          </div>
         </div>
+
+        {/* Tab Content */}
+        {renderTabContent()}
+
+        {/* Pagination */}
+        {filteredOrders.length > 0 && (
+          <div className="mt-6">
+            <InfiniteScroll
+              hasMore={hasMore}
+              loading={loading}
+              onLoadMore={loadMore}
+              className="mt-6"
+              loadingText="Loading more orders..."
+              endText={`Showing all ${totalLoaded} orders`}
+            />
+          </div>
+        )}
       </div>
 
       {/* Order Approval Dialog */}
@@ -574,6 +598,6 @@ export default function OrdersPage() {
 
       {/* Debug Component - Only show in development */}
       {process.env.NODE_ENV === "development" && <OrderStatusDebugger />}
-
+    </div>
   )
 }
