@@ -1430,9 +1430,8 @@ export default function AddProductPage(): ReactElement {
   }
 
   return (
-  <>
+    <div>
       <AnimatedSuccessMessage show={showSuccessAnimation} message={successMessage} isVisible={isSuccessVisible} />
-
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center space-x-4">
           <Button variant="ghost" onClick={() => window.history.back()} className="p-2">
@@ -1478,6 +1477,6 @@ export default function AddProductPage(): ReactElement {
           </div>
         </div>
       </div>
-      </>
+    </div>
   )
 }
