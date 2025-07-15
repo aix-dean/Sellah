@@ -324,6 +324,12 @@ export async function signOut(reason: "manual" | "session_expired" | "inactivity
   }
 }
 
+// Force logout (e.g., for session expiration or security)
+export async function forceLogout(reason: "session_expired" | "inactivity" | "security" = "security"): Promise<void> {
+  console.log(`Force logging out user due to: ${reason}`)
+  await signOut(reason)
+}
+
 // Send password reset email
 export async function resetPassword(email: string): Promise<{ success: boolean; error?: string }> {
   try {

@@ -331,6 +331,26 @@ export async function logOrderDelivered(
   })
 }
 
+// Helper function to log a note added to an order
+export async function logOrderNote(
+  orderId: string,
+  noteContent: string,
+  userId = "system",
+  metadata?: Record<string, any>,
+) {
+  return await orderActivityService.createActivity({
+    order_id: orderId,
+    user_id: userId,
+    activity_type: "note_added",
+    new_value: noteContent,
+    description: `Note added: ${noteContent}`,
+    metadata: {
+      note: noteContent,
+      ...metadata,
+    },
+  })
+}
+
 // Helper functions for UI display
 export function getActivityIcon(activityType: string): string {
   switch (activityType) {
