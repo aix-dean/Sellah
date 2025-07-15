@@ -24,11 +24,11 @@ interface PersonalInfo {
   last_name: string
   email: string
   phone_number: string
+  position: string
 }
 
 interface CompanyInfo {
   name: string
-  position: string
   street: string
   city: string
   province: string
@@ -47,6 +47,7 @@ export default function AccountPage() {
     last_name: "",
     email: "",
     phone_number: "",
+    position: "",
   })
   const [editingPersonal, setEditingPersonal] = useState(false)
   const [savingPersonal, setSavingPersonal] = useState(false)
@@ -54,7 +55,6 @@ export default function AccountPage() {
   // Company info state
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>({
     name: "",
-    position: "",
     street: "",
     city: "",
     province: "",
@@ -75,6 +75,7 @@ export default function AccountPage() {
         last_name: userData.last_name || "",
         email: userData.email || "",
         phone_number: userData.phone_number || "",
+        position: userData.position || "",
       })
     }
   }, [userData])
@@ -88,7 +89,6 @@ export default function AccountPage() {
         street: company.address?.street || "",
         city: company.address?.city || "",
         province: company.address?.province || "",
-        position: company.position || "",
       })
     }
   }, [company, userData])
@@ -131,6 +131,7 @@ export default function AccountPage() {
         first_name: personalInfo.first_name,
         middle_name: personalInfo.middle_name,
         last_name: personalInfo.last_name,
+        position: personalInfo.position,
         updated_at: new Date(),
       })
 
@@ -352,6 +353,7 @@ export default function AccountPage() {
                             last_name: userData?.last_name || "",
                             email: userData?.email || "",
                             phone_number: userData?.phone_number || "",
+                            position: userData?.position || "",
                           })
                         }}
                         disabled={savingPersonal}
@@ -429,11 +431,26 @@ export default function AccountPage() {
                       </div>
                     </div>
 
-                    <div className="md:col-span-2">
+                    <div>
                       <Label htmlFor="phone_number">Phone Number</Label>
                       <div className="mt-1 p-2 bg-gray-100 rounded-md min-h-[40px] flex items-center">
                         {personalInfo.phone_number || "Not provided"}
                       </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="position">Position</Label>
+                      {editingPersonal ? (
+                        <Input
+                          id="position"
+                          value={personalInfo.position}
+                          onChange={(e) => setPersonalInfo((prev) => ({ ...prev, position: e.target.value }))}
+                          placeholder="Enter your position"
+                        />
+                      ) : (
+                        <div className="mt-1 p-2 bg-gray-100 rounded-md min-h-[40px] flex items-center">
+                          {userData.position || "Not provided"}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -466,7 +483,6 @@ export default function AccountPage() {
                           if (company) {
                             setCompanyInfo({
                               name: company.name || "",
-                              position: userData?.position || "",
                               street: company.address?.street || "",
                               city: company.address?.city || "",
                               province: company.address?.province || "",
@@ -488,7 +504,7 @@ export default function AccountPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+                    <div className="md:col-span-2">
                       <Label htmlFor="company_name">Company Name</Label>
                       {editingCompany ? (
                         <Input
@@ -503,23 +519,6 @@ export default function AccountPage() {
                         </div>
                       )}
                     </div>
-
-                    <div>
-                      <Label htmlFor="position">Position</Label>
-                      {editingCompany ? (
-                        <Input
-                          id="position"
-                          value={companyInfo.position}
-                          onChange={(e) => setCompanyInfo((prev) => ({ ...prev, position: e.target.value }))}
-                          placeholder="Enter your position"
-                        />
-                      ) : (
-                        <div className="mt-1 p-2 bg-gray-100 rounded-md min-h-[40px] flex items-center">
-                          {companyInfo.position || "Not provided"}
-                        </div>
-                      )}
-                    </div>
-
                     <div className="md:col-span-2">
                       <Label htmlFor="street_address">Street Address</Label>
                       {editingCompany ? (

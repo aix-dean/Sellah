@@ -124,7 +124,6 @@ export default function ProductsPage() {
           province: companyData.address_province,
         },
         website: companyData.website,
-        position: companyData.position,
         created_by: currentUser.uid,
         created_at: serverTimestamp(),
         updated_at: serverTimestamp(),
@@ -138,6 +137,7 @@ export default function ProductsPage() {
       const userRef = doc(db, "iboard_users", currentUser.uid)
       await updateDoc(userRef, {
         company_id: companyId,
+          position: companyData.position,
         updated_at: serverTimestamp(),
       })
 

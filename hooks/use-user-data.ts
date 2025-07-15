@@ -13,6 +13,7 @@ export interface UserData {
   phone_number?: string
   display_name?: string
   photo_url?: string
+  position?: string
   first_name?: string
   middle_name?: string
   last_name?: string
@@ -77,6 +78,7 @@ export function useUserData() {
           phone_number: user.phoneNumber || firestoreData.phone_number,
           display_name: user.displayName || firestoreData.display_name,
           photo_url: user.photoURL || firestoreData.photo_url,
+          position: user.position || firestoreData.position,
           emailVerified: user.emailVerified,
           first_name: firestoreData.first_name || "",
           middle_name: firestoreData.middle_name || "",
@@ -104,6 +106,7 @@ export function useUserData() {
           phone_number: user.phoneNumber || "",
           display_name: user.displayName || "",
           photo_url: user.photoURL || "",
+          position: user.position || "",
           emailVerified: user.emailVerified,
           first_name: "",
           middle_name: "",
@@ -126,6 +129,7 @@ export function useUserData() {
         const fallbackData: UserData = {
           uid: user.uid,
           email: user.email || "",
+          position: user.position || "",
           phone_number: user.phoneNumber || "",
           display_name: user.displayName || "",
           photo_url: user.photoURL || "",
@@ -167,6 +171,7 @@ export function useUserData() {
               phone_number: user.phoneNumber || firestoreData.phone_number,
               display_name: user.displayName || firestoreData.display_name,
               photo_url: user.photoURL || firestoreData.photo_url,
+              position: user.position || firestoreData.position
               emailVerified: user.emailVerified,
               first_name: firestoreData.first_name || "",
               middle_name: firestoreData.middle_name || "",
@@ -194,6 +199,7 @@ export function useUserData() {
               phone_number: user.phoneNumber || "",
               display_name: user.displayName || "",
               photo_url: user.photoURL || "",
+              position: user.position || "",
               emailVerified: user.emailVerified,
               first_name: "",
               middle_name: "",
@@ -228,6 +234,7 @@ export function useUserData() {
             phone_number: user.phoneNumber || "",
             display_name: user.displayName || "",
             photo_url: user.photoURL || "",
+            position: user.position || "",
             emailVerified: user.emailVerified,
             status: "UNKNOWN",
             type: "SELLAH",
