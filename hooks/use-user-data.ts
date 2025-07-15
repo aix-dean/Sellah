@@ -171,7 +171,7 @@ export function useUserData() {
               phone_number: user.phoneNumber || firestoreData.phone_number,
               display_name: user.displayName || firestoreData.display_name,
               photo_url: user.photoURL || firestoreData.photo_url,
-              position: user.position || firestoreData.position
+              position: user.position || firestoreData.position,
               emailVerified: user.emailVerified,
               first_name: firestoreData.first_name || "",
               middle_name: firestoreData.middle_name || "",
