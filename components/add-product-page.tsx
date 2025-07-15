@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { X, ArrowLeft, Loader2, ImageIcon, FileVideo, AlertCircle, Shield, Lock } from "lucide-react"
+import { X, ArrowLeft, Loader2, ImageIcon, FileVideo, AlertCircle } from "lucide-react"
 import {
   addDoc,
   collection,
@@ -28,7 +28,6 @@ import { useAnimatedSuccess } from "@/hooks/use-animated-success"
 import { AnimatedSuccessMessage } from "./animated-success-message"
 import { useProducts } from "@/hooks/use-products"
 import { firestoreCache } from "@/hooks/use-firestore-cache"
-import { Badge } from "@/components/ui/badge"
 import {
   type ProductFormData,
   STEPS,
@@ -56,7 +55,6 @@ export default function AddProductPage(): ReactElement {
   const [categories, setCategories] = useState<any[]>([])
   const [categoriesLoading, setCategoriesLoading] = useState(true)
   const [categoriesError, setCategoriesError] = useState<string | null>(null)
-
 
   const [formData, setFormData] = useState<ProductFormData>({
     name: "",
@@ -251,11 +249,8 @@ export default function AddProductPage(): ReactElement {
     setFormData((prev) => ({
       ...prev,
       delivery_options: {
-        ...prev.delivery_options,
-        couriers: {
-          ...prev.delivery_options.couriers,
-          [courier]: checked,
-        },
+        ...prev.delivery_options.couriers,
+        [courier]: checked,
       },
     }))
   }, [])
@@ -1408,29 +1403,31 @@ export default function AddProductPage(): ReactElement {
   // Show loading state while checking limits
   if (userLoading) {
     return (
-        <div className="flex items-center justify-center min-h-96">
-          <div className="flex flex-col items-center space-y-4">
-            <Loader2 className="w-8 h-8 animate-spin text-red-500" />
-            <p className="text-gray-600">{userLoading ? "Loading user data..." : "Checking product limits..."}</p>
-          </div>
+      <div className="flex items-center justify-center min-h-96">
+        <div className="flex flex-col items-center space-y-4">
+          <Loader2 className="w-8 h-8 animate-spin text-red-500" />
+          <p className="text-gray-600">{userLoading ? "Loading user data..." : "Checking product limits..."}</p>
         </div>
+      </div>
     )
   }
 
   if (userError) {
     return (
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Authentication Error</h3>
-            <p className="text-gray-500 mb-4">{userError}</p>
-            <Button onClick={() => (window.location.href = "/login")}>Go to Login</Button>
-          </div>
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Authentication Error</h3>
+          <p className="text-gray-500 mb-4">{userError}</p>
+          <Button onClick={() => (window.location.href = "/login")}>Go to Login</Button>
         </div>
+      </div>
     )
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6>
+    <div className="max-w-6xl mx-auto p-6 space-y-6">
+      {" "}
+      {/* Fixed: Added closing double quote here */}
       <AnimatedSuccessMessage show={showSuccessAnimation} message={successMessage} isVisible={isSuccessVisible} />
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center space-x-4">
