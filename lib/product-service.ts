@@ -484,28 +484,6 @@ export async function deleteProductImages(imageUrls: string[]): Promise<void> {
 }
 
 // Stock management
-export async function updateProductStock(
-  productId: string,
-  quantityChange: number,
-  userId: string,
-  reason?: string,
-): Promise<void> {
-  try {
-    const productRef = doc(db, "products", productId)
-
-    await updateDoc(productRef, {
-      quantity: increment(quantityChange),
-      stock: increment(quantityChange), // Update both fields for compatibility
-      updatedAt: serverTimestamp(),
-    })
-
-    console.log("Stock updated for product:", productId, "Change:", quantityChange)
-  } catch (error) {
-    console.error("Error updating product stock:", error)
-    throw error
-  }
-}
-
 export async function getLowStockProducts(userId: string): Promise<Product[]> {
   try {
     const q = query(
@@ -716,6 +694,74 @@ export async function getUserProductStats(userId: string): Promise<{
     }
   } catch (error) {
     console.error("Error getting user product stats:", error)
+    throw error
+  }
+}
+
+
+// Product Stock
+export async function updateProductStock(
+  productId: string,
+  variationId: string,
+  quantityToDecrease: number
+): Promise<void> {
+  try {
+    const productRef = doc(db, "products", productId)
+    const productSnap = await getDoc(productRef)
+
+    if (!productSnap.exists()) {
+      throw new Error("Product not found")
+    }
+
+    const productData = productSnap.data()
+
+    const updatedVariations = productData.variations.map((variation: any) => {
+      if (variation.id === variationId) {
+        const currentStock = variation.stock || 0
+        const updatedStock = Math.max(currentStock - quantityToDecrease, 0) // Prevent negative stock
+        return {
+          ...variation,
+          stock: updatedStock,
+        }
+      }
+      return variation
+    })
+
+    await updateDoc(productRef, {
+      variations: updatedVariations,
+      updatedAt: serverTimestamp(),
+    })
+
+    console.log(`✅ Stock updated for variation: ${variationId} (−${quantityToDecrease})`)
+  } catch (error) {
+    console.error("❌ Error updating product stock:", error)
+    throw error
+  }
+}
+
+// 🔁 Function to loop through order items and decrease stock for each
+export async function decreaseStockForOrder(order: {
+  items: {
+    product_id: string,
+    quantity: number,
+    variation_data: { id: string }
+  }[]
+}): Promise<void> {
+  try {
+    for (const item of order.items) {
+      const { product_id, quantity, variation_data } = item
+
+      if (!product_id || !variation_data?.id || typeof quantity !== 'number') {
+        console.warn("⚠️ Skipping invalid item:", item)
+        continue
+      }
+
+      await updateProductStock(product_id, variation_data.id, quantity)
+    }
+
+    console.log("✅ Stock updated for all items in the order")
+  } catch (error) {
+    console.error("❌ Failed to update stock for order items:", error)
     throw error
   }
 }

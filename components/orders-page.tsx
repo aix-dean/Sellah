@@ -17,7 +17,7 @@ import { updateOrderStatus, updateOrderOutForDelivery, approveOrderPayment, comp
 import { useToast } from "@/hooks/use-toast"
 import { getStatusCounts, debugStatusMapping, getOrdersByDisplayStatus } from "@/lib/status-utils"
 import { OrderStatusDebugger } from "./order-status-debugger"
-
+import { decreaseStockForOrder } from '@/lib/product-service'
 // Import tab components
 import { OrdersAllTab } from "./orders/orders-all-tab"
 import { OrdersUnpaidTab } from "./orders/orders-unpaid-tab"
@@ -169,6 +169,9 @@ export default function OrdersPage() {
         currentUser?.displayName || "System",
         "Order approved by admin",
       )
+
+      // asd
+      await decreaseStockForOrder(order)
       toast({
         title: "Order Approved",
         description: `Order ${order.order_number} has been approved successfully.`,

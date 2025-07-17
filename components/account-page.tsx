@@ -166,16 +166,9 @@ export default function AccountPage() {
           city: companyInfo.city,
           province: companyInfo.province,
         },
-        phone: companyInfo.phone,
         updated_at: new Date(),
       })
 
-      // Update user position
-      const userRef = doc(db, "iboard_users", userData.uid)
-      await updateDoc(userRef, {
-        position: companyInfo.position,
-        updated_at: new Date(),
-      })
 
       setEditingCompany(false)
       toast({

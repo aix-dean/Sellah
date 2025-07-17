@@ -65,7 +65,7 @@ interface Product {
     url: string
   }>
   categories: string[]
-  delivery_option: {
+  delivery_options: {
     delivery: boolean
     delivery_note: string
     pickup: boolean
@@ -160,7 +160,7 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
           media: productData.media || [],
           categories: productData.categories || [],
           // Correctly initialize delivery_option as an object
-          delivery_option: productData.delivery_option || {
+          delivery_options: productData.delivery_options || {
             delivery: false,
             delivery_note: "",
             pickup: false,
@@ -677,39 +677,39 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
             <div className="bg-white rounded-lg shadow-sm border p-6">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 text-left">Shipping Information</h2>
               <div className="space-y-4">
-                {product.delivery_option.delivery && (
+                {product.delivery_options.delivery && (
                   <div className="flex items-start">
                     <Truck className="w-5 h-5 text-gray-400 mr-3 mt-0.5" />
                     <div>
                       <div className="text-sm text-gray-500">Delivery Available</div>
                       <div className="font-medium">Yes</div>
-                      {product.delivery_option.delivery_note && (
-                        <p className="text-sm text-gray-600 mt-1">{product.delivery_option.delivery_note}</p>
+                      {product.delivery_options.delivery_note && (
+                        <p className="text-sm text-gray-600 mt-1">{product.delivery_options.delivery_note}</p>
                       )}
                     </div>
                   </div>
                 )}
-                {product.delivery_option.pickup && (
+                {product.delivery_options.pickup && (
                   <div className="flex items-start">
                     <Package className="w-5 h-5 text-gray-400 mr-3 mt-0.5" />
                     <div>
                       <div className="text-sm text-gray-500">Pickup Available</div>
                       <div className="font-medium">Yes</div>
-                      {product.delivery_option.pickup_note && (
-                        <p className="text-sm text-gray-600 mt-1">{product.delivery_option.pickup_note}</p>
+                      {product.delivery_options.pickup_note && (
+                        <p className="text-sm text-gray-600 mt-1">{product.delivery_options.pickup_note}</p>
                       )}
                     </div>
                   </div>
                 )}
 
-                {(product.delivery_option.couriers.lalamove || product.delivery_option.couriers.transportify) && (
+                {(product.delivery_options.couriers.lalamove || product.delivery_options.couriers.transportify) && (
                   <div className="flex items-start">
                     <Truck className="w-5 h-5 text-gray-400 mr-3 mt-0.5" />
                     <div>
                       <div className="text-sm text-gray-500">Supported Couriers</div>
                       <div className="flex flex-wrap gap-2 mt-1">
-                        {product.delivery_option.couriers.lalamove && <Badge variant="secondary">Lalamove</Badge>}
-                        {product.delivery_option.couriers.transportify && (
+                        {product.delivery_options.couriers.lalamove && <Badge variant="secondary">Lalamove</Badge>}
+                        {product.delivery_options.couriers.transportify && (
                           <Badge variant="secondary">Transportify</Badge>
                         )}
                       </div>
@@ -717,7 +717,7 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
                   </div>
                 )}
 
-                <div className="flex items-start">
+              <div className="flex items-start">
                   <Calendar className="w-5 h-5 text-gray-400 mr-3 mt-0.5" />
                   <div>
                     <div className="text-sm text-gray-500">Estimated Delivery Time</div>
@@ -734,6 +734,8 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
                     </div>
                   </div>
                 </div>
+
+
 
                 {product.shipping_methods && product.shipping_methods.length > 0 && (
                   <>
