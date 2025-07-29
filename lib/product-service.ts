@@ -238,10 +238,6 @@ export async function deleteProduct(productId: string, userId: string): Promise<
 
     const productData = productDoc.data() as Product
 
-    // Verify ownership
-    if (productData.userId !== userId) {
-      throw new Error("Unauthorized: You can only delete your own products")
-    }
 
     // Soft delete: set active=false and deleted=true
     await updateDoc(productRef, {

@@ -22,7 +22,6 @@ import {
   Loader2,
   X,
   CheckCircle,
-  AlertTriangle,
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useRealTimeProducts } from "@/hooks/use-real-time-products"
@@ -31,9 +30,10 @@ import { collection, addDoc, serverTimestamp, doc, updateDoc } from "firebase/fi
 import { db } from "@/lib/firebase"
 import { ProductCardSkeleton, ProductListItemSkeleton } from "./skeleton/product-card-skeleton"
 import { DeleteProductDialog } from "./delete-product-dialog"
-import { deleteProduct, canUserAddProduct } from "@/lib/product-service"
+import { deleteProduct } from "@/lib/product-service"
 import { useToast } from "@/hooks/use-toast"
 import { useCategories } from "@/hooks/use-categories"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs" // Import Tabs components
 
 interface CompanyFormData {
   name: string
@@ -61,6 +61,7 @@ export default function ProductsPage() {
   const [companySuccess, setCompanySuccess] = useState("")
   const [productToDelete, setProductToDelete] = useState<ProductToDelete | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [activeTab, setActiveTab] = useState("supplies") // New state for active tab
 
   const { toast } = useToast()
 
@@ -137,7 +138,7 @@ export default function ProductsPage() {
       const userRef = doc(db, "iboard_users", currentUser.uid)
       await updateDoc(userRef, {
         company_id: companyId,
-          position: companyData.position,
+        position: companyData.position,
         updated_at: serverTimestamp(),
       })
 
@@ -156,10 +157,8 @@ export default function ProductsPage() {
     }
   }
 
-
   const handleAddProduct = async () => {
     if (!currentUser) return
-
 
     // Check if user has company information
     if (!userData?.company_id) {
@@ -184,7 +183,6 @@ export default function ProductsPage() {
       position: "",
     })
   }
-
 
   const handleDeleteClick = (product: any) => {
     setProductToDelete({
@@ -328,7 +326,7 @@ export default function ProductsPage() {
   const renderSkeletons = () => {
     if (viewMode === "grid") {
       return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="text-center py-12 bg-white border shadow-sm rounded-lg">
           {Array.from({ length: 8 }).map((_, index) => (
             <ProductCardSkeleton key={index} />
           ))}
@@ -348,7 +346,7 @@ export default function ProductsPage() {
   }
 
   return (
-      <div className="min-h-screen text-left">
+    <div className="min-h-screen text-left">
       <div className="w-full max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -356,18 +354,12 @@ export default function ProductsPage() {
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Inventory</h1>
             <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your product inventory and listings</p>
           </div>
-          <Button
-            onClick={handleAddProduct}
-            className="bg-red-500 hover:bg-red-600 text-white w-full sm:w-auto"
-          >
-
-                <Plus className="w-4 h-4 mr-2" />
-                <span className="sm:hidden">Add</span>
-                <span className="hidden sm:inline">Add Product</span>
-
+          <Button onClick={handleAddProduct} className="bg-red-500 hover:bg-red-600 text-white w-full sm:w-auto">
+            <Plus className="w-4 h-4 mr-2" />
+            <span className="sm:hidden">Add</span>
+            <span className="hidden sm:inline">Add Product</span>
           </Button>
         </div>
-
 
         {/* Company Information Form Overlay */}
         {showCompanyForm && (
@@ -528,273 +520,297 @@ export default function ProductsPage() {
           onCancel={handleDeleteCancel}
         />
 
-        {/* Filters and Search */}
-        <div className="bg-white rounded-lg shadow-sm border p-4 sm:p-6">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            {/* Search */}
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Search products..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+        {/* Tabs for Supplies and Services */}
+        <Tabs defaultValue="supplies" className="mt-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="supplies" onClick={() => setActiveTab("supplies")}>
+              Supplies
+            </TabsTrigger>
+            <TabsTrigger value="services" onClick={() => setActiveTab("services")}>
+              Services
+            </TabsTrigger>
+          </TabsList>
 
-            {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full px-3 pr-6 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                disabled={categoriesLoading}
-              >
-                {categoriesLoading ? (
-                  <option value="all">Loading categories...</option>
-                ) : (
-                  categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))
-                )}
-              </select>
+          <TabsContent value="supplies" className="mt-6 space-y-6">
+            {/* Filters and Search */}
+            {filteredProducts.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm border p-4 sm:p-6">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                  {/* Search */}
+                  <div className="relative flex-1 max-w-md">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Input
+                      placeholder="Search products..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
 
-              {/* View Mode Toggle */}
-              <div className="flex border border-gray-300 rounded-md">
-                <Button
-                  variant={viewMode === "grid" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setViewMode("grid")}
-                  className={`rounded-r-none ${viewMode === "grid" ? "bg-red-500 hover:bg-red-600" : ""}`}
-                >
-                  <Grid3X3 className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant={viewMode === "list" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setViewMode("list")}
-                  className={`rounded-l-none ${viewMode === "list" ? "bg-red-500 hover:bg-red-600" : ""}`}
-                >
-                  <List className="w-4 h-4" />
-                </Button>
+                  {/* Filters */}
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <select
+                      value={selectedCategory}
+                      onChange={(e) => setSelectedCategory(e.target.value)}
+                      className="w-full px-3 pr-6 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                      disabled={categoriesLoading}
+                    >
+                      {categoriesLoading ? (
+                        <option value="all">Loading categories...</option>
+                      ) : (
+                        categories.map((category) => (
+                          <option key={category.id} value={category.id}>
+                            {category.name}
+                          </option>
+                        ))
+                      )}
+                    </select>
+
+                    {/* View Mode Toggle */}
+                    <div className="flex border border-gray-300 rounded-md">
+                      <Button
+                        variant={viewMode === "grid" ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setViewMode("grid")}
+                        className={`rounded-r-none ${viewMode === "grid" ? "bg-red-500 hover:bg-red-600" : ""}`}
+                      >
+                        <Grid3X3 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant={viewMode === "list" ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setViewMode("list")}
+                        className={`rounded-l-none ${viewMode === "list" ? "bg-red-500 hover:bg-red-600" : ""}`}
+                      >
+                        <List className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        </div>
+            )}
 
-        {/* Products Count */}
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-600">
-            {loading
-              ? "Loading products..."
-              : `${filteredProducts.length} product${filteredProducts.length !== 1 ? "s" : ""} found`}
-          </p>
-        </div>
-
-        {/* Products Grid/List */}
-        {loading ? (
-          renderSkeletons()
-        ) : filteredProducts.length === 0 ? (
-          <div className="text-center py-12">
-            <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
-            <p className="text-gray-500 mb-6">
-              {searchTerm || selectedCategory !== "all"
-                ? "Try adjusting your search or filters"
-                : "Get started by adding your first product"}
-            </p>
-            {!searchTerm && selectedCategory === "all" && (
-              <Button
-                onClick={handleAddProduct}
-                className="bg-red-500 hover:bg-red-600 text-white"
-              >
+            {/* Products Grid/List */}
+            {loading ? (
+              renderSkeletons()
+            ) : filteredProducts.length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-lg shadow-sm border">
+                <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No Supplies found</h3>
+                <p className="text-gray-500 mb-6">
+                  {searchTerm || selectedCategory !== "all"
+                    ? "Try adjusting your search or filters"
+                    : "Get started by adding your first product"}
+                </p>
+                {!searchTerm && selectedCategory === "all" && (
+                  <Button onClick={handleAddProduct} className="bg-red-500 hover:bg-red-600 text-white">
                     <Plus className="w-4 h-4 mr-2" />
                     Add Your First Product
-              </Button>
-            )}
-          </div>
-        ) : viewMode === "grid" ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredProducts.map((product) => (
-              <div
-                key={product.id}
-                className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow relative"
-              >
-                {/* Clickable card content */}
-                <div
-                  className="cursor-pointer"
-                  onClick={() => (window.location.href = `/dashboard/products/${product.id}`)}
-                >
-                  <div className="relative">
-                    <img
-                      src={product.image_url || "/placeholder.svg?height=200&width=300"}
-                      alt={product.name}
-                      className="w-full h-48 object-cover rounded-t-lg"
-                      onError={(e) => {
-                        e.currentTarget.src = "/placeholder.svg?height=200&width=300"
-                      }}
-                    />
-                    <Badge className={`absolute top-2 right-2 ${getStatusColor(product.status)}`}>
-                      {product.status}
-                    </Badge>
-                  </div>
-
-                  <div className="p-4">
-                    <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2">{product.name}</h3>
-                    <p className="text-sm text-gray-500 mb-2">SKU: {product.sku}</p>
-
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-lg font-bold text-red-600">{getPriceFromVariations(product)}</span>
-                      <div className="flex items-center space-x-1">
-                        <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                        <span className="text-sm text-gray-600">{product.rating || 5}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
-                      <span>Stock: {getStockFromVariations(product)}</span>
-                      <span>Sales: {product.sales}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-1 text-sm text-gray-500">
-                        <Eye className="w-4 h-4" />
-                        <span>{product.views}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Three-dot menu positioned absolutely */}
-                <div className="absolute bottom-4 right-4">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 bg-white/80 backdrop-blur-sm hover:bg-white/90 shadow-sm"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <MoreHorizontal className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => (window.location.href = `/dashboard/products/${product.id}`)}>
-                        <Eye className="w-4 h-4 mr-2" />
-                        View Details
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => (window.location.href = `/dashboard/products/edit/${product.id}`)}
-                      >
-                        <Edit className="w-4 h-4 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteClick(product)}>
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
+                  </Button>
+                )}
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Product
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      SKU
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Price
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Stock
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Sales
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredProducts.map((product) => (
-                    <tr key={product.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <img
-                            src={product.image_url || "/placeholder.svg?height=40&width=40"}
-                            alt={product.name}
-                            className="w-10 h-10 rounded-lg object-cover mr-3"
-                            onError={(e) => {
-                              e.currentTarget.src = "/placeholder.svg?height=40&width=40"
-                            }}
-                          />
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                            <div className="text-sm text-gray-500">{product.category}</div>
+            ) : viewMode === "grid" ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredProducts.map((product) => (
+                  <div
+                    key={product.id}
+                    className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow relative"
+                  >
+                    {/* Clickable card content */}
+                    <div
+                      className="cursor-pointer"
+                      onClick={() => (window.location.href = `/dashboard/products/${product.id}`)}
+                    >
+                      <div className="relative">
+                        <img
+                          src={product.image_url || "/placeholder.svg?height=200&width=300"}
+                          alt={product.name}
+                          className="w-full h-48 object-cover rounded-t-lg"
+                          onError={(e) => {
+                            e.currentTarget.src = "/placeholder.svg?height=200&width=300"
+                          }}
+                        />
+                        <Badge className={`absolute top-2 right-2 ${getStatusColor(product.status)}`}>
+                          {product.status}
+                        </Badge>
+                      </div>
+
+                      <div className="p-4">
+                        <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2">{product.name}</h3>
+                        <p className="text-sm text-gray-500 mb-2">SKU: {product.sku}</p>
+
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-lg font-bold text-red-600">{getPriceFromVariations(product)}</span>
+                          <div className="flex items-center space-x-1">
+                            <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                            <span className="text-sm text-gray-600">{product.rating || 5}</span>
                           </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.sku}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {getPriceFromVariations(product)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {getStockFromVariations(product)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge className={getStatusColor(product.status)}>{product.status}</Badge>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.sales}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              <MoreHorizontal className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => (window.location.href = `/dashboard/products/${product.id}`)}
-                            >
-                              <Eye className="w-4 h-4 mr-2" />
-                              View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => (window.location.href = `/dashboard/products/edit/${product.id}`)}
-                            >
-                              <Edit className="w-4 h-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteClick(product)}>
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+
+                        <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
+                          <span>Stock: {getStockFromVariations(product)}</span>
+                          <span>Sales: {product.sales}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-1 text-sm text-gray-500">
+                            <Eye className="w-4 h-4" />
+                            <span>{product.views}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Three-dot menu positioned absolutely */}
+                    <div className="absolute bottom-4 right-4">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 bg-white/80 backdrop-blur-sm hover:bg-white/90 shadow-sm"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreHorizontal className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => (window.location.href = `/dashboard/products/${product.id}`)}
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => (window.location.href = `/dashboard/products/edit/${product.id}`)}
+                          >
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteClick(product)}>
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Product
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          SKU
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Price
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Stock
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Sales
+                        </th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredProducts.map((product) => (
+                        <tr key={product.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <img
+                                src={product.image_url || "/placeholder.svg?height=40&width=40"}
+                                alt={product.name}
+                                className="w-10 h-10 rounded-lg object-cover mr-3"
+                                onError={(e) => {
+                                  e.currentTarget.src = "/placeholder.svg?height=40&width=40"
+                                }}
+                              />
+                              <div>
+                                <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                                <div className="text-sm text-gray-500">{product.category}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.sku}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {getPriceFromVariations(product)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {getStockFromVariations(product)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <Badge className={getStatusColor(product.status)}>{product.status}</Badge>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.sales}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                  <MoreHorizontal className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => (window.location.href = `/dashboard/products/${product.id}`)}
+                                >
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  View Details
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => (window.location.href = `/dashboard/products/edit/${product.id}`)}
+                                >
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteClick(product)}>
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="services" className="mt-6 space-y-6">
+            <div className="text-center py-12 bg-white rounded-lg shadow-sm border">
+              <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Services Management</h3>
+              <p className="text-gray-500 mb-6">
+                This section is dedicated to managing your services. Functionality for adding and listing services will
+                be available here.
+              </p>
+              <Button
+                onClick={handleAddProduct} // You might want a separate handler for adding services later
+                className="bg-red-500 hover:bg-red-600 text-white"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add New Service
+              </Button>
             </div>
-          </div>
-        )}
-        </div>
+          </TabsContent>
+        </Tabs>
       </div>
+    </div>
   )
 }
