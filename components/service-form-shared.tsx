@@ -168,7 +168,7 @@ export function ServiceFormShared({ initialData, onSubmit, submitButtonText, isS
       views: initialData?.views || 0,
       bookings: initialData?.bookings || 0,
       rating: initialData?.rating || 5,
-      // imageUrl: imagePreview || "",
+      // imageUrl: imagePreview || "", // Removed this line
     }
 
     await onSubmit(serviceData, imageFile || undefined)

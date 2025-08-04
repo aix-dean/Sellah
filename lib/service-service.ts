@@ -19,7 +19,7 @@ export class ServiceService {
   private static collection = "products" // Using same collection as products
 
   static async createService(
-    serviceData: Omit<Service, "id" | "createdAt" | "updatedAt">,
+    serviceData: Omit<Service, "id" | "createdAt" | "updatedAt" | "imageUrl">, // imageUrl is handled internally
     imageFile?: File,
   ): Promise<string> {
     try {
@@ -31,8 +31,8 @@ export class ServiceService {
 
       const docRef = await addDoc(collection(db, this.collection), {
         ...serviceData,
-        imageUrl,
-        type: "SERVICE",
+        imageUrl, // This imageUrl is the one from the upload, or "" if no file
+        type: "SERVICES", // Changed from "SERVICE" to "SERVICES"
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       })
@@ -51,15 +51,31 @@ export class ServiceService {
       if (imageFile) {
         // Delete old image if exists
         if (updates.imageUrl) {
-          await this.deleteImage(updates.imageUrl)
+          try {
+            await this.deleteImage(updates.imageUrl)
+          } catch (deleteError) {
+            console.warn("Could not delete old image:", deleteError)
+            // Continue with upload even if old image deletion fails
+          }
         }
         imageUrl = await this.uploadImage(imageFile, updates.userId!)
+      } else if (updates.imageUrl === null) {
+        // If imageUrl is explicitly set to null, delete the image
+        const serviceDoc = await getDoc(doc(db, this.collection, serviceId))
+        const currentImageUrl = serviceDoc.data()?.imageUrl
+        if (currentImageUrl) {
+          try {
+            await this.deleteImage(currentImageUrl)
+          } catch (deleteError) {
+            console.warn("Could not delete old image when setting to null:", deleteError)
+          }
+        }
       }
 
       const docRef = doc(db, this.collection, serviceId)
       await updateDoc(docRef, {
         ...updates,
-        imageUrl,
+        imageUrl, // This will be the new URL, or null if removed
         updatedAt: serverTimestamp(),
       })
     } catch (error) {
@@ -90,7 +106,7 @@ export class ServiceService {
       const q = query(
         collection(db, this.collection),
         where("userId", "==", userId),
-        where("type", "==", "SERVICE"),
+        where("type", "==", "SERVICES"), // Changed from "SERVICE" to "SERVICES"
         orderBy("createdAt", "desc"),
       )
 
@@ -128,18 +144,27 @@ export class ServiceService {
   }
 
   private static async uploadImage(file: File, userId: string): Promise<string> {
-    const storageRef = ref(storage, `services/${userId}/${Date.now()}_${file.name}`)
-    const snapshot = await uploadBytes(storageRef, file)
-    return await getDownloadURL(snapshot.ref)
+    try {
+      const storageRef = ref(storage, `services/${userId}/${Date.now()}_${file.name}`)
+      const snapshot = await uploadBytes(storageRef, file)
+      return await getDownloadURL(snapshot.ref)
+    } catch (error) {
+      console.error("Error uploading image to Firebase Storage:", error)
+      throw new Error("Failed to upload image.")
+    }
   }
 
   private static async deleteImage(imageUrl: string): Promise<void> {
     try {
-      const imageRef = ref(storage, imageUrl)
+      // Firebase Storage URLs can be complex. Extract path from URL.
+      // Example: https://firebasestorage.googleapis.com/v0/b/YOUR_PROJECT_ID.appspot.com/o/images%2Fuser123%2Fimage.jpg?alt=media...
+      const url = new URL(imageUrl)
+      const path = decodeURIComponent(url.pathname.split("/o/")[1].split("?")[0])
+      const imageRef = ref(storage, path)
       await deleteObject(imageRef)
     } catch (error) {
-      console.error("Error deleting image:", error)
-      // Don't throw error for image deletion failures
+      console.error("Error deleting image from Firebase Storage:", error)
+      // Don't re-throw, as it might be an old or invalid URL, and we want the main operation to proceed.
     }
   }
 }
