@@ -1,27 +1,44 @@
-import type { Timestamp } from "firebase/firestore"
-
-export interface Schedule {
-  [key: string]: {
-    available: boolean
-    startTime: string
-    endTime: string
-  }
-}
-
 export interface Service {
   id: string
   name: string
   description: string
   serviceType: "roll_up" | "roll_down" | "delivery"
   price: number
-  schedule: Schedule
-  imageUrl?: string
+  schedule: {
+    [key: string]: {
+      available: boolean
+      startTime: string
+      endTime: string
+    }
+  }
   userId: string
-  type: "SERVICE" | "SERVICES" // Explicitly define service types
+  type: "SERVICE"
   status: "active" | "inactive" | "draft"
   views: number
   bookings: number
   rating: number
-  createdAt: Timestamp
-  updatedAt: Timestamp
+  imageUrl: string
+  createdAt?: any
+  updatedAt?: any
+}
+
+export interface CreateServiceData {
+  name: string
+  description: string
+  serviceType: "roll_up" | "roll_down" | "delivery"
+  price: number
+  schedule: {
+    [key: string]: {
+      available: boolean
+      startTime: string
+      endTime: string
+    }
+  }
+  userId: string
+  type: "SERVICE"
+  status: "active" | "inactive" | "draft"
+  views: number
+  bookings: number
+  rating: number
+  imageUrl: string
 }
