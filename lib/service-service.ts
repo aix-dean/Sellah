@@ -17,7 +17,7 @@ import {
   updateDoc, // Import updateDoc
 } from "firebase/firestore"
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"
-import type { Service, ServiceFormData } from "@/types/service"
+import type { Service, ServiceFormData, ServiceFilter } from "@/types/service"
 import { getAuth } from "firebase/auth"
 import { optimizeImage } from "@/lib/media-optimizer"
 import { PRODUCT_LIMITS, type UserStatus } from "./product-service" // Reusing product limits for services
@@ -130,7 +130,7 @@ export async function createService(serviceData: Omit<Service, "id" | "createdAt
   }
 }
 
-export async function updateService(serviceId: string, updates: Partial<Service>, userId: string): Promise<void> {
+export async function updateService(serviceId: string, updates: Partial<Service>): Promise<void> {
   try {
     const serviceRef = doc(db, "services", serviceId)
 
@@ -149,7 +149,7 @@ export async function updateService(serviceId: string, updates: Partial<Service>
 }
 
 // Soft delete service (set active=false, deleted=true)
-export async function deleteService(serviceId: string, userId: string): Promise<void> {
+export async function deleteService(serviceId: string): Promise<void> {
   try {
     const serviceRef = doc(db, "services", serviceId)
     const serviceDoc = await getDoc(serviceRef)
@@ -160,26 +160,11 @@ export async function deleteService(serviceId: string, userId: string): Promise<
 
     const serviceData = serviceDoc.data() as Service
 
-    // Verify ownership
-    if (serviceData.userId !== userId) {
-      throw new Error("Unauthorized: You can only delete your own services")
-    }
-
     // Soft delete: set active=false and deleted=true
     await updateDoc(serviceRef, {
       active: false,
       deleted: true,
       updatedAt: serverTimestamp(),
-    })
-
-    // Decrement user's service count
-    const userRef = doc(db, "iboard_users", userId)
-    const userDoc = await getDoc(userRef)
-    const userData = userDoc.data()
-    const currentCount = userData?.service_count || 0
-    await updateDoc(userRef, {
-      service_count: currentCount - 1, // Ensure it doesn't go below 0
-      updated_at: serverTimestamp(),
     })
   } catch (error) {
     throw error
@@ -243,12 +228,30 @@ export async function getService(serviceId: string): Promise<Service | null> {
   }
 }
 
-export async function getServices(pageSize = 20, lastDoc?: QueryDocumentSnapshot): Promise<ServicesResponse> {
+export async function getServices(
+  filters: ServiceFilter = {},
+  pageSize = 20,
+  lastDoc?: QueryDocumentSnapshot,
+): Promise<ServicesResponse> {
   try {
     let q = query(collection(db, "services"))
 
     // Only get active, non-deleted services by default
     q = query(q, where("active", "==", true), where("deleted", "==", false))
+
+    // Apply filters
+    if (filters.category) {
+      q = query(q, where("category", "==", filters.category))
+    }
+    if (filters.status) {
+      q = query(q, where("status", "==", filters.status))
+    }
+    if (filters.visibility) {
+      q = query(q, where("visibility", "==", filters.visibility))
+    }
+    if (filters.featured !== undefined) {
+      q = query(q, where("featured", "==", filters.featured))
+    }
 
     // Add ordering
     q = query(q, orderBy("createdAt", "desc"))
@@ -269,9 +272,30 @@ export async function getServices(pageSize = 20, lastDoc?: QueryDocumentSnapshot
       ...doc.data(),
     })) as Service[]
 
+    // Apply client-side filters that can't be done in Firestore
+    let filteredServices = services
+
+    if (filters.search) {
+      const searchTerm = filters.search.toLowerCase()
+      filteredServices = services.filter(
+        (service) =>
+          service.name.toLowerCase().includes(searchTerm) ||
+          service.description.toLowerCase().includes(searchTerm) ||
+          service.tags.some((tag) => tag.toLowerCase().includes(searchTerm)),
+      )
+    }
+
+    if (filters.priceMin !== undefined) {
+      filteredServices = filteredServices.filter((service) => service.price >= filters.priceMin!)
+    }
+
+    if (filters.priceMax !== undefined) {
+      filteredServices = filteredServices.filter((service) => service.price <= filters.priceMax!)
+    }
+
     return {
-      services,
-      total: services.length,
+      services: filteredServices,
+      total: filteredServices.length,
       hasMore,
       lastDoc: hasMore ? docs[pageSize - 1] : undefined,
     }
@@ -283,6 +307,7 @@ export async function getServices(pageSize = 20, lastDoc?: QueryDocumentSnapshot
 
 export async function getUserServices(
   userId: string,
+  filters: ServiceFilter = {},
   pageSize = 20,
   lastDoc?: QueryDocumentSnapshot,
 ): Promise<ServicesResponse> {
@@ -293,6 +318,14 @@ export async function getUserServices(
       where("active", "==", true),
       where("deleted", "==", false),
     )
+
+    // Apply additional filters
+    if (filters.status) {
+      q = query(q, where("status", "==", filters.status))
+    }
+    if (filters.category) {
+      q = query(q, where("category", "==", filters.category))
+    }
 
     // Add ordering
     q = query(q, orderBy("createdAt", "desc"))
@@ -310,7 +343,7 @@ export async function getUserServices(
     const hasMore = docs.length > pageSize
     const services = docs.slice(0, pageSize).map((doc) => ({
       id: doc.id,
-      ...(doc.data() as Omit<Service, "id">),
+      ...doc.data(),
     })) as Service[]
 
     return {
@@ -378,20 +411,6 @@ export async function getServiceCategories(): Promise<string[]> {
     console.error("Error getting service categories:", error)
     throw error
   }
-}
-
-export function generateServiceSKU(serviceName: string, category: string): string {
-  const namePrefix = serviceName
-    .replace(/[^a-zA-Z0-9]/g, "")
-    .substring(0, 3)
-    .toUpperCase()
-  const categoryPrefix = category
-    .replace(/[^a-zA-Z0-9]/g, "")
-    .substring(0, 3)
-    .toUpperCase()
-  const timestamp = Date.now().toString().slice(-6)
-
-  return `SVC-${namePrefix}${categoryPrefix}${timestamp}`
 }
 
 // Batch operations
@@ -469,15 +488,8 @@ export async function getUserServiceStats(userId: string): Promise<{
   activeServices: number
   draftServices: number
   archivedServices: number
-  currentCount: number
-  limit: number
-  status: string
-  canAddMore: boolean
 }> {
   try {
-    // Get user status and limits
-    const limitCheck = await canUserAddService(userId)
-
     // Get all user services (including deleted for total count)
     const allServicesQuery = query(collection(db, "services"), where("userId", "==", userId))
     const allServicesSnapshot = await getDocs(allServicesQuery)
@@ -515,10 +527,6 @@ export async function getUserServiceStats(userId: string): Promise<{
       activeServices,
       draftServices,
       archivedServices,
-      currentCount: limitCheck.currentCount,
-      limit: limitCheck.limit,
-      status: limitCheck.status,
-      canAddMore: limitCheck.canAdd,
     }
   } catch (error) {
     console.error("Error getting user service stats:", error)
