@@ -19,7 +19,7 @@ export class ServiceService {
   private static collection = "products" // Using same collection as products
 
   static async createService(
-    serviceData: Omit<Service, "id" | "createdAt" | "updatedAt">,
+    serviceData: Omit<Service, "id" | "createdAt" | "updatedAt" | "imageUrl">, // imageUrl is handled internally
     imageFile?: File,
   ): Promise<string> {
     try {
@@ -31,8 +31,8 @@ export class ServiceService {
 
       const docRef = await addDoc(collection(db, this.collection), {
         ...serviceData,
-        imageUrl,
-        type: "SERVICE", // Ensure this is explicitly set
+        imageUrl, // This imageUrl is the one from the upload, or "" if no file
+        type: "SERVICE",
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       })

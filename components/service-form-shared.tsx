@@ -43,7 +43,7 @@ type Schedule = {
 
 interface ServiceFormSharedProps {
   initialData?: Partial<Service>
-  onSubmit: (data: Omit<Service, "id" | "userId" | "createdAt" | "updatedAt">, imageFile?: File) => Promise<void>
+  onSubmit: (data: any, imageFile?: File) => Promise<void>
   submitButtonText: string
   isSubmitting: boolean
 }
@@ -118,7 +118,7 @@ export function ServiceFormShared({ initialData, onSubmit, submitButtonText, isS
 
   const removeImage = () => {
     setImageFile(null)
-    setImagePreview(null) // Clear preview when image is removed
+    setImagePreview(null)
   }
 
   const validateForm = () => {
@@ -157,7 +157,7 @@ export function ServiceFormShared({ initialData, onSubmit, submitButtonText, isS
       return
     }
 
-    const serviceData: Omit<Service, "id" | "userId" | "createdAt" | "updatedAt"> = {
+    const serviceData = {
       name: formData.name.trim(),
       description: formData.description.trim(),
       serviceType: formData.serviceType as "roll_up" | "roll_down" | "delivery",
@@ -168,7 +168,7 @@ export function ServiceFormShared({ initialData, onSubmit, submitButtonText, isS
       views: initialData?.views || 0,
       bookings: initialData?.bookings || 0,
       rating: initialData?.rating || 5,
-      imageUrl: imagePreview || "", // Pass current image preview URL or empty string
+      imageUrl: imagePreview || "",
     }
 
     await onSubmit(serviceData, imageFile || undefined)

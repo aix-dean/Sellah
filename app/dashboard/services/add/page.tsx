@@ -10,7 +10,7 @@ import { ServiceFormShared } from "@/components/service-form-shared"
 import { useState } from "react"
 import type { Service } from "@/types/service"
 
-export default function AddServicePageWrapper() {
+export default function AddServicePage() {
   const router = useRouter()
   const { user } = useAuth()
   const { toast } = useToast()
@@ -39,7 +39,7 @@ export default function AddServicePageWrapper() {
         views: 0,
         bookings: 0,
         rating: 5,
-        imageUrl: formData.imageUrl || "", // Ensure imageUrl is present, even if empty
+        // imageUrl will be handled by ServiceService.createService
       }
 
       await ServiceService.createService(serviceData, imageFile)

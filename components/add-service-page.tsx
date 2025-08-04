@@ -176,10 +176,10 @@ export function AddServicePage() {
         views: 0,
         bookings: 0,
         rating: 5,
-        imageUrl: "",
+        // imageUrl is handled by ServiceService.createService
       }
 
-      const serviceId = await ServiceService.createService(serviceData, imageFile || undefined)
+      await ServiceService.createService(serviceData, imageFile || undefined)
 
       toast({
         title: "Success",

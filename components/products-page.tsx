@@ -5,21 +5,20 @@ import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Plus, Search } from "lucide-react"
+import { Plus, Search, Package, Wrench } from "lucide-react"
 import { useRealTimeProducts } from "@/hooks/use-real-time-products"
 import { useUserData } from "@/hooks/use-user-data"
 import { collection, addDoc, serverTimestamp, doc, updateDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import { ProductCardSkeleton } from "./skeleton/product-card-skeleton"
+import { ProductCardSkeleton, ProductListItemSkeleton } from "./skeleton/product-card-skeleton"
 import { deleteProduct } from "@/lib/product-service"
 import { useToast } from "@/hooks/use-toast"
 import { useCategories } from "@/hooks/use-categories"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/hooks/use-auth"
+import type { Service } from "@/types/service"
 import Image from "next/image"
-import { format } from "date-fns"
 
 interface CompanyFormData {
   name: string
@@ -64,6 +63,21 @@ export default function ProductsPage() {
 
   const { currentUser: oldCurrentUser, userData, loading: userLoading } = useUserData()
   const { products: fetchedItems = [], loading, error, forceRefetch } = useRealTimeProducts(currentUser?.uid)
+
+  const filteredItems = useMemo(() => {
+    const lowerCaseSearchTerm = searchTerm.toLowerCase()
+    return fetchedItems.filter((item) => {
+      const matchesSearch = item.name.toLowerCase().includes(lowerCaseSearchTerm)
+
+      if (activeTab === "products") {
+        // Products are items with type "MERCHANDISE" or "Merchandise" or no type (for backward compatibility)
+        return matchesSearch && (!item.type || item.type === "MERCHANDISE" || item.type === "Merchandise")
+      } else {
+        // Services are items with type "SERVICE" or "SERVICES"
+        return matchesSearch && (item.type === "SERVICE" || item.type === "SERVICES")
+      }
+    })
+  }, [fetchedItems, activeTab, searchTerm])
 
   // Check for company information when user data loads
   useEffect(() => {
@@ -161,17 +175,17 @@ export default function ProductsPage() {
 
     // Redirect based on active tab
     if (activeTab === "products") {
-      router.push("/dashboard/products/add")
+      window.location.href = "/dashboard/products/add"
     } else {
-      router.push("/dashboard/services/add")
+      window.location.href = "/dashboard/services/add"
     }
   }
 
-  const handleEditClick = (id: string, type: string) => {
-    if (type === "SERVICE" || type === "SERVICES") {
-      router.push(`/dashboard/services/edit/${id}`)
+  const handleAddClick = () => {
+    if (activeTab === "products") {
+      router.push("/dashboard/products/add")
     } else {
-      router.push(`/dashboard/products/edit/${id}`)
+      router.push("/dashboard/services/add")
     }
   }
 
@@ -337,13 +351,25 @@ export default function ProductsPage() {
 
   // Generate skeleton loaders based on view mode
   const renderSkeletons = () => {
-    return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <ProductCardSkeleton key={i} />
-        ))}
-      </div>
-    )
+    if (viewMode === "grid") {
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <ProductCardSkeleton key={index} />
+          ))}
+        </div>
+      )
+    } else {
+      return (
+        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+          <div className="divide-y divide-gray-200">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <ProductListItemSkeleton key={index} />
+            ))}
+          </div>
+        </div>
+      )
+    }
   }
 
   const getServiceTypeLabel = (serviceType?: string) => {
@@ -367,148 +393,115 @@ export default function ProductsPage() {
     return days.length > 0 ? days.join(", ") : "No days available"
   }
 
-  const filteredItems = useMemo(() => {
-    if (!fetchedItems) return [] // Additional safety check, though default in hook should handle this
-
-    const lowerCaseSearchTerm = searchTerm.toLowerCase()
-
-    return fetchedItems.filter((item) => {
-      const matchesSearch = item.name.toLowerCase().includes(lowerCaseSearchTerm)
-
-      if (activeTab === "products") {
-        // Filter for products (MERCHANDISE or no type specified)
-        return matchesSearch && (!item.type || item.type === "MERCHANDISE" || item.type === "Merchandise")
-      } else {
-        // Filter for services
-        return matchesSearch && (item.type === "SERVICE" || item.type === "SERVICES")
-      }
-    })
-  }, [fetchedItems, searchTerm, activeTab])
-
-  const handleAddClick = () => {
-    if (activeTab === "products") {
-      router.push("/dashboard/products/add")
-    } else {
-      router.push("/dashboard/services/add")
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Loading...</h1>
-          <Button disabled>
-            <Plus className="mr-2 h-4 w-4" /> Add Item
-          </Button>
-        </div>
-        {renderSkeletons()}
-      </div>
-    )
-  }
-
   if (error) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold">Error</h1>
-        <p className="text-red-500">Failed to load items: {error.message}</p>
-        <Button onClick={forceRefetch}>Retry</Button>
+      <div className="flex flex-col items-center justify-center h-full p-6 text-red-500">
+        <p>Error loading items: {error.message}</p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Your Listings</h1>
         <Button onClick={handleAddClick}>
-          <Plus className="mr-2 h-4 w-4" /> {activeTab === "products" ? "Add Product" : "Add Service"}
+          <Plus className="mr-2 h-4 w-4" />
+          {activeTab === "products" ? "Add Product" : "Add Service"}
         </Button>
       </div>
 
-      <div className="flex flex-col sm:flex-row items-center gap-4">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-grow">
+      <div className="flex flex-col md:flex-row items-center gap-4">
+        <div className="relative flex-1 w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+          <Input
+            placeholder="Search products or services..."
+            className="pl-9 w-full"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full md:w-auto">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="products">Products</TabsTrigger>
             <TabsTrigger value="services">Services</TabsTrigger>
           </TabsList>
         </Tabs>
-        <div className="relative w-full sm:w-auto">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-          <Input
-            type="text"
-            placeholder="Search items..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9 w-full"
-          />
-        </div>
       </div>
 
-      <TabsContent value={activeTab}>
-        {filteredItems.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-500">
-              No {activeTab} found. Click "Add {activeTab === "products" ? "Product" : "Service"}" to create one.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {filteredItems.map((item) => (
-              <Card key={item.id} className="flex flex-col overflow-hidden">
-                <div className="relative w-full h-48 bg-gray-100 flex items-center justify-center">
-                  {item.imageUrl ? (
-                    <Image
-                      src={item.imageUrl || "/placeholder.svg"}
-                      alt={item.name}
-                      layout="fill"
-                      objectFit="cover"
-                      className="rounded-t-lg"
-                    />
-                  ) : (
-                    <div className="text-gray-400">No Image</div>
-                  )}
-                  {item.type === "SERVICE" || item.type === "SERVICES" ? (
-                    <Badge className="absolute top-2 left-2 bg-blue-500 text-white">Service</Badge>
-                  ) : (
-                    <Badge className="absolute top-2 left-2 bg-green-500 text-white">Product</Badge>
-                  )}
-                </div>
-                <CardHeader className="p-4 pb-2">
-                  <CardTitle className="text-lg font-semibold truncate">{item.name}</CardTitle>
-                  <CardDescription className="text-sm text-gray-600 line-clamp-2">{item.description}</CardDescription>
-                </CardHeader>
-                <CardContent className="p-4 pt-0 flex-grow flex flex-col justify-between">
-                  <div className="flex items-center justify-between text-sm text-gray-700 mb-2">
-                    <span>Price:</span>
-                    <span className="font-medium">PHP {item.price?.toFixed(2) || "N/A"}</span>
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {[...Array(8)].map((_, i) => (
+            <ProductCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : (
+        <TabsContent value={activeTab} className="mt-0">
+          {filteredItems.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <p>No {activeTab} found.</p>
+              <p>Try adjusting your search or add a new {activeTab.slice(0, -1)}.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {filteredItems.map((item) => (
+                <Card
+                  key={item.id}
+                  className="flex flex-col overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() =>
+                    router.push(
+                      item.type === "SERVICE" || item.type === "SERVICES"
+                        ? `/dashboard/services/${item.id}`
+                        : `/dashboard/products/${item.id}`,
+                    )
+                  }
+                >
+                  <div className="relative w-full h-48 bg-gray-100 flex items-center justify-center">
+                    {item.imageUrl ? (
+                      <Image
+                        src={item.imageUrl || "/placeholder.svg"}
+                        alt={item.name}
+                        layout="fill"
+                        objectFit="cover"
+                        className="rounded-t-lg"
+                      />
+                    ) : (
+                      <div className="text-gray-400">
+                        {item.type === "SERVICE" || item.type === "SERVICES" ? (
+                          <Wrench className="h-12 w-12" />
+                        ) : (
+                          <Package className="h-12 w-12" />
+                        )}
+                      </div>
+                    )}
                   </div>
-                  {(item.type === "SERVICE" || item.type === "SERVICES") && item.schedule && (
-                    <div className="text-xs text-gray-500 mb-2">
-                      Available:{" "}
-                      {Object.keys(item.schedule)
-                        .filter((day) => item.schedule[day].available)
-                        .map((day) => day.charAt(0).toUpperCase() + day.slice(1))
-                        .join(", ") || "N/A"}
-                    </div>
-                  )}
-                  <div className="text-xs text-gray-500 mb-4">
-                    Last updated:{" "}
-                    {item.updatedAt ? format(new Date(item.updatedAt.seconds * 1000), "MMM dd, yyyy") : "N/A"}
-                  </div>
-                  <Button
-                    variant="outline"
-                    className="w-full bg-transparent"
-                    onClick={() => handleEditClick(item.id, item.type || "MERCHANDISE")}
-                  >
-                    Edit
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </TabsContent>
+                  <CardHeader className="p-4 pb-2">
+                    <CardTitle className="text-lg font-semibold truncate">{item.name}</CardTitle>
+                    <p className="text-sm text-gray-500">
+                      {item.type === "SERVICE" || item.type === "SERVICES" ? "Service" : "Product"}
+                    </p>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0 flex-grow flex flex-col justify-between">
+                    <p className="text-xl font-bold text-gray-900 mb-2">₱{item.price.toFixed(2)}</p>
+                    {item.type === "SERVICE" || item.type === "SERVICES" ? (
+                      <div className="text-sm text-gray-600">
+                        <p className="font-medium">Available Days:</p>
+                        <ul className="list-disc list-inside ml-2">
+                          {Object.entries((item as Service).schedule || {}).map(([day, { available }]) =>
+                            available ? <li key={day}>{day.charAt(0).toUpperCase() + day.slice(1)}</li> : null,
+                          )}
+                        </ul>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-600 line-clamp-2">{item.description}</p>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      )}
     </div>
   )
 }
