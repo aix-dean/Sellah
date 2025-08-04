@@ -166,7 +166,7 @@ export default function ProductsPage() {
       setShowCompanyForm(true)
       return
     }
-    window.location.href = "/dashboard/products/add"
+    window.location.href = "/dashboard/services/add"
   }
 
   const handleCloseCompanyForm = () => {
