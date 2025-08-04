@@ -69,7 +69,7 @@ export function validateServiceStep(
       break
 
     case 3: // Media
-      const hasImages = formData.media.filter((item) => !item.isVideo).length > 0 || formData.service_images.length > 0
+      const hasImages = formData.service_images.length > 0
       if (!hasImages) {
         errors.service_images = "At least one service image is required"
       }
@@ -89,7 +89,7 @@ export function validateServiceStep(
 }
 
 // Re-exporting generic components from product-form-shared
-export { StepNavigation, CategorySelection, NavigationButtons } from "./product-form-shared"
+export { StepNavigation, CategorySelection, NavigationButtons } from "@/components/product-form-shared"
 
 // Service Variation Item Component (adapted from Product Variation Item)
 interface ServiceVariationItemProps {

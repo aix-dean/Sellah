@@ -2,20 +2,11 @@
 
 import type React from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
+import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import {
-  X,
-  ImageIcon,
-  AlertCircle,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  ChevronDown,
-  ChevronUp,
-  Loader2,
-} from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertCircle, Loader2 } from "lucide-react"
 
 // Step definitions for product creation/editing
 export const STEPS = [
@@ -37,10 +28,10 @@ export const UNIT_OPTIONS = [
   { value: "per_square_foot", label: "Per Square Foot" },
   { value: "per_square_meter", label: "Per Square Meter" },
   { value: "per_roll", label: "Per Roll" },
-  { value: "per_dozon", label: "Per Dozen"},
-  { value: "per_hundred", label: "Per Hundred"},
-  { value: "per_unit", label: "Per Unit"},
-  { value: "per_watt", label: "Per Watt"}
+  { value: "per_dozon", label: "Per Dozen" },
+  { value: "per_hundred", label: "Per Hundred" },
+  { value: "per_unit", label: "Per Unit" },
+  { value: "per_watt", label: "Per Watt" },
 ]
 
 // Product form data interface
@@ -175,61 +166,38 @@ export function validateStep(
   }
 }
 
-// Step Navigation Component
+// Shared step navigation component
 interface StepNavigationProps {
   currentStep: number
-  steps: typeof STEPS
+  steps: { id: number; title: string; description: string }[]
 }
 
 export function StepNavigation({ currentStep, steps }: StepNavigationProps) {
   return (
-    <div className="bg-white rounded-lg shadow-sm border p-6">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4">Steps</h3>
-      <div className="space-y-2">
-        {steps.map((step) => (
-          <button
-            key={step.id}
-            className={`w-full text-left p-3 rounded-lg transition-colors ${
-              currentStep === step.id
-                ? "bg-red-50 border border-red-200 text-red-700"
-                : currentStep > step.id
-                  ? "bg-green-50 border border-green-200 text-green-700"
-                  : "bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100"
-            }`}
+    <nav className="space-y-4">
+      {steps.map((step) => (
+        <div key={step.id} className="flex items-start gap-3">
+          <div
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-full font-semibold",
+              currentStep === step.id ? "bg-primary text-primary-foreground" : "bg-gray-200 text-gray-600",
+            )}
           >
-            <div className="flex items-center">
-              <div
-                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium mr-3 ${
-                  currentStep === step.id
-                    ? "bg-red-500 text-white"
-                    : currentStep > step.id
-                      ? "bg-green-500 text-white"
-                      : "bg-gray-300 text-gray-600"
-                }`}
-              >
-                {currentStep > step.id ? <Check className="w-3 h-3" /> : step.id}
-              </div>
-              <div>
-                <div className="font-medium text-sm">{step.title}</div>
-                <div className="text-xs opacity-75">{step.description}</div>
-              </div>
-            </div>
-          </button>
-        ))}
-      </div>
-    </div>
+            {step.id}
+          </div>
+          <div>
+            <h3 className="font-medium text-gray-900">{step.title}</h3>
+            <p className="text-sm text-gray-500">{step.description}</p>
+          </div>
+        </div>
+      ))}
+    </nav>
   )
 }
 
-// Category Selection Component
+// Shared category selection component
 interface CategorySelectionProps {
-  categories: Array<{
-    id: string
-    name: string
-    description?: string
-    active: boolean
-    deleted: boolean
-  }>
+  categories: { id: string; name: string }[]
   selectedCategories: string[]
   onCategoryChange: (categoryId: string, checked: boolean) => void
   loading: boolean
@@ -245,60 +213,35 @@ export function CategorySelection({
   error,
   fieldError,
 }: CategorySelectionProps) {
-  if (loading) {
-    return (
-      <div className="space-y-2">
-        <Label className="text-sm font-medium text-gray-700 mb-2 block text-left">
-          Categories <span className="text-red-500">*</span>
-        </Label>
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-          <span className="ml-2 text-gray-500">Loading categories...</span>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="space-y-2">
-        <Label className="text-sm font-medium text-gray-700 mb-2 block text-left">
-          Categories <span className="text-red-500">*</span>
-        </Label>
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-2">
       <Label className="text-sm font-medium text-gray-700 mb-2 block text-left">
-        Categories <span className="text-red-500">*</span> (Select at least one)
+        Categories * (Select at least one)
       </Label>
       <div
-        className={`border rounded-lg p-4 max-h-48 overflow-y-auto ${fieldError ? "border-red-500" : "border-gray-300"}`}
+        className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 p-4 rounded-lg border ${fieldError ? "border-red-500" : "border-gray-300"}`}
       >
-        {categories.length === 0 ? (
-          <p className="text-gray-500 text-sm">No categories available</p>
-        ) : (
-          <div className="space-y-2">
-            {categories.map((category) => (
-              <label key={category.id} className="flex items-center space-x-2 cursor-pointer select-none">
-                <input
-                  type="radio"
-                  checked={selectedCategories.includes(category.id)}
-                  onChange={(e) => onCategoryChange(category.id, e.target.checked)}
-                  className="rounded border-gray-300 text-red-500 focus:ring-red-500"
-                />
-                <span className="text-sm text-gray-700">{category.name}</span>
-                {category.description && <span className="text-xs text-gray-500">- {category.description}</span>}
-              </label>
-            ))}
-          </div>
+        {loading && <p className="col-span-full text-center text-gray-500">Loading categories...</p>}
+        {error && (
+          <Alert variant="destructive" className="col-span-full">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
+        {!loading && categories.length === 0 && !error && (
+          <p className="col-span-full text-center text-gray-500">No categories available.</p>
+        )}
+        {categories.map((category) => (
+          <label key={category.id} className="flex items-center space-x-2 cursor-pointer select-none">
+            <Checkbox
+              checked={selectedCategories.includes(category.id)}
+              onCheckedChange={(checked) => onCategoryChange(category.id, !!checked)}
+              id={`category-${category.id}`}
+            />
+            <span className="text-sm text-gray-700">{category.name}</span>
+          </label>
+        ))}
       </div>
       {fieldError && (
         <div className="mt-1 flex items-center text-red-600 text-sm">
@@ -349,7 +292,7 @@ export function VariationItem({
       <div className="flex items-center justify-between p-4 bg-gray-50 rounded-t-lg">
         <div className="flex items-center space-x-3">
           <button type="button" onClick={onToggleCollapse} className="text-gray-500 hover:text-gray-700">
-            {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            {isCollapsed ? "Expand" : "Collapse"}
           </button>
           <h4 className="font-medium text-gray-800">
             Variation {index + 1} {variation.name && `- ${variation.name}`}
@@ -362,7 +305,7 @@ export function VariationItem({
           onClick={onRemove}
           className="text-red-600 hover:text-red-700 hover:bg-red-50"
         >
-          <X className="w-4 h-4" />
+          Remove
         </Button>
       </div>
 
@@ -371,7 +314,7 @@ export function VariationItem({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor={`variation-name-${variation.id}`}>Variation Name *</Label>
-              <Input
+              <input
                 id={`variation-name-${variation.id}`}
                 value={variation.name}
                 onChange={(e) => onUpdate("name", e.target.value)}
@@ -385,7 +328,7 @@ export function VariationItem({
 
             <div>
               <Label htmlFor={`variation-color-${variation.id}`}>Color</Label>
-              <Input
+              <input
                 id={`variation-color-${variation.id}`}
                 value={variation.color}
                 onChange={(e) => onUpdate("color", e.target.value)}
@@ -397,7 +340,7 @@ export function VariationItem({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <Label htmlFor={`variation-weight-${variation.id}`}>Weight (kg)</Label>
-              <Input
+              <input
                 id={`variation-weight-${variation.id}`}
                 type="number"
                 step="0.1"
@@ -409,7 +352,7 @@ export function VariationItem({
 
             <div>
               <Label htmlFor={`variation-height-${variation.id}`}>Height (cm)</Label>
-              <Input
+              <input
                 id={`variation-height-${variation.id}`}
                 type="number"
                 value={variation.height}
@@ -420,7 +363,7 @@ export function VariationItem({
 
             <div>
               <Label htmlFor={`variation-length-${variation.id}`}>Length (cm)</Label>
-              <Input
+              <input
                 id={`variation-length-${variation.id}`}
                 type="number"
                 value={variation.length}
@@ -434,7 +377,7 @@ export function VariationItem({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
               <div>
                 <Label htmlFor={`variation-price-${variation.id}`}>Price (₱) *</Label>
-                <Input
+                <input
                   id={`variation-price-${variation.id}`}
                   type="number"
                   step="0.01"
@@ -450,7 +393,7 @@ export function VariationItem({
 
               <div>
                 <Label htmlFor={`variation-stock-${variation.id}`}>Stock Quantity *</Label>
-                <Input
+                <input
                   id={`variation-stock-${variation.id}`}
                   type="number"
                   value={variation.stock}
@@ -486,7 +429,7 @@ export function VariationItem({
                       onClick={onRemoveImage}
                       className="absolute -top-1 -right-1 w-5 h-5 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                     >
-                      <X className="w-3 h-3" />
+                      Remove
                     </Button>
                   </div>
                   <input
@@ -529,10 +472,7 @@ export function VariationItem({
                         Uploading...
                       </>
                     ) : (
-                      <>
-                        <ImageIcon className="w-4 h-4 mr-2" />
-                        Add Image
-                      </>
+                      "Add Image"
                     )}
                   </Button>
                 </div>
@@ -545,7 +485,7 @@ export function VariationItem({
   )
 }
 
-// Navigation Buttons Component
+// Shared navigation buttons for multi-step forms
 interface NavigationButtonsProps {
   currentStep: number
   totalSteps: number
@@ -556,7 +496,6 @@ interface NavigationButtonsProps {
   onSaveDraft: () => void
   onSubmit: () => void
   submitLabel?: string
-  isEdit?: boolean
 }
 
 export function NavigationButtons({
@@ -568,41 +507,36 @@ export function NavigationButtons({
   onNext,
   onSaveDraft,
   onSubmit,
-  submitLabel = "Publish Product",
-  isEdit = false,
+  submitLabel = "Submit",
 }: NavigationButtonsProps) {
   return (
-    <div className="flex justify-between items-center p-6 border-t bg-gray-50">
-      <div className="flex space-x-3">
-        <Button type="button" variant="outline" onClick={onPrevious} disabled={currentStep === 1 || loading}>
-          <ChevronLeft className="w-4 h-4 mr-2" />
-          Previous
-        </Button>
-      </div>
-
-      <div className="flex space-x-3">
-        <Button type="button" variant="outline" onClick={onSaveDraft} disabled={loading}>
-          {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Saving...
-            </>
-          ) : (
-            "Save as Draft"
-          )}
-        </Button>
-
+    <div className="flex justify-between p-6 border-t border-gray-200">
+      <Button type="button" variant="outline" onClick={onPrevious} disabled={currentStep === 1 || loading}>
+        Previous
+      </Button>
+      <div className="flex gap-2">
+        {currentStep < totalSteps && (
+          <Button type="button" variant="outline" onClick={onSaveDraft} disabled={loading}>
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Save Draft"
+            )}
+          </Button>
+        )}
         {currentStep < totalSteps ? (
           <Button type="button" onClick={onNext} disabled={!canProceed || loading}>
             Next
-            <ChevronRight className="w-4 h-4 ml-2" />
           </Button>
         ) : (
           <Button type="button" onClick={onSubmit} disabled={!canProceed || loading}>
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                {isEdit ? "Updating..." : "Publishing..."}
+                {submitLabel.replace("Service", "ing...")}
               </>
             ) : (
               submitLabel

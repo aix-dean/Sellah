@@ -1,12 +1,22 @@
-// Service interface (similar to Product, but adapted for services)
-export interface Service {
-  id?: string
+import type { Timestamp } from "firebase/firestore"
+
+export type ServiceUnit = "per_hour" | "per_session" | "per_day" | "per_project" | "per_person"
+
+export interface ServiceVariation {
+  id: string
+  name: string
+  duration: string // e.g., "30 mins", "1 hour"
+  price: string // Stored as string for form input, converted to number for Firestore
+  slots: string // Stored as string for form input, converted to number for Firestore
+  media: string | null // URL of variation-specific image
+}
+
+export interface ServiceFormData {
   name: string
   description: string
-  category: string
-  price: number
-  unit: string
-  duration?: string // e.g., "30 minutes", "1 hour"
+  categories: string[] // Array of category IDs
+  unit: ServiceUnit
+  duration: string // Overall service duration, if not covered by variations
   availability: {
     monday: boolean
     tuesday: boolean
@@ -16,42 +26,28 @@ export interface Service {
     saturday: boolean
     sunday: boolean
   }
-  service_images: string[]
-  mainImage?: string
-  tags: string[]
-  seoTitle?: string
-  seoDescription?: string
-  seoKeywords?: string[]
-  status: "active" | "draft" | "archived"
-  visibility: "public" | "private"
-  featured: boolean
-  userId: string
-  createdAt?: any
-  updatedAt?: any
-  active?: boolean
-  deleted?: boolean
-  sales?: number
-  views?: number
-  rating?: number
-  image_url?: string
-  stock?: number // Services might have a "capacity" or "slots" concept
-  variations?: Array<{
-    id: string
-    name: string
-    price: number
-    duration?: string
-    slots?: number // For services with limited slots per variation
-    images: File[]
-    media: string | null
-  }>
+  service_images: string[] // URLs of main service images
+  service_video: string | null // URL of service video
+  media: { url: string; isVideo: boolean; type: string; distance: string }[] // Combined media for display
+  is_pre_order: boolean
+  pre_order_days: string // Stored as string for form input, converted to number for Firestore
+  payment_methods: {
+    ewallet: boolean
+    bank_transfer: boolean
+    gcash: boolean
+    maya: boolean
+    manual: boolean
+  }
+  variations: ServiceVariation[]
 }
 
-// Service form data interface (similar to ProductFormData)
-export interface ServiceFormData {
+export interface Service {
+  id: string
+  userId: string
   name: string
   description: string
   categories: string[]
-  unit: string
+  unit: ServiceUnit
   duration: string
   availability: {
     monday: boolean
@@ -62,16 +58,11 @@ export interface ServiceFormData {
     saturday: boolean
     sunday: boolean
   }
-  service_images: File[]
-  service_video: File | null
-  media: Array<{
-    distance: string
-    isVideo: boolean
-    type: string
-    url: string
-  }>
-  is_pre_order: boolean // Can services be pre-ordered?
-  pre_order_days: string
+  service_images: string[]
+  service_video: string | null
+  media: { url: string; isVideo: boolean; type: string; distance: string }[]
+  is_pre_order: boolean
+  pre_order_days: number
   payment_methods: {
     ewallet: boolean
     bank_transfer: boolean
@@ -79,13 +70,17 @@ export interface ServiceFormData {
     maya: boolean
     manual: boolean
   }
-  variations: Array<{
+  variations: {
     id: string
     name: string
     duration: string
-    price: string
-    slots: string // Number of slots available for this variation
-    images: File[]
+    price: number
+    slots: number
     media: string | null
-  }>
+  }[]
+  price: number // Main price, usually from first variation
+  mainImage: string // URL of the main image
+  status: "draft" | "active" | "inactive" | "archived"
+  createdAt: Timestamp
+  updatedAt: Timestamp
 }
