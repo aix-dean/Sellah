@@ -1,500 +1,441 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useCallback } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
+
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Badge } from "@/components/ui/badge"
-import { Plus, X, UploadCloud, Loader2 } from "lucide-react"
-import type { Service } from "@/types/service"
-import { useToast } from "@/hooks/use-toast"
-import { getServiceCategories, uploadServiceImage, deleteServiceImage } from "@/lib/service-service"
-import { useAuth } from "@/hooks/use-auth"
-import { cn } from "@/lib/utils"
-
-const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
-const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"]
-
-const serviceFormSchema = z.object({
-  name: z.string().min(1, "Service name is required"),
-  description: z.string().optional(),
-  category: z.string().min(1, "Category is required"),
-  price: z.coerce.number().min(0.01, "Price must be greater than 0"),
-  duration: z.coerce.number().min(1, "Duration must be at least 1"),
-  durationUnit: z.enum(["minutes", "hours", "days"]).default("hours"),
-  images: z.array(z.string()).max(5, "You can upload a maximum of 5 images").min(1, "At least one image is required"),
-  mainImage: z.string().optional(),
-  tags: z.array(z.string()).optional(),
-  status: z.enum(["active", "draft", "archived"]).default("draft"),
-  visibility: z.enum(["public", "private"]).default("public"),
-  featured: z.boolean().default(false),
-})
-
-type ServiceFormValues = z.infer<typeof serviceFormSchema>
+import { Plus, X, Upload, ImageIcon } from "lucide-react"
+import type { ServiceFormData, ServiceVariation } from "@/types/service"
 
 interface ServiceFormSharedProps {
-  initialData?: Service | null
-  onSubmit: (data: ServiceFormValues) => Promise<void>
+  formData: ServiceFormData
+  setFormData: (data: ServiceFormData) => void
+  onSubmit: (e: React.FormEvent) => void
   isSubmitting: boolean
+  submitButtonText: string
+  title: string
+  description: string
 }
 
-export function ServiceFormShared({ initialData, onSubmit, isSubmitting }: ServiceFormSharedProps) {
-  const { user } = useAuth()
-  const { toast } = useToast()
-  const [categories, setCategories] = useState<string[]>([])
-  const [newTag, setNewTag] = useState("")
-  const [uploadingImage, setUploadingImage] = useState(false)
-  const [imageUploadError, setImageUploadError] = useState<string | null>(null)
+export function ServiceFormShared({
+  formData,
+  setFormData,
+  onSubmit,
+  isSubmitting,
+  submitButtonText,
+  title,
+  description,
+}: ServiceFormSharedProps) {
+  const [newCategory, setNewCategory] = useState("")
 
-  const form = useForm<ServiceFormValues>({
-    resolver: zodResolver(serviceFormSchema),
-    defaultValues: {
-      name: initialData?.name || "",
-      description: initialData?.description || "",
-      category: initialData?.category || "",
-      price: initialData?.price || 0.01,
-      duration: initialData?.duration || 60,
-      durationUnit: initialData?.durationUnit || "hours",
-      images: initialData?.images || [],
-      mainImage: initialData?.mainImage || undefined,
-      tags: initialData?.tags || [],
-      status: initialData?.status || "draft",
-      visibility: initialData?.visibility || "public",
-      featured: initialData?.featured ?? false,
-    },
-  })
+  const handleInputChange = (field: keyof ServiceFormData, value: any) => {
+    setFormData({
+      ...formData,
+      [field]: value,
+    })
+  }
 
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const fetchedCategories = await getServiceCategories()
-        setCategories(fetchedCategories)
-      } catch (error) {
-        console.error("Failed to fetch categories:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load categories.",
-          variant: "destructive",
-        })
-      }
-    }
-    fetchCategories()
-  }, [toast])
+  const handleAvailabilityChange = (day: keyof ServiceFormData["availability"], checked: boolean) => {
+    setFormData({
+      ...formData,
+      availability: {
+        ...formData.availability,
+        [day]: checked,
+      },
+    })
+  }
 
-  const handleImageUpload = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
-      if (!user?.uid) {
-        toast({
-          title: "Authentication Required",
-          description: "You must be logged in to upload images.",
-          variant: "destructive",
-        })
-        return
-      }
+  const handlePaymentMethodChange = (method: keyof ServiceFormData["payment_methods"], checked: boolean) => {
+    setFormData({
+      ...formData,
+      payment_methods: {
+        ...formData.payment_methods,
+        [method]: checked,
+      },
+    })
+  }
 
-      const file = event.target.files?.[0]
-      if (!file) return
-
-      if (file.size > MAX_FILE_SIZE) {
-        setImageUploadError("File size exceeds 5MB limit.")
-        return
-      }
-
-      if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-        setImageUploadError("Invalid file type. Only JPG, PNG, WEBP images are allowed.")
-        return
-      }
-
-      setImageUploadError(null)
-      setUploadingImage(true)
-
-      try {
-        const downloadURL = await uploadServiceImage(file, user.uid, initialData?.id)
-        const currentImages = form.getValues("images")
-        const updatedImages = [...currentImages, downloadURL]
-        form.setValue("images", updatedImages, { shouldValidate: true })
-        if (updatedImages.length === 1) {
-          form.setValue("mainImage", downloadURL)
-        }
-        toast({
-          title: "Image Uploaded",
-          description: "Image uploaded successfully.",
-        })
-      } catch (error) {
-        console.error("Error uploading image:", error)
-        setImageUploadError("Failed to upload image. Please try again.")
-        toast({
-          title: "Upload Failed",
-          description: "There was an error uploading your image.",
-          variant: "destructive",
-        })
-      } finally {
-        setUploadingImage(false)
-        event.target.value = "" // Clear the input
-      }
-    },
-    [user?.uid, form, initialData?.id, toast],
-  )
-
-  const handleRemoveImage = useCallback(
-    async (imageUrl: string) => {
-      const currentImages = form.getValues("images")
-      const updatedImages = currentImages.filter((img) => img !== imageUrl)
-      form.setValue("images", updatedImages, { shouldValidate: true })
-
-      // If the removed image was the main image, set a new main image or clear it
-      if (form.getValues("mainImage") === imageUrl) {
-        form.setValue("mainImage", updatedImages.length > 0 ? updatedImages[0] : undefined)
-      }
-
-      // Optionally delete from storage (consider if this should be a soft delete or hard delete)
-      try {
-        await deleteServiceImage([imageUrl])
-        toast({
-          title: "Image Removed",
-          description: "Image removed successfully.",
-        })
-      } catch (error) {
-        console.error("Error deleting image from storage:", error)
-        toast({
-          title: "Error",
-          description: "Failed to delete image from storage.",
-          variant: "destructive",
-        })
-      }
-    },
-    [form, toast],
-  )
-
-  const handleSetMainImage = useCallback(
-    (imageUrl: string) => {
-      form.setValue("mainImage", imageUrl)
-    },
-    [form],
-  )
-
-  const handleAddTag = () => {
-    if (newTag.trim() && !form.getValues("tags")?.includes(newTag.trim())) {
-      form.setValue("tags", [...(form.getValues("tags") || []), newTag.trim()], { shouldValidate: true })
-      setNewTag("")
+  const addCategory = () => {
+    if (newCategory && !formData.categories.includes(newCategory)) {
+      setFormData({
+        ...formData,
+        categories: [...formData.categories, newCategory],
+      })
+      setNewCategory("")
     }
   }
 
-  const handleRemoveTag = (tagToRemove: string) => {
-    form.setValue("tags", form.getValues("tags")?.filter((tag) => tag !== tagToRemove) || [], { shouldValidate: true })
+  const removeCategory = (category: string) => {
+    setFormData({
+      ...formData,
+      categories: formData.categories.filter((c) => c !== category),
+    })
+  }
+
+  const addVariation = () => {
+    const newVariation: ServiceVariation = {
+      id: Date.now().toString(),
+      name: "",
+      duration: "",
+      price: "",
+      slots: "",
+      images: [],
+      media: null,
+    }
+    setFormData({
+      ...formData,
+      variations: [...formData.variations, newVariation],
+    })
+  }
+
+  const updateVariation = (index: number, field: keyof ServiceVariation, value: any) => {
+    const updatedVariations = formData.variations.map((variation, i) =>
+      i === index ? { ...variation, [field]: value } : variation,
+    )
+    setFormData({
+      ...formData,
+      variations: updatedVariations,
+    })
+  }
+
+  const removeVariation = (index: number) => {
+    const updatedVariations = formData.variations.filter((_, i) => i !== index)
+    setFormData({
+      ...formData,
+      variations: updatedVariations,
+    })
+  }
+
+  const handleImageUpload = (files: FileList | null) => {
+    if (files) {
+      const newImages = Array.from(files)
+      setFormData({
+        ...formData,
+        service_images: [...formData.service_images, ...newImages],
+      })
+    }
+  }
+
+  const removeImage = (index: number) => {
+    const updatedImages = formData.service_images.filter((_, i) => i !== index)
+    setFormData({
+      ...formData,
+      service_images: updatedImages,
+    })
   }
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        {/* General Information */}
-        <div className="grid gap-4 md:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Service Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="e.g., Web Design Consultation" {...field} />
-                </FormControl>
-                <FormDescription>The name of your service.</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="category"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Category</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a category" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormDescription>The category your service belongs to.</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="description"
-            render={({ field }) => (
-              <FormItem className="md:col-span-2">
-                <FormLabel>Description</FormLabel>
-                <FormControl>
-                  <Textarea placeholder="Tell us about your service..." {...field} />
-                </FormControl>
-                <FormDescription>A detailed description of your service.</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+    <div className="max-w-4xl mx-auto p-6 space-y-8">
+      <div className="text-center">
+        <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
+        <p className="text-gray-600 mt-2">{description}</p>
+      </div>
 
-        {/* Pricing & Duration */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <FormField
-            control={form.control}
-            name="price"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Price (PHP)</FormLabel>
-                <FormControl>
-                  <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                </FormControl>
-                <FormDescription>The selling price of your service.</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="duration"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Duration</FormLabel>
-                <FormControl>
-                  <Input type="number" placeholder="60" {...field} />
-                </FormControl>
-                <FormDescription>How long the service typically takes.</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="durationUnit"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Duration Unit</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select unit" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="minutes">Minutes</SelectItem>
-                    <SelectItem value="hours">Hours</SelectItem>
-                    <SelectItem value="days">Days</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormDescription>Unit for the service duration.</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+      <form onSubmit={onSubmit} className="space-y-8">
+        {/* Basic Information */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Basic Information</CardTitle>
+            <CardDescription>Enter the basic details of your service</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="name">Service Name *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => handleInputChange("name", e.target.value)}
+                placeholder="Enter service name"
+                required
+              />
+            </div>
 
-        {/* Media */}
-        <div>
-          <h3 className="text-lg font-medium mb-2">Media</h3>
-          <FormDescription className="mb-4">Upload images for your service (max 5).</FormDescription>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-4">
-            {form.watch("images").map((imageUrl, index) => (
-              <div key={index} className="relative group aspect-square rounded-md overflow-hidden border">
-                <img
-                  src={imageUrl || "/placeholder.svg"}
-                  alt={`Service image ${index + 1}`}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    className="mr-2"
-                    onClick={() => handleRemoveImage(imageUrl)}
-                  >
-                    <X className="h-4 w-4" />
-                    <span className="sr-only">Remove image</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleSetMainImage(imageUrl)}
-                    className={cn(
-                      "text-xs",
-                      form.watch("mainImage") === imageUrl && "bg-primary text-primary-foreground",
-                    )}
-                  >
-                    {form.watch("mainImage") === imageUrl ? "Main" : "Set Main"}
-                  </Button>
-                </div>
-                {form.watch("mainImage") === imageUrl && (
-                  <Badge className="absolute top-2 left-2 bg-primary text-primary-foreground">Main</Badge>
-                )}
-              </div>
-            ))}
-            {form.watch("images").length < 5 && (
-              <div className="aspect-square rounded-md border-2 border-dashed flex items-center justify-center relative">
-                <Input
-                  id="image-upload"
-                  type="file"
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                  onChange={handleImageUpload}
-                  disabled={uploadingImage}
-                  accept={ACCEPTED_IMAGE_TYPES.join(",")}
-                />
-                {uploadingImage ? (
-                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-                ) : (
-                  <div className="flex flex-col items-center text-gray-400">
-                    <UploadCloud className="h-8 w-8" />
-                    <span className="text-sm mt-2">Upload Image</span>
+            <div>
+              <Label htmlFor="description">Description *</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => handleInputChange("description", e.target.value)}
+                placeholder="Enter service description"
+                rows={4}
+                required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="unit">Unit *</Label>
+              <Select value={formData.unit} onValueChange={(value) => handleInputChange("unit", value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select unit" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="per_hour">Per Hour</SelectItem>
+                  <SelectItem value="per_session">Per Session</SelectItem>
+                  <SelectItem value="per_day">Per Day</SelectItem>
+                  <SelectItem value="per_project">Per Project</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Categories */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Categories</CardTitle>
+            <CardDescription>Add categories for your service</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                placeholder="Enter category"
+                onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addCategory())}
+              />
+              <Button type="button" onClick={addCategory}>
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {formData.categories.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {formData.categories.map((category) => (
+                  <div key={category} className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded">
+                    <span className="text-sm">{category}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-4 w-4 p-0"
+                      onClick={() => removeCategory(category)}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
                   </div>
-                )}
+                ))}
               </div>
             )}
-          </div>
-          {imageUploadError && <p className="text-red-500 text-sm mt-2">{imageUploadError}</p>}
-          <FormField
-            control={form.control}
-            name="images"
-            render={() => (
-              <FormItem>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+          </CardContent>
+        </Card>
 
-        {/* Tags */}
-        <div>
-          <h3 className="text-lg font-medium mb-2">Tags</h3>
-          <FormDescription className="mb-4">Add keywords to help customers find your service.</FormDescription>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {form.watch("tags")?.map((tag, index) => (
-              <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                {tag}
+        {/* Service Images */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Service Images</CardTitle>
+            <CardDescription>Upload images for your service</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="images">Upload Images</Label>
+              <div className="mt-2">
+                <input
+                  id="images"
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={(e) => handleImageUpload(e.target.files)}
+                  className="hidden"
+                />
                 <Button
                   type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-4 w-4 p-0"
-                  onClick={() => handleRemoveTag(tag)}
+                  variant="outline"
+                  onClick={() => document.getElementById("images")?.click()}
+                  className="w-full"
                 >
-                  <X className="h-3 w-3" />
-                  <span className="sr-only">Remove tag</span>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload Images
                 </Button>
-              </Badge>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <Input
-              placeholder="Add a new tag"
-              value={newTag}
-              onChange={(e) => setNewTag(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault()
-                  handleAddTag()
-                }
-              }}
-            />
-            <Button type="button" onClick={handleAddTag}>
-              <Plus className="h-4 w-4 mr-2" /> Add Tag
-            </Button>
-          </div>
-        </div>
+              </div>
+            </div>
 
-        {/* Status & Visibility */}
-        <div className="grid gap-4 md:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="status"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Status</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="archived">Archived</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormDescription>The current status of your service.</FormDescription>
-                <FormMessage />
-              </FormItem>
+            {formData.service_images.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {formData.service_images.map((image, index) => (
+                  <div key={index} className="relative">
+                    <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center">
+                      <ImageIcon className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
+                      onClick={() => removeImage(index)}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                    <p className="text-xs text-gray-500 mt-1 truncate">{image.name}</p>
+                  </div>
+                ))}
+              </div>
             )}
-          />
-          <FormField
-            control={form.control}
-            name="visibility"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Visibility</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select visibility" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="public">Public</SelectItem>
-                    <SelectItem value="private">Private</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormDescription>Who can see this service.</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="featured"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                <FormControl>
-                  <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                </FormControl>
-                <div className="space-y-1 leading-none">
-                  <FormLabel>Featured Service</FormLabel>
-                  <FormDescription>Mark this service as featured on your store.</FormDescription>
+          </CardContent>
+        </Card>
+
+        {/* Availability */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Availability</CardTitle>
+            <CardDescription>Set your service availability</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Object.entries(formData.availability).map(([day, available]) => (
+                <div key={day} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={day}
+                    checked={available}
+                    onCheckedChange={(checked) =>
+                      handleAvailabilityChange(day as keyof ServiceFormData["availability"], checked as boolean)
+                    }
+                  />
+                  <Label htmlFor={day} className="capitalize">
+                    {day}
+                  </Label>
                 </div>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
-        <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Saving...
-            </>
-          ) : (
-            "Save Service"
-          )}
-        </Button>
+        {/* Pre-order Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Pre-order Settings</CardTitle>
+            <CardDescription>Configure pre-order requirements</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="is_pre_order"
+                checked={formData.is_pre_order}
+                onCheckedChange={(checked) => handleInputChange("is_pre_order", checked)}
+              />
+              <Label htmlFor="is_pre_order">Require pre-order</Label>
+            </div>
+
+            {formData.is_pre_order && (
+              <div>
+                <Label htmlFor="pre_order_days">Pre-order Days</Label>
+                <Input
+                  id="pre_order_days"
+                  type="number"
+                  value={formData.pre_order_days}
+                  onChange={(e) => handleInputChange("pre_order_days", e.target.value)}
+                  placeholder="Number of days"
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Payment Methods */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Payment Methods</CardTitle>
+            <CardDescription>Select accepted payment methods</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {Object.entries(formData.payment_methods).map(([method, accepted]) => (
+                <div key={method} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={method}
+                    checked={accepted}
+                    onCheckedChange={(checked) =>
+                      handlePaymentMethodChange(method as keyof ServiceFormData["payment_methods"], checked as boolean)
+                    }
+                  />
+                  <Label htmlFor={method} className="capitalize">
+                    {method.replace("_", " ")}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Service Variations */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Service Variations</CardTitle>
+            <CardDescription>Add different variations of your service</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {formData.variations.map((variation, index) => (
+              <div key={variation.id} className="border rounded-lg p-4 space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-medium">Variation {index + 1}</h4>
+                  <Button type="button" variant="destructive" size="sm" onClick={() => removeVariation(index)}>
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Variation Name</Label>
+                    <Input
+                      value={variation.name}
+                      onChange={(e) => updateVariation(index, "name", e.target.value)}
+                      placeholder="e.g., Basic Package, Premium Package"
+                    />
+                  </div>
+                  <div>
+                    <Label>Duration</Label>
+                    <Input
+                      value={variation.duration}
+                      onChange={(e) => updateVariation(index, "duration", e.target.value)}
+                      placeholder="e.g., 1 hour, 2 days"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Price</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={variation.price}
+                      onChange={(e) => updateVariation(index, "price", e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <Label>Available Slots</Label>
+                    <Input
+                      type="number"
+                      value={variation.slots}
+                      onChange={(e) => updateVariation(index, "slots", e.target.value)}
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            <Button type="button" variant="outline" onClick={addVariation} className="w-full bg-transparent">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Variation
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Submit Button */}
+        <div className="flex justify-end">
+          <Button type="submit" disabled={isSubmitting} className="bg-red-500 hover:bg-red-600">
+            {isSubmitting ? "Saving..." : submitButtonText}
+          </Button>
+        </div>
       </form>
-    </Form>
+    </div>
   )
 }
