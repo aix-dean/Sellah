@@ -1,22 +1,28 @@
 import type { Timestamp } from "firebase/firestore"
 
-export type ServiceUnit = "per_hour" | "per_session" | "per_day" | "per_project" | "per_person"
-
 export interface ServiceVariation {
   id: string
   name: string
   duration: string // e.g., "30 mins", "1 hour"
-  price: string // Stored as string for form input, converted to number for Firestore
-  slots: string // Stored as string for form input, converted to number for Firestore
-  media: string | null // URL of variation-specific image
+  price: string // Stored as string to handle decimal input easily
+  slots: string // Number of available slots for this variation
+  images: File[] // For new uploads
+  media: string | null // URL for existing image
 }
 
 export interface ServiceFormData {
   name: string
   description: string
-  categories: string[] // Array of category IDs
-  unit: ServiceUnit
-  duration: string // Overall service duration, if not covered by variations
+  categories: string[]
+  unit: string // e.g., "per_hour", "per_session"
+  service_images: File[] // For new uploads
+  service_video: File | null // For new uploads
+  media: Array<{
+    distance: string // For ordering media
+    isVideo: boolean
+    type: string // "image" or "video"
+    url: string
+  }>
   availability: {
     monday: boolean
     tuesday: boolean
@@ -26,11 +32,8 @@ export interface ServiceFormData {
     saturday: boolean
     sunday: boolean
   }
-  service_images: string[] // URLs of main service images
-  service_video: string | null // URL of service video
-  media: { url: string; isVideo: boolean; type: string; distance: string }[] // Combined media for display
   is_pre_order: boolean
-  pre_order_days: string // Stored as string for form input, converted to number for Firestore
+  pre_order_days: string // Number of days for pre-order
   payment_methods: {
     ewallet: boolean
     bank_transfer: boolean
@@ -43,12 +46,16 @@ export interface ServiceFormData {
 
 export interface Service {
   id: string
-  userId: string
   name: string
   description: string
   categories: string[]
-  unit: ServiceUnit
-  duration: string
+  unit: string
+  media: Array<{
+    distance: string
+    isVideo: boolean
+    type: string
+    url: string
+  }>
   availability: {
     monday: boolean
     tuesday: boolean
@@ -58,9 +65,6 @@ export interface Service {
     saturday: boolean
     sunday: boolean
   }
-  service_images: string[]
-  service_video: string | null
-  media: { url: string; isVideo: boolean; type: string; distance: string }[]
   is_pre_order: boolean
   pre_order_days: number
   payment_methods: {
@@ -70,17 +74,16 @@ export interface Service {
     maya: boolean
     manual: boolean
   }
-  variations: {
+  variations: Array<{
     id: string
     name: string
     duration: string
     price: number
     slots: number
     media: string | null
-  }[]
-  price: number // Main price, usually from first variation
-  mainImage: string // URL of the main image
-  status: "draft" | "active" | "inactive" | "archived"
-  createdAt: Timestamp
-  updatedAt: Timestamp
+  }>
+  created_at: Timestamp
+  updated_at: Timestamp
+  user_id: string
+  status: "active" | "draft" | "archived"
 }

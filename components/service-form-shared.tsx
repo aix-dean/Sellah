@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { X, ImageIcon, ChevronDown, ChevronUp, Loader2 } from "lucide-react"
 import type { ServiceFormData } from "@/types/service"
+import { StepNavigation, CategorySelection, NavigationButtons } from "@/components/product-form-shared"
 
 // Step definitions for service creation/editing
 export const SERVICE_STEPS = [
@@ -89,7 +90,7 @@ export function validateServiceStep(
 }
 
 // Re-exporting generic components from product-form-shared
-export { StepNavigation, CategorySelection, NavigationButtons } from "@/components/product-form-shared"
+export { StepNavigation, CategorySelection, NavigationButtons }
 
 // Service Variation Item Component (adapted from Product Variation Item)
 interface ServiceVariationItemProps {

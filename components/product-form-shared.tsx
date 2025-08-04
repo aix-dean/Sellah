@@ -6,7 +6,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, Loader2 } from "lucide-react"
+import { AlertCircle, Loader2, X, ImageIcon, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from "lucide-react"
+import { Input } from "@/components/ui/input"
 
 // Step definitions for product creation/editing
 export const STEPS = [
@@ -292,7 +293,7 @@ export function VariationItem({
       <div className="flex items-center justify-between p-4 bg-gray-50 rounded-t-lg">
         <div className="flex items-center space-x-3">
           <button type="button" onClick={onToggleCollapse} className="text-gray-500 hover:text-gray-700">
-            {isCollapsed ? "Expand" : "Collapse"}
+            {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
           </button>
           <h4 className="font-medium text-gray-800">
             Variation {index + 1} {variation.name && `- ${variation.name}`}
@@ -305,7 +306,7 @@ export function VariationItem({
           onClick={onRemove}
           className="text-red-600 hover:text-red-700 hover:bg-red-50"
         >
-          Remove
+          <X className="w-4 h-4" />
         </Button>
       </div>
 
@@ -314,7 +315,7 @@ export function VariationItem({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor={`variation-name-${variation.id}`}>Variation Name *</Label>
-              <input
+              <Input
                 id={`variation-name-${variation.id}`}
                 value={variation.name}
                 onChange={(e) => onUpdate("name", e.target.value)}
@@ -328,7 +329,7 @@ export function VariationItem({
 
             <div>
               <Label htmlFor={`variation-color-${variation.id}`}>Color</Label>
-              <input
+              <Input
                 id={`variation-color-${variation.id}`}
                 value={variation.color}
                 onChange={(e) => onUpdate("color", e.target.value)}
@@ -340,7 +341,7 @@ export function VariationItem({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <Label htmlFor={`variation-weight-${variation.id}`}>Weight (kg)</Label>
-              <input
+              <Input
                 id={`variation-weight-${variation.id}`}
                 type="number"
                 step="0.1"
@@ -352,7 +353,7 @@ export function VariationItem({
 
             <div>
               <Label htmlFor={`variation-height-${variation.id}`}>Height (cm)</Label>
-              <input
+              <Input
                 id={`variation-height-${variation.id}`}
                 type="number"
                 value={variation.height}
@@ -363,7 +364,7 @@ export function VariationItem({
 
             <div>
               <Label htmlFor={`variation-length-${variation.id}`}>Length (cm)</Label>
-              <input
+              <Input
                 id={`variation-length-${variation.id}`}
                 type="number"
                 value={variation.length}
@@ -377,7 +378,7 @@ export function VariationItem({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
               <div>
                 <Label htmlFor={`variation-price-${variation.id}`}>Price (₱) *</Label>
-                <input
+                <Input
                   id={`variation-price-${variation.id}`}
                   type="number"
                   step="0.01"
@@ -393,7 +394,7 @@ export function VariationItem({
 
               <div>
                 <Label htmlFor={`variation-stock-${variation.id}`}>Stock Quantity *</Label>
-                <input
+                <Input
                   id={`variation-stock-${variation.id}`}
                   type="number"
                   value={variation.stock}
@@ -429,7 +430,7 @@ export function VariationItem({
                       onClick={onRemoveImage}
                       className="absolute -top-1 -right-1 w-5 h-5 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                     >
-                      Remove
+                      <X className="w-3 h-3" />
                     </Button>
                   </div>
                   <input
@@ -472,7 +473,10 @@ export function VariationItem({
                         Uploading...
                       </>
                     ) : (
-                      "Add Image"
+                      <>
+                        <ImageIcon className="w-4 h-4 mr-2" />
+                        Add Image
+                      </>
                     )}
                   </Button>
                 </div>
@@ -512,6 +516,7 @@ export function NavigationButtons({
   return (
     <div className="flex justify-between p-6 border-t border-gray-200">
       <Button type="button" variant="outline" onClick={onPrevious} disabled={currentStep === 1 || loading}>
+        <ChevronLeft className="w-4 h-4 mr-2" />
         Previous
       </Button>
       <div className="flex gap-2">
@@ -530,6 +535,7 @@ export function NavigationButtons({
         {currentStep < totalSteps ? (
           <Button type="button" onClick={onNext} disabled={!canProceed || loading}>
             Next
+            <ChevronRight className="w-4 h-4 ml-2" />
           </Button>
         ) : (
           <Button type="button" onClick={onSubmit} disabled={!canProceed || loading}>
