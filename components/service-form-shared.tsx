@@ -163,6 +163,7 @@ export function ServiceFormShared({ initialData, onSubmit, submitButtonText, isS
       serviceType: formData.serviceType as "roll_up" | "roll_down" | "delivery",
       price: Number.parseFloat(formData.price),
       schedule,
+      deleted: false,
       type: "SERVICE",
       status: "active",
       views: initialData?.views || 0,
