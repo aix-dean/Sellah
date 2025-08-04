@@ -1,700 +1,493 @@
 "use client"
 
 import type React from "react"
-import { useState, useMemo, useCallback } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Button } from "@/components/ui/button"
-import { Plus, Trash2, UploadCloud, Loader2, AlertCircle } from "lucide-react"
-import { v4 as uuidv4 } from "uuid"
-import { toast } from "@/components/ui/use-toast"
+
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
-import { useCategories } from "@/hooks/use-categories"
-import { serviceService } from "@/lib/service-service"
-import type { ServiceFormData } from "@/types/service"
+import { useUserData } from "@/hooks/use-user-data"
+import { useToast } from "@/hooks/use-toast"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Loader2 } from "lucide-react"
 import {
-  SERVICE_STEPS,
-  SERVICE_UNIT_OPTIONS,
-  validateServiceStep,
-  StepNavigation,
-  CategorySelection,
-  ServiceVariationItem,
-  NavigationButtons,
+  ImageUpload,
+  TagInput,
+  SeoFields,
+  ServiceVariationInput,
+  ServiceStatusAndVisibility,
+  serviceFormSchema,
+  type ServiceFormData,
 } from "@/components/service-form-shared"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { createService, uploadServiceImage, deleteServiceImage, canUserAddService } from "@/lib/service-service"
+import { useCategories } from "@/hooks/use-categories"
+import { z } from "zod" // Import zod for z.ZodError
 
 export default function AddServicePage() {
   const router = useRouter()
   const { user } = useAuth()
-  const { categories, loading: loadingCategories, error: categoriesError } = useCategories()
+  const { userData, loading: userLoading } = useUserData(user?.uid)
+  const { toast } = useToast()
+  const { categories: fetchedCategories, loading: categoriesLoading } = useCategories("SERVICE")
 
-  const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState<ServiceFormData>({
     name: "",
     description: "",
-    categories: [],
-    unit: "",
-    service_images: [],
-    service_video: null,
-    media: [],
-    availability: {
-      monday: false,
-      tuesday: false,
-      wednesday: false,
-      thursday: false,
-      friday: false,
-      saturday: false,
-      sunday: false,
-    },
-    is_pre_order: false,
-    pre_order_days: "",
-    payment_methods: {
-      ewallet: false,
-      bank_transfer: false,
-      gcash: false,
-      maya: false,
-      manual: false,
-    },
+    category: "",
+    price: "",
+    duration: "",
+    durationUnit: "minutes",
+    images: [],
+    mainImage: undefined,
+    tags: "",
+    seoTitle: "",
+    seoDescription: "",
+    seoKeywords: "",
+    status: "draft",
+    visibility: "public",
+    featured: false,
     variations: [],
   })
-  const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({})
+
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [uploadingMedia, setUploadingMedia] = useState(false)
-  const [collapsedVariations, setCollapsedVariations] = useState<Set<string>>(new Set())
+  const [canAddMore, setCanAddMore] = useState(true)
+  const [limitMessage, setLimitMessage] = useState("")
 
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { id, value } = e.target
-    setFormData((prev) => ({ ...prev, [id]: value }))
-    setFieldErrors((prev) => {
-      const newErrors = { ...prev }
-      delete newErrors[id]
-      return newErrors
-    })
-  }, [])
-
-  const handleSelectChange = useCallback((id: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [id]: value }))
-    setFieldErrors((prev) => {
-      const newErrors = { ...prev }
-      delete newErrors[id]
-      return newErrors
-    })
-  }, [])
-
-  const handleCategoryChange = useCallback((categoryId: string, checked: boolean) => {
-    setFormData((prev) => {
-      const newCategories = checked
-        ? [...prev.categories, categoryId]
-        : prev.categories.filter((id) => id !== categoryId)
-      return { ...prev, categories: newCategories }
-    })
-    setFieldErrors((prev) => {
-      const newErrors = { ...prev }
-      delete newErrors.categories
-      return newErrors
-    })
-  }, [])
-
-  const handleAvailabilityChange = useCallback((day: keyof ServiceFormData["availability"], checked: boolean) => {
-    setFormData((prev) => ({
-      ...prev,
-      availability: {
-        ...prev.availability,
-        [day]: checked,
-      },
-    }))
-    setFieldErrors((prev) => {
-      const newErrors = { ...prev }
-      delete newErrors.availability
-      return newErrors
-    })
-  }, [])
-
-  const handlePaymentMethodChange = useCallback(
-    (method: keyof ServiceFormData["payment_methods"], checked: boolean) => {
-      setFormData((prev) => ({
-        ...prev,
-        payment_methods: {
-          ...prev.payment_methods,
-          [method]: checked,
-        },
-      }))
-    },
-    [],
-  )
-
-  const handleAddVariation = useCallback(() => {
-    const newVariationId = uuidv4()
-    setFormData((prev) => ({
-      ...prev,
-      variations: [
-        ...prev.variations,
-        {
-          id: newVariationId,
-          name: "",
-          duration: "",
-          price: "",
-          slots: "",
-          images: [],
-          media: null,
-        },
-      ],
-    }))
-    setCollapsedVariations((prev) => {
-      const newCollapsed = new Set(prev)
-      newCollapsed.add(newVariationId) // Collapse new variation by default
-      return newCollapsed
-    })
-  }, [])
-
-  const handleRemoveVariation = useCallback((id: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      variations: prev.variations.filter((v) => v.id !== id),
-    }))
-    setCollapsedVariations((prev) => {
-      const newCollapsed = new Set(prev)
-      newCollapsed.delete(id)
-      return newCollapsed
-    })
-    setFieldErrors((prev) => {
-      const newErrors = { ...prev }
-      Object.keys(newErrors).forEach((key) => {
-        if (key.startsWith(`variation_`) && key.includes(id)) {
-          delete newErrors[key]
+  useEffect(() => {
+    if (user?.uid && !userLoading) {
+      const checkLimit = async () => {
+        try {
+          const { canAdd, message } = await canUserAddService(user.uid)
+          setCanAddMore(canAdd)
+          if (!canAdd) {
+            setLimitMessage(message || "You have reached your service creation limit.")
+          }
+        } catch (err) {
+          console.error("Error checking service limit:", err)
+          setLimitMessage("Failed to check service limit. Please try again.")
+          setCanAddMore(false)
         }
-      })
-      return newErrors
-    })
-  }, [])
-
-  const handleUpdateVariation = useCallback(
-    (id: string, field: string, value: string) => {
-      setFormData((prev) => ({
-        ...prev,
-        variations: prev.variations.map((v) => (v.id === id ? { ...v, [field]: value } : v)),
-      }))
-      setFieldErrors((prev) => {
-        const newErrors = { ...prev }
-        const index = formData.variations.findIndex((v) => v.id === id)
-        if (index !== -1) {
-          delete newErrors[`variation_${index}_${field}`]
-        }
-        return newErrors
-      })
-    },
-    [formData.variations],
-  )
-
-  const handleUpdateVariationPriceSlots = useCallback(
-    (id: string, field: string, value: string) => {
-      setFormData((prev) => ({
-        ...prev,
-        variations: prev.variations.map((v) => (v.id === id ? { ...v, [field]: value } : v)),
-      }))
-      setFieldErrors((prev) => {
-        const newErrors = { ...prev }
-        const index = formData.variations.findIndex((v) => v.id === id)
-        if (index !== -1) {
-          delete newErrors[`variation_${index}_${field}`]
-        }
-        return newErrors
-      })
-    },
-    [formData.variations],
-  )
-
-  const handleToggleVariationCollapse = useCallback((id: string) => {
-    setCollapsedVariations((prev) => {
-      const newCollapsed = new Set(prev)
-      if (newCollapsed.has(id)) {
-        newCollapsed.delete(id)
-      } else {
-        newCollapsed.add(id)
       }
-      return newCollapsed
-    })
-  }, [])
+      checkLimit()
+    }
+  }, [user, userLoading])
 
-  const handleServiceImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const files = Array.from(e.target.files)
-      setFormData((prev) => ({
-        ...prev,
-        service_images: [...prev.service_images, ...files],
-      }))
-      setFieldErrors((prev) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value, type, checked } = e.target
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }))
+    if (errors[name]) {
+      setErrors((prev) => {
         const newErrors = { ...prev }
-        delete newErrors.service_images
+        delete newErrors[name]
         return newErrors
       })
     }
-  }, [])
+  }
 
-  const handleRemoveServiceImage = useCallback((indexToRemove: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      service_images: prev.service_images.filter((_, index) => index !== indexToRemove),
-      media: prev.media.filter((_, index) => index !== indexToRemove), // Also remove from media array if it's an existing image
-    }))
-  }, [])
-
-  const handleServiceVideoUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setFormData((prev) => ({
-        ...prev,
-        service_video: e.target.files![0],
-      }))
-    }
-  }, [])
-
-  const handleRemoveServiceVideo = useCallback(() => {
-    setFormData((prev) => ({
-      ...prev,
-      service_video: null,
-    }))
-  }, [])
-
-  const handleVariationImageUpload = useCallback((variationId: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0]
-      setFormData((prev) => ({
-        ...prev,
-        variations: prev.variations.map((v) =>
-          v.id === variationId ? { ...v, images: [file], media: URL.createObjectURL(file) } : v,
-        ),
-      }))
-    }
-  }, [])
-
-  const handleRemoveVariationImage = useCallback((variationId: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      variations: prev.variations.map((v) => (v.id === variationId ? { ...v, images: [], media: null } : v)),
-    }))
-  }, [])
-
-  const canProceed = useMemo(() => {
-    const { isValid, errors } = validateServiceStep(currentStep, formData)
-    setFieldErrors(errors)
-    return isValid
-  }, [currentStep, formData])
-
-  const handleNext = useCallback(() => {
-    if (canProceed) {
-      setCurrentStep((prev) => Math.min(prev + 1, SERVICE_STEPS.length))
-    } else {
-      toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields before proceeding.",
-        variant: "destructive",
+  const handleSelectChange = (name: keyof ServiceFormData) => (value: string) => {
+    setFormData((prev) => ({ ...prev, [name]: value }))
+    if (errors[name]) {
+      setErrors((prev) => {
+        const newErrors = { ...prev }
+        delete newErrors[name]
+        return newErrors
       })
     }
-  }, [canProceed])
+  }
 
-  const handlePrevious = useCallback(() => {
-    setCurrentStep((prev) => Math.max(prev - 1, 1))
-  }, [])
-
-  const handleSubmit = useCallback(async () => {
-    if (!user) {
+  const handleImageUpload = async (file: File): Promise<string> => {
+    if (!user?.uid) throw new Error("User not authenticated.")
+    try {
+      const downloadURL = await uploadServiceImage(file, user.uid)
+      setFormData((prev) => {
+        const newImages = [...prev.images, downloadURL]
+        return {
+          ...prev,
+          images: newImages,
+          mainImage: prev.mainImage || newImages[0], // Set as main if no main image exists
+        }
+      })
+      return downloadURL
+    } catch (error) {
+      console.error("Error uploading image:", error)
       toast({
-        title: "Authentication Error",
-        description: "You must be logged in to add a service.",
+        title: "Image Upload Failed",
+        description: "There was an error uploading your image. Please try again.",
         variant: "destructive",
       })
-      return
+      throw error
     }
+  }
 
-    if (!canProceed) {
+  const handleImageRemove = async (urlToRemove: string) => {
+    setFormData((prev) => {
+      const newImages = prev.images.filter((url) => url !== urlToRemove)
+      let newMainImage = prev.mainImage
+      if (newMainImage === urlToRemove) {
+        newMainImage = newImages.length > 0 ? newImages[0] : undefined
+      }
+      return { ...prev, images: newImages, mainImage: newMainImage }
+    })
+    // Optionally delete from storage immediately, or handle on final submit
+    try {
+      await deleteServiceImage([urlToRemove])
+    } catch (error) {
+      console.error("Error deleting image from storage:", error)
+    }
+  }
+
+  const handleSetMainImage = (url: string) => {
+    setFormData((prev) => ({ ...prev, mainImage: url }))
+  }
+
+  const handleTagsChange = (newTags: string[]) => {
+    setFormData((prev) => ({ ...prev, tags: newTags.join(", ") }))
+  }
+
+  const handleSeoKeywordsChange = (newKeywords: string[]) => {
+    setFormData((prev) => ({ ...prev, seoKeywords: newKeywords.join(", ") }))
+  }
+
+  const handleVariationsChange = (
+    newVariations: Array<{ name: string; price: number; duration: number; durationUnit: "minutes" | "hours" | "days" }>,
+  ) => {
+    setFormData((prev) => ({ ...prev, variations: newVariations }))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!user?.uid || !userData?.company_id) {
       toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields before publishing the service.",
+        title: "Authentication Required",
+        description: "Please log in and ensure your company information is complete.",
         variant: "destructive",
       })
       return
     }
 
     setIsSubmitting(true)
+    setErrors({})
+
     try {
-      await serviceService.addService(formData, user.uid)
+      const parsedData = serviceFormSchema.parse({
+        ...formData,
+        price: Number.parseFloat(formData.price),
+        duration: Number.parseInt(formData.duration),
+        tags: formData.tags
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean),
+        seoKeywords: formData.seoKeywords
+          .split(",")
+          .map((keyword) => keyword.trim())
+          .filter(Boolean),
+      })
+
+      const serviceDataToSave = {
+        ...parsedData,
+        userId: user.uid,
+        companyId: userData.company_id,
+        tags: parsedData.tags, // Already array from parsing
+        seoKeywords: parsedData.seoKeywords, // Already array from parsing
+      }
+
+      const serviceId = await createService(serviceDataToSave)
+
       toast({
         title: "Service Added",
-        description: "Your service has been successfully published!",
+        description: "Your new service has been successfully added!",
         variant: "default",
       })
-      router.push("/dashboard/services") // Redirect to services listing page
-    } catch (error) {
-      console.error("Error adding service:", error)
-      toast({
-        title: "Error",
-        description: `Failed to add service: ${error instanceof Error ? error.message : String(error)}`,
-        variant: "destructive",
-      })
+      router.push(`/dashboard/services/${serviceId}`) // Redirect to service details page
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const newErrors: Record<string, string> = {}
+        error.errors.forEach((err) => {
+          if (err.path.length > 0) {
+            newErrors[err.path[0]] = err.message
+          }
+        })
+        setErrors(newErrors)
+        toast({
+          title: "Validation Error",
+          description: "Please correct the errors in the form.",
+          variant: "destructive",
+        })
+      } else {
+        console.error("Error adding service:", error)
+        toast({
+          title: "Failed to Add Service",
+          description: error.message || "An unexpected error occurred. Please try again.",
+          variant: "destructive",
+        })
+      }
     } finally {
       setIsSubmitting(false)
     }
-  }, [formData, user, canProceed, router])
+  }
 
-  const handleSaveDraft = useCallback(async () => {
-    if (!user) {
-      toast({
-        title: "Authentication Error",
-        description: "You must be logged in to save a draft.",
-        variant: "destructive",
-      })
-      return
-    }
+  if (userLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-[60vh]">
+        <Loader2 className="h-10 w-10 animate-spin text-red-500" />
+      </div>
+    )
+  }
 
-    setIsSubmitting(true)
-    try {
-      // For draft, we might not need full validation, but we'll save what's available
-      // A more robust solution would save partial data to a 'draft' status in Firestore
-      // For now, we'll just simulate saving.
-      toast({
-        title: "Draft Saved",
-        description: "Your service draft has been saved.",
-        variant: "default",
-      })
-    } catch (error) {
-      console.error("Error saving draft:", error)
-      toast({
-        title: "Error",
-        description: `Failed to save draft: ${error instanceof Error ? error.message : String(error)}`,
-        variant: "destructive",
-      })
-    } finally {
-      setIsSubmitting(false)
-    }
-  }, [user])
-
-  const renderStepContent = useCallback(() => {
-    switch (currentStep) {
-      case 1: // Service Details
-        return (
-          <div className="space-y-6">
-            <div>
-              <Label htmlFor="name">Service Name *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                placeholder="e.g., Home Cleaning, Tutoring Session"
-                className={fieldErrors.name ? "border-red-500" : ""}
-              />
-              {fieldErrors.name && <p className="mt-1 text-sm text-red-600">{fieldErrors.name}</p>}
-            </div>
-            <div>
-              <Label htmlFor="description">Service Description *</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                placeholder="Provide a detailed description of your service."
-                rows={5}
-                className={fieldErrors.description ? "border-red-500" : ""}
-              />
-              {fieldErrors.description && <p className="mt-1 text-sm text-red-600">{fieldErrors.description}</p>}
-            </div>
-            <CategorySelection
-              categories={categories.map((cat) => ({ id: cat.id, name: cat.name }))}
-              selectedCategories={formData.categories}
-              onCategoryChange={handleCategoryChange}
-              loading={loadingCategories}
-              error={categoriesError}
-              fieldError={fieldErrors.categories}
-            />
-            <div>
-              <Label htmlFor="unit">Service Unit *</Label>
-              <Select value={formData.unit} onValueChange={(value) => handleSelectChange("unit", value)}>
-                <SelectTrigger className={fieldErrors.unit ? "border-red-500" : ""}>
-                  <SelectValue placeholder="Select a unit" />
-                </SelectTrigger>
-                <SelectContent>
-                  {SERVICE_UNIT_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {fieldErrors.unit && <p className="mt-1 text-sm text-red-600">{fieldErrors.unit}</p>}
-            </div>
-          </div>
-        )
-      case 2: // Pricing & Availability
-        return (
-          <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-gray-800">Service Variations *</h3>
-            {formData.variations.length === 0 && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  {fieldErrors.variations || "At least one service variation is required."}
-                </AlertDescription>
-              </Alert>
-            )}
-            <div className="space-y-4">
-              {formData.variations.map((variation, index) => (
-                <ServiceVariationItem
-                  key={variation.id}
-                  variation={variation}
-                  index={index}
-                  isCollapsed={collapsedVariations.has(variation.id)}
-                  onToggleCollapse={() => handleToggleVariationCollapse(variation.id)}
-                  onRemove={() => handleRemoveVariation(variation.id)}
-                  onUpdate={handleUpdateVariation}
-                  onUpdatePriceSlots={handleUpdateVariationPriceSlots}
-                  onImageUpload={(e) => handleVariationImageUpload(variation.id, e)}
-                  onRemoveImage={() => handleRemoveVariationImage(variation.id)}
-                  uploading={uploadingMedia}
-                  fieldErrors={fieldErrors}
-                  showPricing={true}
-                  unit={formData.unit}
-                />
-              ))}
-            </div>
-            <Button type="button" variant="outline" onClick={handleAddVariation}>
-              <Plus className="w-4 h-4 mr-2" /> Add Variation
+  if (!canAddMore) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-4">
+        <Card className="w-full max-w-md text-center">
+          <CardHeader>
+            <CardTitle className="text-red-600">Service Limit Reached</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-700 mb-4">{limitMessage}</p>
+            <Button
+              onClick={() => router.push("/dashboard/account/upgrade")}
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
+              Upgrade Account
             </Button>
-
-            <div className="pt-6 border-t border-gray-200 space-y-4">
-              <h3 className="text-lg font-semibold text-gray-800">Availability *</h3>
-              {fieldErrors.availability && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{fieldErrors.availability}</AlertDescription>
-                </Alert>
-              )}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {Object.keys(formData.availability).map((day) => (
-                  <label key={day} className="flex items-center space-x-2 cursor-pointer select-none">
-                    <Checkbox
-                      checked={formData.availability[day as keyof ServiceFormData["availability"]]}
-                      onCheckedChange={(checked) =>
-                        handleAvailabilityChange(day as keyof ServiceFormData["availability"], !!checked)
-                      }
-                      id={`availability-${day}`}
-                    />
-                    <span className="text-sm text-gray-700 capitalize">{day}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-        )
-      case 3: // Media
-        return (
-          <div className="space-y-6">
-            <div>
-              <Label className="text-sm font-medium text-gray-700 mb-2 block text-left">
-                Service Images * (At least one image is required)
-              </Label>
-              {fieldErrors.service_images && (
-                <Alert variant="destructive" className="mb-4">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{fieldErrors.service_images}</AlertDescription>
-                </Alert>
-              )}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {formData.service_images.map((file, index) => (
-                  <div
-                    key={index}
-                    className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200"
-                  >
-                    <img
-                      src={URL.createObjectURL(file) || "/placeholder.svg"}
-                      alt={`Service image ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleRemoveServiceImage(index)}
-                      className="absolute top-1 right-1 w-6 h-6 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
-                  </div>
-                ))}
-                <label
-                  htmlFor="service-image-upload"
-                  className="flex flex-col items-center justify-center aspect-square border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 transition-colors"
-                >
-                  <Input
-                    id="service-image-upload"
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleServiceImageUpload}
-                    className="hidden"
-                    disabled={uploadingMedia}
-                  />
-                  {uploadingMedia ? (
-                    <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-                  ) : (
-                    <UploadCloud className="w-6 h-6 text-gray-400" />
-                  )}
-                  <span className="mt-2 text-sm text-gray-500">Upload Images</span>
-                </label>
-              </div>
-            </div>
-
-            <div className="pt-6 border-t border-gray-200 space-y-4">
-              <Label htmlFor="service-video-upload" className="text-sm font-medium text-gray-700 mb-2 block text-left">
-                Service Video (Optional)
-              </Label>
-              {formData.service_video ? (
-                <div className="relative group aspect-video rounded-lg overflow-hidden border border-gray-200">
-                  <video
-                    src={URL.createObjectURL(formData.service_video)}
-                    controls
-                    className="w-full h-full object-cover"
-                  />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    onClick={handleRemoveServiceVideo}
-                    className="absolute top-1 right-1 w-6 h-6 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
-                </div>
-              ) : (
-                <label
-                  htmlFor="service-video-upload"
-                  className="flex flex-col items-center justify-center aspect-video border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 transition-colors"
-                >
-                  <Input
-                    id="service-video-upload"
-                    type="file"
-                    accept="video/*"
-                    onChange={handleServiceVideoUpload}
-                    className="hidden"
-                    disabled={uploadingMedia}
-                  />
-                  {uploadingMedia ? (
-                    <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-                  ) : (
-                    <UploadCloud className="w-6 h-6 text-gray-400" />
-                  )}
-                  <span className="mt-2 text-sm text-gray-500">Upload Video</span>
-                </label>
-              )}
-            </div>
-          </div>
-        )
-      case 4: // Others
-        return (
-          <div className="space-y-6">
-            <div>
-              <label htmlFor="is_pre_order" className="flex items-center space-x-2">
-                <Checkbox
-                  id="is_pre_order"
-                  checked={formData.is_pre_order}
-                  onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, is_pre_order: !!checked }))}
-                />
-                <span className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                  This is a pre-order service
-                </span>
-              </label>
-              {formData.is_pre_order && (
-                <div className="mt-4">
-                  <Label htmlFor="pre_order_days">Pre-order Delivery Days *</Label>
-                  <Input
-                    id="pre_order_days"
-                    type="number"
-                    value={formData.pre_order_days}
-                    onChange={handleInputChange}
-                    placeholder="e.g., 7"
-                    className={fieldErrors.pre_order_days ? "border-red-500" : ""}
-                  />
-                  {fieldErrors.pre_order_days && (
-                    <p className="mt-1 text-sm text-red-600">{fieldErrors.pre_order_days}</p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="pt-6 border-t border-gray-200 space-y-4">
-              <h3 className="text-lg font-semibold text-gray-800">Accepted Payment Methods</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {Object.keys(formData.payment_methods).map((method) => (
-                  <label key={method} className="flex items-center space-x-2 cursor-pointer select-none">
-                    <Checkbox
-                      checked={formData.payment_methods[method as keyof ServiceFormData["payment_methods"]]}
-                      onCheckedChange={(checked) =>
-                        handlePaymentMethodChange(method as keyof ServiceFormData["payment_methods"], !!checked)
-                      }
-                      id={`payment-${method}`}
-                    />
-                    <span className="text-sm text-gray-700 capitalize">{method.replace(/_/g, " ")}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-        )
-      default:
-        return null
-    }
-  }, [
-    currentStep,
-    formData,
-    fieldErrors,
-    categories,
-    loadingCategories,
-    categoriesError,
-    handleInputChange,
-    handleSelectChange,
-    handleCategoryChange,
-    handleAvailabilityChange,
-    handlePaymentMethodChange,
-    handleAddVariation,
-    handleRemoveVariation,
-    handleUpdateVariation,
-    handleUpdateVariationPriceSlots,
-    handleToggleVariationCollapse,
-    handleServiceImageUpload,
-    handleRemoveServiceImage,
-    handleServiceVideoUpload,
-    handleRemoveServiceVideo,
-    handleVariationImageUpload,
-    handleRemoveVariationImage,
-    uploadingMedia,
-    collapsedVariations,
-  ])
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
-    <div className="container mx-auto py-8 px-4 md:px-6">
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        <div className="lg:col-span-1">
-          <StepNavigation currentStep={currentStep} steps={SERVICE_STEPS} />
-        </div>
-        <Card className="lg:col-span-3">
-          <CardHeader>
-            <CardTitle>Add New Service - {SERVICE_STEPS[currentStep - 1]?.title}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">{renderStepContent()}</CardContent>
-          <NavigationButtons
-            currentStep={currentStep}
-            totalSteps={SERVICE_STEPS.length}
-            loading={isSubmitting}
-            canProceed={canProceed}
-            onPrevious={handlePrevious}
-            onNext={handleNext}
-            onSaveDraft={handleSaveDraft}
-            onSubmit={handleSubmit}
-            submitLabel="Publish Service"
-          />
-        </Card>
+    <div className="min-h-screen text-left">
+      <div className="w-full max-w-4xl mx-auto py-8 px-4">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Add New Service</h1>
+        <p className="text-gray-600 mb-6">Fill in the details below to create a new service listing.</p>
+
+        <form onSubmit={handleSubmit} className="space-y-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Service Information</CardTitle>
+              <CardDescription>Basic details about your service.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="name">Service Name *</Label>
+                <Input
+                  id="name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  placeholder="e.g., Premium Web Design Package"
+                  disabled={isSubmitting}
+                />
+                {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+              </div>
+              <div>
+                <Label htmlFor="description">Description *</Label>
+                <Textarea
+                  id="description"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  placeholder="Provide a detailed description of your service"
+                  rows={5}
+                  disabled={isSubmitting}
+                />
+                {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
+              </div>
+              <div>
+                <Label htmlFor="category">Category *</Label>
+                <Select
+                  value={formData.category}
+                  onValueChange={handleSelectChange("category")}
+                  disabled={isSubmitting || categoriesLoading}
+                >
+                  <SelectTrigger id="category">
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categoriesLoading ? (
+                      <SelectItem value="loading" disabled>
+                        Loading categories...
+                      </SelectItem>
+                    ) : (
+                      fetchedCategories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.name}>
+                          {cat.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                {errors.category && <p className="text-red-500 text-sm mt-1">{errors.category}</p>}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="price">Price *</Label>
+                  <Input
+                    id="price"
+                    name="price"
+                    type="number"
+                    step="0.01"
+                    value={formData.price}
+                    onChange={handleInputChange}
+                    placeholder="0.00"
+                    disabled={isSubmitting}
+                  />
+                  {errors.price && <p className="text-red-500 text-sm mt-1">{errors.price}</p>}
+                </div>
+                <div>
+                  <Label htmlFor="duration">Duration *</Label>
+                  <Input
+                    id="duration"
+                    name="duration"
+                    type="number"
+                    step="1"
+                    value={formData.duration}
+                    onChange={handleInputChange}
+                    placeholder="e.g., 60"
+                    disabled={isSubmitting}
+                  />
+                  {errors.duration && <p className="text-red-500 text-sm mt-1">{errors.duration}</p>}
+                </div>
+                <div>
+                  <Label htmlFor="durationUnit">Duration Unit *</Label>
+                  <Select
+                    value={formData.durationUnit}
+                    onValueChange={handleSelectChange("durationUnit")}
+                    disabled={isSubmitting}
+                  >
+                    <SelectTrigger id="durationUnit">
+                      <SelectValue placeholder="Select unit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="minutes">Minutes</SelectItem>
+                      <SelectItem value="hours">Hours</SelectItem>
+                      <SelectItem value="days">Days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {errors.durationUnit && <p className="text-red-500 text-sm mt-1">{errors.durationUnit}</p>}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Service Media</CardTitle>
+              <CardDescription>Upload images for your service.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ImageUpload
+                images={formData.images}
+                onImageUpload={handleImageUpload}
+                onImageRemove={handleImageRemove}
+                onSetMainImage={handleSetMainImage}
+                mainImage={formData.mainImage}
+                disabled={isSubmitting}
+              />
+              {errors.images && <p className="text-red-500 text-sm mt-1">{errors.images}</p>}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Service Variations</CardTitle>
+              <CardDescription>Define different options for your service (e.g., Basic, Premium).</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ServiceVariationInput
+                variations={formData.variations}
+                onVariationsChange={handleVariationsChange}
+                disabled={isSubmitting}
+              />
+              {errors.variations && <p className="text-red-500 text-sm mt-1">{errors.variations}</p>}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Organization</CardTitle>
+              <CardDescription>Categorize and tag your service for better discoverability.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TagInput
+                tags={formData.tags
+                  .split(",")
+                  .map((tag) => tag.trim())
+                  .filter(Boolean)}
+                onTagsChange={handleTagsChange}
+                disabled={isSubmitting}
+              />
+              {errors.tags && <p className="text-red-500 text-sm mt-1">{errors.tags}</p>}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Search Engine Optimization (SEO)</CardTitle>
+              <CardDescription>Optimize your service listing for search engines.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SeoFields
+                seoTitle={formData.seoTitle || ""}
+                onSeoTitleChange={(value) => setFormData((prev) => ({ ...prev, seoTitle: value }))}
+                seoDescription={formData.seoDescription || ""}
+                onSeoDescriptionChange={(value) => setFormData((prev) => ({ ...prev, seoDescription: value }))}
+                seoKeywords={formData.seoKeywords
+                  .split(",")
+                  .map((keyword) => keyword.trim())
+                  .filter(Boolean)}
+                onSeoKeywordsChange={handleSeoKeywordsChange}
+                disabled={isSubmitting}
+              />
+              {errors.seoTitle && <p className="text-red-500 text-sm mt-1">{errors.seoTitle}</p>}
+              {errors.seoDescription && <p className="text-red-500 text-sm mt-1">{errors.seoDescription}</p>}
+              {errors.seoKeywords && <p className="text-red-500 text-sm mt-1">{errors.seoKeywords}</p>}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Status & Visibility</CardTitle>
+              <CardDescription>Control how your service appears to customers.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ServiceStatusAndVisibility
+                status={formData.status}
+                onStatusChange={handleSelectChange("status")}
+                visibility={formData.visibility}
+                onVisibilityChange={handleSelectChange("visibility")}
+                featured={formData.featured}
+                onFeaturedChange={(checked) => setFormData((prev) => ({ ...prev, featured: checked }))}
+                disabled={isSubmitting}
+              />
+              {errors.status && <p className="text-red-500 text-sm mt-1">{errors.status}</p>}
+              {errors.visibility && <p className="text-red-500 text-sm mt-1">{errors.visibility}</p>}
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-end gap-4">
+            <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting} className="bg-red-500 hover:bg-red-600 text-white">
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+                </>
+              ) : (
+                "Add Service"
+              )}
+            </Button>
+          </div>
+        </form>
       </div>
     </div>
   )

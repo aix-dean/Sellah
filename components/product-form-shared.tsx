@@ -1,554 +1,476 @@
 "use client"
 
+import { Badge } from "@/components/ui/badge"
+
 import type React from "react"
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { cn } from "@/lib/utils"
-import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, Loader2, X, ImageIcon, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from "lucide-react"
+
+import { z } from "zod"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
+import { Plus, X } from "lucide-react"
+import { useState } from "react"
 
-// Step definitions for product creation/editing
-export const STEPS = [
-  { id: 1, title: "Product Details", description: "Basic product information" },
-  { id: 2, title: "Specification", description: "Product variations and specifications" },
-  { id: 3, title: "Sales Information", description: "Pricing and stock management" },
-  { id: 4, title: "Shipping", description: "Delivery and pickup options" },
-  { id: 5, title: "Media", description: "Product images and videos" },
-  { id: 6, title: "Others", description: "Additional settings" },
-]
+// Zod schema for product form validation
+export const productFormSchema = z.object({
+  name: z.string().min(1, "Product name is required"),
+  description: z.string().min(1, "Description is required"),
+  category: z.string().min(1, "Category is required"),
+  brand: z.string().optional(),
+  sku: z.string().min(1, "SKU is required"),
+  price: z.coerce.number().min(0.01, "Price must be greater than 0"),
+  comparePrice: z.coerce.number().optional(),
+  costPrice: z.coerce.number().optional(),
+  trackQuantity: z.boolean(),
+  quantity: z.coerce.number().min(0, "Quantity cannot be negative").optional(),
+  lowStockThreshold: z.coerce.number().min(0, "Threshold cannot be negative").optional(),
+  weight: z.coerce.number().min(0, "Weight cannot be negative").optional(),
+  dimensions: z
+    .object({
+      length: z.coerce.number().min(0, "Length cannot be negative").optional(),
+      width: z.coerce.number().min(0, "Width cannot be negative").optional(),
+      height: z.coerce.number().min(0, "Height cannot be negative").optional(),
+      unit: z.enum(["cm", "in"]).optional(),
+    })
+    .optional(),
+  images: z.array(z.string()).min(1, "At least one image is required"),
+  mainImage: z.string().optional(),
+  tags: z.string().optional(), // Stored as comma-separated string
+  specifications: z.record(z.string(), z.string()).optional(),
+  seoTitle: z.string().optional(),
+  seoDescription: z.string().optional(),
+  seoKeywords: z.string().optional(), // Stored as comma-separated string
+  status: z.enum(["active", "draft", "archived"]),
+  visibility: z.enum(["public", "private"]),
+  featured: z.boolean(),
+  condition: z.enum(["new", "used", "refurbished"]),
+  variations: z
+    .array(
+      z.object({
+        name: z.string().min(1, "Variation name is required"),
+        price: z.coerce.number().min(0.01, "Variation price must be greater than 0"),
+        stock: z.coerce.number().min(0, "Variation stock cannot be negative"),
+        sku: z.string().optional(),
+      }),
+    )
+    .optional(),
+})
 
-// Unit options for products
-export const UNIT_OPTIONS = [
-  { value: "per_bottle", label: "Per Bottle" },
-  { value: "per_gallon", label: "Per Gallon" },
-  { value: "per_piece", label: "Per Piece" },
-  { value: "per_set", label: "Per Set" },
-  { value: "per_box", label: "Per Box" },
-  { value: "per_square_foot", label: "Per Square Foot" },
-  { value: "per_square_meter", label: "Per Square Meter" },
-  { value: "per_roll", label: "Per Roll" },
-  { value: "per_dozon", label: "Per Dozen" },
-  { value: "per_hundred", label: "Per Hundred" },
-  { value: "per_unit", label: "Per Unit" },
-  { value: "per_watt", label: "Per Watt" },
-]
+export type ProductFormData = z.infer<typeof productFormSchema>
 
-// Product form data interface
-export interface ProductFormData {
-  name: string
-  description: string
-  categories: string[]
-  unit: string
-  delivery_options: {
-    delivery: boolean
-    pickup: boolean
-    delivery_note: string
-    pickup_note: string
-    couriers: {
-      lalamove: boolean
-      transportify: boolean
+interface ImageUploadProps {
+  images: string[]
+  onImageUpload: (file: File) => Promise<string>
+  onImageRemove: (url: string) => void
+  onSetMainImage: (url: string) => void
+  mainImage?: string
+  disabled?: boolean
+}
+
+export function ImageUpload({
+  images,
+  onImageUpload,
+  onImageRemove,
+  onSetMainImage,
+  mainImage,
+  disabled,
+}: ImageUploadProps) {
+  const [uploading, setUploading] = useState(false)
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setUploading(true)
+      try {
+        const file = e.target.files[0]
+        const url = await onImageUpload(file)
+        if (!mainImage) {
+          onSetMainImage(url) // Set first uploaded image as main if none is set
+        }
+      } catch (error) {
+        console.error("Error uploading image:", error)
+        // Handle error, e.g., show a toast
+      } finally {
+        setUploading(false)
+        e.target.value = "" // Clear the input
+      }
     }
   }
-  product_images: File[]
-  product_video: File | null
-  media: Array<{
-    distance: string
-    isVideo: boolean
-    type: string
-    url: string
-  }>
-  delivery_days: string
-  condition: string
-  is_pre_order: boolean
-  pre_order_days: string
-  payment_methods: {
-    ewallet: boolean
-    bank_transfer: boolean
-    gcash: boolean
-    maya: boolean
-    manual: boolean
-  }
-  variations: Array<{
-    id: string
-    name: string
-    color: string
-    weight: string
-    height: string
-    length: string
-    price: string
-    stock: string
-    images: File[]
-    media: string | null
-  }>
-}
 
-// Validation function for each step
-export function validateStep(
-  step: number,
-  formData: ProductFormData,
-): { isValid: boolean; errors: { [key: string]: string } } {
-  const errors: { [key: string]: string } = {}
-
-  switch (step) {
-    case 1: // Product Details
-      if (!formData.name.trim()) {
-        errors.name = "Product name is required"
-      }
-      if (!formData.description.trim()) {
-        errors.description = "Product description is required"
-      }
-      if (!formData.categories || formData.categories.length === 0) {
-        errors.categories = "At least one category must be selected"
-      }
-      break
-
-    case 2: // Specification
-      if (!formData.unit) {
-        errors.unit = "Unit is required"
-      }
-      if (!formData.variations || formData.variations.length === 0) {
-        errors.variations = "At least one variation is required"
-      } else {
-        // Validate each variation
-        formData.variations.forEach((variation, index) => {
-          if (!variation.name.trim()) {
-            errors[`variation_${index}_name`] = `Variation ${index + 1} name is required`
-          }
-        })
-      }
-      break
-
-    case 3: // Sales Information
-      if (formData.variations && formData.variations.length > 0) {
-        formData.variations.forEach((variation, index) => {
-          if (!variation.price || Number.parseFloat(variation.price) <= 0) {
-            errors[`variation_${index}_price`] = `Variation ${index + 1} price is required and must be greater than 0`
-          }
-          if (!variation.stock || Number.parseInt(variation.stock) < 0) {
-            errors[`variation_${index}_stock`] = `Variation ${index + 1} stock is required and cannot be negative`
-          }
-        })
-      }
-      break
-
-    case 4: // Shipping
-      if (!formData.delivery_options.delivery && !formData.delivery_options.pickup) {
-        errors.delivery_options = "At least one delivery option (delivery or pickup) must be selected"
-      }
-      if (formData.delivery_options.delivery) {
-        if (!formData.delivery_options.couriers.lalamove && !formData.delivery_options.couriers.transportify) {
-          errors.couriers = "At least one courier must be selected when delivery is enabled"
-        }
-      }
-      break
-
-    case 5: // Media
-      const hasImages = formData.media.filter((item) => !item.isVideo).length > 0 || formData.product_images.length > 0
-      if (!hasImages) {
-        errors.product_images = "At least one product image is required"
-      }
-      break
-
-    case 6: // Others
-      if (!formData.condition) {
-        errors.condition = "Product condition is required"
-      }
-      if (formData.is_pre_order && (!formData.pre_order_days || Number.parseInt(formData.pre_order_days) <= 0)) {
-        errors.pre_order_days = "Pre-order delivery days is required and must be greater than 0"
-      }
-      break
-  }
-
-  return {
-    isValid: Object.keys(errors).length === 0,
-    errors,
-  }
-}
-
-// Shared step navigation component
-interface StepNavigationProps {
-  currentStep: number
-  steps: { id: number; title: string; description: string }[]
-}
-
-export function StepNavigation({ currentStep, steps }: StepNavigationProps) {
   return (
-    <nav className="space-y-4">
-      {steps.map((step) => (
-        <div key={step.id} className="flex items-start gap-3">
-          <div
-            className={cn(
-              "flex h-8 w-8 items-center justify-center rounded-full font-semibold",
-              currentStep === step.id ? "bg-primary text-primary-foreground" : "bg-gray-200 text-gray-600",
-            )}
-          >
-            {step.id}
+    <div className="space-y-4">
+      <Label htmlFor="images">Product Images</Label>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        {images.map((image, index) => (
+          <div key={index} className="relative group aspect-square rounded-md overflow-hidden border">
+            <img
+              src={image || "/placeholder.svg"}
+              alt={`Product image ${index + 1}`}
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <Button
+                variant="destructive"
+                size="icon"
+                className="mr-2"
+                onClick={() => onImageRemove(image)}
+                disabled={disabled}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={mainImage === image ? "default" : "secondary"}
+                size="sm"
+                onClick={() => onSetMainImage(image)}
+                disabled={disabled}
+              >
+                {mainImage === image ? "Main" : "Set Main"}
+              </Button>
+            </div>
           </div>
-          <div>
-            <h3 className="font-medium text-gray-900">{step.title}</h3>
-            <p className="text-sm text-gray-500">{step.description}</p>
-          </div>
+        ))}
+        <div className="aspect-square rounded-md border-2 border-dashed border-gray-300 flex items-center justify-center">
+          <Label htmlFor="image-upload" className="cursor-pointer p-4">
+            {uploading ? <span>Uploading...</span> : <Plus className="h-8 w-8 text-gray-400" />}
+            <Input
+              id="image-upload"
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={handleFileChange}
+              disabled={disabled || uploading}
+            />
+          </Label>
         </div>
-      ))}
-    </nav>
+      </div>
+    </div>
   )
 }
 
-// Shared category selection component
-interface CategorySelectionProps {
-  categories: { id: string; name: string }[]
-  selectedCategories: string[]
-  onCategoryChange: (categoryId: string, checked: boolean) => void
-  loading: boolean
-  error: string | null
-  fieldError?: string
+interface TagInputProps {
+  tags: string[]
+  onTagsChange: (tags: string[]) => void
+  disabled?: boolean
 }
 
-export function CategorySelection({
-  categories,
-  selectedCategories,
-  onCategoryChange,
-  loading,
-  error,
-  fieldError,
-}: CategorySelectionProps) {
+export function TagInput({ tags, onTagsChange, disabled }: TagInputProps) {
+  const [inputValue, setInputValue] = useState("")
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputValue(e.target.value)
+  }
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && inputValue.trim() !== "") {
+      e.preventDefault()
+      const newTag = inputValue.trim()
+      if (!tags.includes(newTag)) {
+        onTagsChange([...tags, newTag])
+      }
+      setInputValue("")
+    }
+  }
+
+  const removeTag = (tagToRemove: string) => {
+    onTagsChange(tags.filter((tag) => tag !== tagToRemove))
+  }
+
   return (
     <div className="space-y-2">
-      <Label className="text-sm font-medium text-gray-700 mb-2 block text-left">
-        Categories * (Select at least one)
-      </Label>
-      <div
-        className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 p-4 rounded-lg border ${fieldError ? "border-red-500" : "border-gray-300"}`}
-      >
-        {loading && <p className="col-span-full text-center text-gray-500">Loading categories...</p>}
-        {error && (
-          <Alert variant="destructive" className="col-span-full">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-        {!loading && categories.length === 0 && !error && (
-          <p className="col-span-full text-center text-gray-500">No categories available.</p>
-        )}
-        {categories.map((category) => (
-          <label key={category.id} className="flex items-center space-x-2 cursor-pointer select-none">
-            <Checkbox
-              checked={selectedCategories.includes(category.id)}
-              onCheckedChange={(checked) => onCategoryChange(category.id, !!checked)}
-              id={`category-${category.id}`}
-            />
-            <span className="text-sm text-gray-700">{category.name}</span>
-          </label>
+      <Label htmlFor="tags">Tags</Label>
+      <Input
+        id="tags"
+        value={inputValue}
+        onChange={handleInputChange}
+        onKeyDown={handleInputKeyDown}
+        placeholder="Add tags (press Enter to add)"
+        disabled={disabled}
+      />
+      <div className="flex flex-wrap gap-2">
+        {tags.map((tag, index) => (
+          <Badge key={index} variant="secondary" className="flex items-center gap-1">
+            {tag}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-auto p-0.5 text-muted-foreground hover:text-foreground"
+              onClick={() => removeTag(tag)}
+              disabled={disabled}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </Badge>
         ))}
       </div>
-      {fieldError && (
-        <div className="mt-1 flex items-center text-red-600 text-sm">
-          <AlertCircle className="w-4 h-4 mr-1 flex-shrink-0" />
-          <span>{fieldError}</span>
-        </div>
-      )}
     </div>
   )
 }
 
-// Variation Item Component
-interface VariationItemProps {
-  variation: ProductFormData["variations"][0]
-  index: number
-  isCollapsed: boolean
-  onToggleCollapse: () => void
-  onRemove: () => void
-  onUpdate: (field: string, value: string) => void
-  onUpdatePriceStock: (field: string, value: string) => void
-  onImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void
-  onRemoveImage: () => void
-  uploading: boolean
-  fieldErrors: { [key: string]: string }
-  showPricing?: boolean
-  showMedia?: boolean
-  unit: string
+interface SpecificationInputProps {
+  specifications: Record<string, string>
+  onSpecificationsChange: (specs: Record<string, string>) => void
+  disabled?: boolean
 }
 
-export function VariationItem({
-  variation,
-  index,
-  isCollapsed,
-  onToggleCollapse,
-  onRemove,
-  onUpdate,
-  onUpdatePriceStock,
-  onImageUpload,
-  onRemoveImage,
-  uploading,
-  fieldErrors,
-  showPricing = false,
-  showMedia = false,
-  unit,
-}: VariationItemProps) {
+export function SpecificationInput({ specifications, onSpecificationsChange, disabled }: SpecificationInputProps) {
+  const [newSpecKey, setNewSpecKey] = useState("")
+  const [newSpecValue, setNewSpecValue] = useState("")
+
+  const handleAddSpec = () => {
+    if (newSpecKey.trim() && newSpecValue.trim()) {
+      onSpecificationsChange({
+        ...specifications,
+        [newSpecKey.trim()]: newSpecValue.trim(),
+      })
+      setNewSpecKey("")
+      setNewSpecValue("")
+    }
+  }
+
+  const handleRemoveSpec = (keyToRemove: string) => {
+    const newSpecs = { ...specifications }
+    delete newSpecs[keyToRemove]
+    onSpecificationsChange(newSpecs)
+  }
+
   return (
-    <div className="border border-gray-200 rounded-lg">
-      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-t-lg">
-        <div className="flex items-center space-x-3">
-          <button type="button" onClick={onToggleCollapse} className="text-gray-500 hover:text-gray-700">
-            {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-          </button>
-          <h4 className="font-medium text-gray-800">
-            Variation {index + 1} {variation.name && `- ${variation.name}`}
-          </h4>
+    <div className="space-y-2">
+      <Label>Specifications</Label>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <Input
+          placeholder="Key (e.g., Color)"
+          value={newSpecKey}
+          onChange={(e) => setNewSpecKey(e.target.value)}
+          disabled={disabled}
+        />
+        <div className="flex gap-2">
+          <Input
+            placeholder="Value (e.g., Red)"
+            value={newSpecValue}
+            onChange={(e) => setNewSpecValue(e.target.value)}
+            disabled={disabled}
+          />
+          <Button type="button" onClick={handleAddSpec} disabled={disabled}>
+            Add
+          </Button>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onRemove}
-          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-        >
-          <X className="w-4 h-4" />
-        </Button>
       </div>
-
-      {!isCollapsed && (
-        <div className="p-4 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor={`variation-name-${variation.id}`}>Variation Name *</Label>
-              <Input
-                id={`variation-name-${variation.id}`}
-                value={variation.name}
-                onChange={(e) => onUpdate("name", e.target.value)}
-                placeholder="e.g., Small, Red, etc."
-                className={fieldErrors[`variation_${index}_name`] ? "border-red-500" : ""}
-              />
-              {fieldErrors[`variation_${index}_name`] && (
-                <p className="mt-1 text-sm text-red-600">{fieldErrors[`variation_${index}_name`]}</p>
-              )}
-            </div>
-
-            <div>
-              <Label htmlFor={`variation-color-${variation.id}`}>Color</Label>
-              <Input
-                id={`variation-color-${variation.id}`}
-                value={variation.color}
-                onChange={(e) => onUpdate("color", e.target.value)}
-                placeholder="e.g., Red, Blue, etc."
-              />
-            </div>
+      <div className="space-y-2">
+        {Object.entries(specifications).map(([key, value]) => (
+          <div key={key} className="flex items-center justify-between rounded-md border p-2">
+            <span>
+              <strong>{key}:</strong> {value}
+            </span>
+            <Button variant="ghost" size="sm" onClick={() => handleRemoveSpec(key)} disabled={disabled}>
+              <X className="h-4 w-4" />
+            </Button>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor={`variation-weight-${variation.id}`}>Weight (kg)</Label>
-              <Input
-                id={`variation-weight-${variation.id}`}
-                type="number"
-                step="0.1"
-                value={variation.weight}
-                onChange={(e) => onUpdate("weight", e.target.value)}
-                placeholder="0.0"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor={`variation-height-${variation.id}`}>Height (cm)</Label>
-              <Input
-                id={`variation-height-${variation.id}`}
-                type="number"
-                value={variation.height}
-                onChange={(e) => onUpdate("height", e.target.value)}
-                placeholder="0"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor={`variation-length-${variation.id}`}>Length (cm)</Label>
-              <Input
-                id={`variation-length-${variation.id}`}
-                type="number"
-                value={variation.length}
-                onChange={(e) => onUpdate("length", e.target.value)}
-                placeholder="0"
-              />
-            </div>
-          </div>
-
-          {showPricing && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
-              <div>
-                <Label htmlFor={`variation-price-${variation.id}`}>Price (₱) *</Label>
-                <Input
-                  id={`variation-price-${variation.id}`}
-                  type="number"
-                  step="0.01"
-                  value={variation.price}
-                  onChange={(e) => onUpdatePriceStock("price", e.target.value)}
-                  placeholder="0.00"
-                  className={fieldErrors[`variation_${index}_price`] ? "border-red-500" : ""}
-                />
-                {fieldErrors[`variation_${index}_price`] && (
-                  <p className="mt-1 text-sm text-red-600">{fieldErrors[`variation_${index}_price`]}</p>
-                )}
-              </div>
-
-              <div>
-                <Label htmlFor={`variation-stock-${variation.id}`}>Stock Quantity *</Label>
-                <Input
-                  id={`variation-stock-${variation.id}`}
-                  type="number"
-                  value={variation.stock}
-                  onChange={(e) => onUpdatePriceStock("stock", e.target.value)}
-                  placeholder="0"
-                  className={fieldErrors[`variation_${index}_stock`] ? "border-red-500" : ""}
-                />
-                {fieldErrors[`variation_${index}_stock`] && (
-                  <p className="mt-1 text-sm text-red-600">{fieldErrors[`variation_${index}_stock`]}</p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {showMedia && (
-            <div className="pt-4 border-t">
-              <Label className="text-sm font-medium mb-2 block">Variation Image</Label>
-              {variation.media ? (
-                <div className="space-y-3">
-                  <div className="relative group inline-block">
-                    <img
-                      src={variation.media || "/placeholder.svg"}
-                      alt={`${variation.name} image`}
-                      className="w-20 h-20 object-cover rounded border"
-                      onError={(e) => {
-                        e.currentTarget.src = "/placeholder.svg?height=80&width=80"
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      onClick={onRemoveImage}
-                      className="absolute -top-1 -right-1 w-5 h-5 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={onImageUpload}
-                    className="hidden"
-                    id={`variation-replace-${variation.id}`}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => document.getElementById(`variation-replace-${variation.id}`)?.click()}
-                    disabled={uploading}
-                  >
-                    Replace Image
-                  </Button>
-                </div>
-              ) : (
-                <div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={onImageUpload}
-                    className="hidden"
-                    id={`variation-upload-${variation.id}`}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => document.getElementById(`variation-upload-${variation.id}`)?.click()}
-                    disabled={uploading}
-                    className="w-full"
-                  >
-                    {uploading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Uploading...
-                      </>
-                    ) : (
-                      <>
-                        <ImageIcon className="w-4 h-4 mr-2" />
-                        Add Image
-                      </>
-                    )}
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+        ))}
+      </div>
     </div>
   )
 }
 
-// Shared navigation buttons for multi-step forms
-interface NavigationButtonsProps {
-  currentStep: number
-  totalSteps: number
-  loading: boolean
-  canProceed: boolean
-  onPrevious: () => void
-  onNext: () => void
-  onSaveDraft: () => void
-  onSubmit: () => void
-  submitLabel?: string
+interface VariationInputProps {
+  variations: Array<{ name: string; price: number; stock: number; sku?: string }>
+  onVariationsChange: (variations: Array<{ name: string; price: number; stock: number; sku?: string }>) => void
+  disabled?: boolean
 }
 
-export function NavigationButtons({
-  currentStep,
-  totalSteps,
-  loading,
-  canProceed,
-  onPrevious,
-  onNext,
-  onSaveDraft,
-  onSubmit,
-  submitLabel = "Submit",
-}: NavigationButtonsProps) {
+export function VariationInput({ variations, onVariationsChange, disabled }: VariationInputProps) {
+  const [newVariationName, setNewVariationName] = useState("")
+  const [newVariationPrice, setNewVariationPrice] = useState("")
+  const [newVariationStock, setNewVariationStock] = useState("")
+  const [newVariationSku, setNewVariationSku] = useState("")
+
+  const handleAddVariation = () => {
+    if (newVariationName.trim() && newVariationPrice.trim() && newVariationStock.trim()) {
+      onVariationsChange([
+        ...variations,
+        {
+          name: newVariationName.trim(),
+          price: Number.parseFloat(newVariationPrice),
+          stock: Number.parseInt(newVariationStock),
+          sku: newVariationSku.trim() || undefined,
+        },
+      ])
+      setNewVariationName("")
+      setNewVariationPrice("")
+      setNewVariationStock("")
+      setNewVariationSku("")
+    }
+  }
+
+  const handleRemoveVariation = (indexToRemove: number) => {
+    onVariationsChange(variations.filter((_, index) => index !== indexToRemove))
+  }
+
   return (
-    <div className="flex justify-between p-6 border-t border-gray-200">
-      <Button type="button" variant="outline" onClick={onPrevious} disabled={currentStep === 1 || loading}>
-        <ChevronLeft className="w-4 h-4 mr-2" />
-        Previous
-      </Button>
-      <div className="flex gap-2">
-        {currentStep < totalSteps && (
-          <Button type="button" variant="outline" onClick={onSaveDraft} disabled={loading}>
-            {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              "Save Draft"
-            )}
+    <div className="space-y-2">
+      <Label>Variations</Label>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
+        <Input
+          placeholder="Name (e.g., Small)"
+          value={newVariationName}
+          onChange={(e) => setNewVariationName(e.target.value)}
+          disabled={disabled}
+        />
+        <Input
+          type="number"
+          placeholder="Price"
+          value={newVariationPrice}
+          onChange={(e) => setNewVariationPrice(e.target.value)}
+          disabled={disabled}
+        />
+        <Input
+          type="number"
+          placeholder="Stock"
+          value={newVariationStock}
+          onChange={(e) => setNewVariationStock(e.target.value)}
+          disabled={disabled}
+        />
+        <div className="flex gap-2">
+          <Input
+            placeholder="SKU (optional)"
+            value={newVariationSku}
+            onChange={(e) => setNewVariationSku(e.target.value)}
+            disabled={disabled}
+          />
+          <Button type="button" onClick={handleAddVariation} disabled={disabled}>
+            Add
           </Button>
-        )}
-        {currentStep < totalSteps ? (
-          <Button type="button" onClick={onNext} disabled={!canProceed || loading}>
-            Next
-            <ChevronRight className="w-4 h-4 ml-2" />
-          </Button>
-        ) : (
-          <Button type="button" onClick={onSubmit} disabled={!canProceed || loading}>
-            {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                {submitLabel.replace("Service", "ing...")}
-              </>
-            ) : (
-              submitLabel
-            )}
-          </Button>
-        )}
+        </div>
+      </div>
+      <div className="space-y-2">
+        {variations.map((variation, index) => (
+          <div key={index} className="flex items-center justify-between rounded-md border p-2">
+            <span>
+              {variation.name} - {variation.price} ({variation.stock} in stock) {variation.sku && `[${variation.sku}]`}
+            </span>
+            <Button variant="ghost" size="sm" onClick={() => handleRemoveVariation(index)} disabled={disabled}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+interface SeoFieldsProps {
+  seoTitle: string
+  onSeoTitleChange: (value: string) => void
+  seoDescription: string
+  onSeoDescriptionChange: (value: string) => void
+  seoKeywords: string[]
+  onSeoKeywordsChange: (keywords: string[]) => void
+  disabled?: boolean
+}
+
+export function SeoFields({
+  seoTitle,
+  onSeoTitleChange,
+  seoDescription,
+  onSeoDescriptionChange,
+  seoKeywords,
+  onSeoKeywordsChange,
+  disabled,
+}: SeoFieldsProps) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="seoTitle">SEO Title</Label>
+        <Input
+          id="seoTitle"
+          value={seoTitle}
+          onChange={(e) => onSeoTitleChange(e.target.value)}
+          placeholder="SEO friendly title"
+          disabled={disabled}
+        />
+      </div>
+      <div>
+        <Label htmlFor="seoDescription">SEO Description</Label>
+        <Textarea
+          id="seoDescription"
+          value={seoDescription}
+          onChange={(e) => onSeoDescriptionChange(e.target.value)}
+          placeholder="Meta description for search engines"
+          disabled={disabled}
+        />
+      </div>
+      <TagInput tags={seoKeywords} onTagsChange={onSeoKeywordsChange} disabled={disabled} />
+    </div>
+  )
+}
+
+interface ProductStatusAndVisibilityProps {
+  status: "active" | "draft" | "archived"
+  onStatusChange: (value: "active" | "draft" | "archived") => void
+  visibility: "public" | "private"
+  onVisibilityChange: (value: "public" | "private") => void
+  featured: boolean
+  onFeaturedChange: (checked: boolean) => void
+  condition: "new" | "used" | "refurbished"
+  onConditionChange: (value: "new" | "used" | "refurbished") => void
+  disabled?: boolean
+}
+
+export function ProductStatusAndVisibility({
+  status,
+  onStatusChange,
+  visibility,
+  onVisibilityChange,
+  featured,
+  onFeaturedChange,
+  condition,
+  onConditionChange,
+  disabled,
+}: ProductStatusAndVisibilityProps) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="space-y-2">
+        <Label htmlFor="status">Status</Label>
+        <Select value={status} onValueChange={onStatusChange} disabled={disabled}>
+          <SelectTrigger id="status">
+            <SelectValue placeholder="Select status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="draft">Draft</SelectItem>
+            <SelectItem value="archived">Archived</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="visibility">Visibility</Label>
+        <Select value={visibility} onValueChange={onVisibilityChange} disabled={disabled}>
+          <SelectTrigger id="visibility">
+            <SelectValue placeholder="Select visibility" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="public">Public</SelectItem>
+            <SelectItem value="private">Private</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex items-center space-x-2">
+        <Checkbox id="featured" checked={featured} onCheckedChange={onFeaturedChange} disabled={disabled} />
+        <Label htmlFor="featured">Featured Product</Label>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="condition">Condition</Label>
+        <Select value={condition} onValueChange={onConditionChange} disabled={disabled}>
+          <SelectTrigger id="condition">
+            <SelectValue placeholder="Select condition" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="new">New</SelectItem>
+            <SelectItem value="used">Used</SelectItem>
+            <SelectItem value="refurbished">Refurbished</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
     </div>
   )

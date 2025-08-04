@@ -17,7 +17,7 @@ import { useProductsPaginated } from "@/hooks/use-products-paginated"
 import { useAuth } from "@/hooks/use-auth"
 import { ProductCardSkeleton } from "./skeleton/product-card-skeleton"
 import { DeleteProductDialog } from "./delete-product-dialog"
-import { productService } from "@/lib/product-service"
+import { deleteProduct, addCompany, updateUser } from "@/lib/product-service" // Corrected imports
 import { useToast } from "@/hooks/use-toast"
 import { Plus, Search, MoreHorizontal, Building2, Loader2, X } from "lucide-react"
 
@@ -102,7 +102,7 @@ export default function ProductsPage() {
   const handleConfirmDelete = async () => {
     if (productToDelete && user?.uid) {
       try {
-        await productService.deleteProduct(productToDelete.id, user.uid)
+        await deleteProduct(productToDelete.id, user.uid) // Corrected function call
         toast({
           title: "Product Deleted",
           description: "The product has been successfully deleted.",
@@ -203,11 +203,12 @@ export default function ProductsPage() {
       }
 
       // Create company document
-      const companyRef = await productService.addCompany(newCompanyData)
+      const companyRef = await addCompany(newCompanyData) // Corrected function call
       const companyId = companyRef.id
 
       // Update user document with company ID
-      await productService.updateUser(user.uid, {
+      await updateUser(user.uid, {
+        // Corrected function call
         company_id: companyId,
         position: companyData.position,
         updated_at: new Date(),

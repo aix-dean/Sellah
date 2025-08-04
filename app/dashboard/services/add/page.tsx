@@ -1,5 +1,5 @@
 import AddServicePage from "@/components/add-service-page"
 
-export default function Page() {
+export default function AddService() {
   return <AddServicePage />
 }
