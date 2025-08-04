@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -72,56 +72,29 @@ export default function ProductsPage() {
 
   const { products: realTimeProducts, loading: realTimeLoading, error: realTimeError } = useRealTimeProducts(user?.uid)
 
-  // Debug logging
-  useEffect(() => {
-    console.log("Products Page Debug:")
-    console.log("User ID:", user?.uid)
-    console.log("Paginated Products:", paginatedProducts)
-    console.log("Real Time Products:", realTimeProducts)
-    console.log("Paginated Loading:", paginatedLoading)
-    console.log("Real Time Loading:", realTimeLoading)
-    console.log("Paginated Error:", paginatedError)
-    console.log("Real Time Error:", realTimeError)
-  }, [user?.uid, paginatedProducts, realTimeProducts, paginatedLoading, realTimeLoading, paginatedError, realTimeError])
-
   const products = useMemo(() => {
-    // Prioritize paginated products if available, otherwise use real-time products
-    const productList = paginatedProducts && paginatedProducts.length > 0 ? paginatedProducts : realTimeProducts || []
-    console.log("Final products list:", productList)
-    return productList
+    return paginatedProducts || realTimeProducts || []
   }, [paginatedProducts, realTimeProducts])
 
   const loading = paginatedLoading || realTimeLoading
   const error = paginatedError || realTimeError
 
   const filteredProducts = useMemo(() => {
-    if (!products || products.length === 0) {
-      console.log("No products to filter")
-      return []
-    }
-
-    const filtered = products.filter((product) => {
-      if (!product) return false
-
+    // In a real app, you'd filter by product type if you had a 'type' field in your product data
+    // For now, we'll just return all products as the distinction is only in the UI tab.
+    return products.filter((product) => {
       const matchesSearch =
-        !searchTerm ||
-        product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (product.description && product.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase()))
-
-      console.log(`Product ${product.name} matches search "${searchTerm}":`, matchesSearch)
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (product.description && product.description.toLowerCase().includes(searchTerm.toLowerCase()))
       return matchesSearch
     })
-
-    console.log("Filtered products:", filtered)
-    return filtered
   }, [products, searchTerm])
 
   const handleDeleteClick = (product: any) => {
     setProductToDelete({
       id: product.id,
       name: product.name,
-      sku: product.sku || "N/A",
+      sku: product.sku,
     })
     setIsDeleteDialogOpen(true)
   }
@@ -135,6 +108,7 @@ export default function ProductsPage() {
           description: "The product has been successfully deleted.",
           variant: "default",
         })
+        // Optionally, refresh data or remove from local state
       } catch (err) {
         console.error("Error deleting product:", err)
         toast({
@@ -154,7 +128,7 @@ export default function ProductsPage() {
 
     // Check if user has company information
     if (!userData?.company_id) {
-      console.log("User data:", JSON.stringify(userData))
+      console.log(JSON.stringify(user))
       setShowCompanyForm(true)
       return
     }
@@ -171,6 +145,7 @@ export default function ProductsPage() {
     setShowCompanyForm(false)
     setCompanyError("")
     setCompanySuccess("")
+    // Reset form data
     setCompanyData({
       name: "",
       address_street: "",
@@ -280,11 +255,11 @@ export default function ProductsPage() {
         currency: "PHP",
       }).format(product.price || 0)
     }
-
+    console.log(product.variations)
     // Get all variation prices from the variations array
     const prices = product.variations
       .map((variation: any) => Number(variation.price) || 0)
-      .filter((price: number) => price > 0)
+      .filter((price: number) => price > 0) // Filter out invalid prices
 
     if (prices.length === 0) {
       return new Intl.NumberFormat("en-PH", {
@@ -314,9 +289,10 @@ export default function ProductsPage() {
     }).format(maxPrice)}`
   }
 
+  // Also add a function to get total stock from variations
   const getStockFromVariations = (product: any) => {
     if (!product.variations || !Array.isArray(product.variations) || product.variations.length === 0) {
-      return product.stock || product.quantity || 0
+      return product.stock || 0
     }
 
     // Sum up stock from all variations
@@ -324,114 +300,17 @@ export default function ProductsPage() {
       return total + (Number(variation.stock) || 0)
     }, 0)
 
-    return totalStock > 0 ? totalStock : product.stock || product.quantity || 0
+    return totalStock > 0 ? totalStock : product.stock || 0
   }
 
+  // Generate skeleton loaders based on view mode
   const renderSkeletons = () => {
     return (
-      <div className="space-y-4">
-        {Array.from({ length: 5 }).map((_, index) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        {Array.from({ length: 8 }).map((_, index) => (
           <ProductCardSkeleton key={index} />
         ))}
       </div>
-    )
-  }
-
-  const renderProductsTable = () => {
-    if (loading) {
-      return renderSkeletons()
-    }
-
-    if (error) {
-      return (
-        <div className="text-center text-red-500 py-8">
-          <p>Error loading products: {error.message}</p>
-          <Button variant="outline" onClick={() => window.location.reload()} className="mt-4">
-            Retry
-          </Button>
-        </div>
-      )
-    }
-
-    if (!filteredProducts || filteredProducts.length === 0) {
-      return (
-        <div className="text-center text-gray-500 py-8">
-          <p>No products found.</p>
-          {searchTerm && <p className="text-sm mt-2">Try adjusting your search terms.</p>}
-        </div>
-      )
-    }
-
-    return (
-      <>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Product</TableHead>
-              <TableHead>SKU</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="hidden md:table-cell">Price</TableHead>
-              <TableHead className="hidden md:table-cell">Stock</TableHead>
-              <TableHead className="hidden md:table-cell">Created At</TableHead>
-              <TableHead>
-                <span className="sr-only">Actions</span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredProducts.map((product) => (
-              <TableRow key={product.id}>
-                <TableCell className="font-medium">
-                  <Link href={`/dashboard/products/${product.id}`} className="hover:underline">
-                    {product.name || "Unnamed Product"}
-                  </Link>
-                </TableCell>
-                <TableCell className="text-sm text-gray-500">{product.sku || "N/A"}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className={getStatusColor(product.status || "draft")}>
-                    {product.status || "draft"}
-                  </Badge>
-                </TableCell>
-                <TableCell className="hidden md:table-cell">{getPriceFromVariations(product)}</TableCell>
-                <TableCell className="hidden md:table-cell">{getStockFromVariations(product)}</TableCell>
-                <TableCell className="hidden md:table-cell">
-                  {product.createdAt?.toDate?.()?.toLocaleDateString() ||
-                    product.created_at?.toDate?.()?.toLocaleDateString() ||
-                    "N/A"}
-                </TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button aria-haspopup="true" size="icon" variant="ghost">
-                        <MoreHorizontal className="h-4 w-4" />
-                        <span className="sr-only">Toggle menu</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem asChild>
-                        <Link href={`/dashboard/products/edit/${product.id}`}>Edit</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDeleteClick(product)}>Delete</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-
-        {/* Only show pagination if using paginated data */}
-        {paginatedProducts && paginatedProducts.length > 0 && (
-          <PaginationControls
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalItems={totalItems}
-            goToPage={goToPage}
-            nextPage={nextPage}
-            prevPage={prevPage}
-          />
-        )}
-      </>
     )
   }
 
@@ -646,7 +525,77 @@ export default function ProductsPage() {
                 <CardTitle>Supplies</CardTitle>
                 <CardDescription>Manage your product supplies.</CardDescription>
               </CardHeader>
-              <CardContent>{renderProductsTable()}</CardContent>
+              <CardContent>
+                {loading ? (
+                  renderSkeletons()
+                ) : error ? (
+                  <div className="text-center text-red-500 py-8">Error loading products: {error.message}</div>
+                ) : filteredProducts.length === 0 ? (
+                  <div className="text-center text-gray-500 py-8">No products found.</div>
+                ) : (
+                  <>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Product</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="hidden md:table-cell">Price</TableHead>
+                          <TableHead className="hidden md:table-cell">Stock</TableHead>
+                          <TableHead className="hidden md:table-cell">Created At</TableHead>
+                          <TableHead>
+                            <span className="sr-only">Actions</span>
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredProducts.map((product) => (
+                          <TableRow key={product.id}>
+                            <TableCell className="font-medium">
+                              <Link href={`/dashboard/products/${product.id}`} className="hover:underline">
+                                {product.name}
+                              </Link>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={getStatusColor(product.status)}>
+                                {product.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell">{getPriceFromVariations(product)}</TableCell>
+                            <TableCell className="hidden md:table-cell">{getStockFromVariations(product)}</TableCell>
+                            <TableCell className="hidden md:table-cell">
+                              {product.created_at?.toLocaleDateString() || "N/A"}
+                            </TableCell>
+                            <TableCell>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button aria-haspopup="true" size="icon" variant="ghost">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    <span className="sr-only">Toggle menu</span>
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem asChild>
+                                    <Link href={`/dashboard/products/edit/${product.id}`}>Edit</Link>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleDeleteClick(product)}>Delete</DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    <PaginationControls
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      totalItems={totalItems}
+                      goToPage={goToPage}
+                      nextPage={nextPage}
+                      prevPage={prevPage}
+                    />
+                  </>
+                )}
+              </CardContent>
             </Card>
           </TabsContent>
           <TabsContent value="services">
@@ -656,6 +605,7 @@ export default function ProductsPage() {
                 <CardDescription>Manage your services.</CardDescription>
               </CardHeader>
               <CardContent>
+                {/* This section will eventually list services */}
                 <div className="text-center text-gray-500 py-8">
                   Services listing coming soon! Use the "Add Service" button to create a new service.
                 </div>
