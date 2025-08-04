@@ -1,40 +1,25 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Label } from "@/components/ui/label"
-import {
-  Plus,
-  Search,
-  Grid3X3,
-  List,
-  Eye,
-  Edit,
-  Trash2,
-  MoreHorizontal,
-  Package,
-  Star,
-  Building2,
-  Loader2,
-  X,
-  CheckCircle,
-  Wrench,
-} from "lucide-react"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Plus, Search } from "lucide-react"
 import { useRealTimeProducts } from "@/hooks/use-real-time-products"
 import { useUserData } from "@/hooks/use-user-data"
 import { collection, addDoc, serverTimestamp, doc, updateDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import { ProductCardSkeleton, ProductListItemSkeleton } from "./skeleton/product-card-skeleton"
-import { DeleteProductDialog } from "./delete-product-dialog"
+import { ProductCardSkeleton } from "./skeleton/product-card-skeleton"
 import { deleteProduct } from "@/lib/product-service"
 import { useToast } from "@/hooks/use-toast"
 import { useCategories } from "@/hooks/use-categories"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useAuth } from "@/hooks/use-auth"
+import Image from "next/image"
+import { format } from "date-fns"
 
 interface CompanyFormData {
   name: string
@@ -52,6 +37,8 @@ interface ProductToDelete {
 }
 
 export default function ProductsPage() {
+  const router = useRouter()
+  const { user: currentUser } = useAuth()
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
@@ -62,7 +49,7 @@ export default function ProductsPage() {
   const [companySuccess, setCompanySuccess] = useState("")
   const [productToDelete, setProductToDelete] = useState<ProductToDelete | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [activeTab, setActiveTab] = useState("supplies")
+  const [activeTab, setActiveTab] = useState("products")
 
   const { toast } = useToast()
 
@@ -75,8 +62,8 @@ export default function ProductsPage() {
     position: "",
   })
 
-  const { currentUser, userData, loading: userLoading } = useUserData()
-  const { products = [], loading, error, forceRefetch } = useRealTimeProducts(currentUser?.uid)
+  const { currentUser: oldCurrentUser, userData, loading: userLoading } = useUserData()
+  const { products: fetchedItems = [], loading, error, forceRefetch } = useRealTimeProducts(currentUser?.uid)
 
   // Check for company information when user data loads
   useEffect(() => {
@@ -148,7 +135,7 @@ export default function ProductsPage() {
       // Hide the form after a short delay and redirect to add product/service
       setTimeout(() => {
         setShowCompanyForm(false)
-        if (activeTab === "supplies") {
+        if (activeTab === "products") {
           window.location.href = "/dashboard/products/add"
         } else {
           window.location.href = "/dashboard/services/add"
@@ -173,10 +160,18 @@ export default function ProductsPage() {
     }
 
     // Redirect based on active tab
-    if (activeTab === "supplies") {
-      window.location.href = "/dashboard/products/add"
+    if (activeTab === "products") {
+      router.push("/dashboard/products/add")
     } else {
-      window.location.href = "/dashboard/services/add"
+      router.push("/dashboard/services/add")
+    }
+  }
+
+  const handleEditClick = (id: string, type: string) => {
+    if (type === "SERVICE" || type === "SERVICES") {
+      router.push(`/dashboard/services/edit/${id}`)
+    } else {
+      router.push(`/dashboard/products/edit/${id}`)
     }
   }
 
@@ -239,7 +234,7 @@ export default function ProductsPage() {
   }
 
   // Filter and sort products - ensure products is always an array
-  const filteredProducts = (products || [])
+  const filteredProducts = (fetchedItems || [])
     .filter((product) => {
       const matchesSearch =
         product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -248,7 +243,7 @@ export default function ProductsPage() {
 
       // Filter by type based on active tab
       const matchesType =
-        activeTab === "supplies"
+        activeTab === "products"
           ? product.type === "MERCHANDISE" || product.type === "Merchandise" || !product.type
           : product.type === "SERVICE" || product.type === "SERVICES"
 
@@ -342,25 +337,13 @@ export default function ProductsPage() {
 
   // Generate skeleton loaders based on view mode
   const renderSkeletons = () => {
-    if (viewMode === "grid") {
-      return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {Array.from({ length: 8 }).map((_, index) => (
-            <ProductCardSkeleton key={index} />
-          ))}
-        </div>
-      )
-    } else {
-      return (
-        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-          <div className="divide-y divide-gray-200">
-            {Array.from({ length: 5 }).map((_, index) => (
-              <ProductListItemSkeleton key={index} />
-            ))}
-          </div>
-        </div>
-      )
-    }
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <ProductCardSkeleton key={i} />
+        ))}
+      </div>
+    )
   }
 
   const getServiceTypeLabel = (serviceType?: string) => {
@@ -384,709 +367,148 @@ export default function ProductsPage() {
     return days.length > 0 ? days.join(", ") : "No days available"
   }
 
-  return (
-    <div className="min-h-screen text-left">
-      <div className="w-full max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Inventory</h1>
-            <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your product inventory and listings</p>
-          </div>
-          <Button onClick={handleAddProduct} className="bg-red-500 hover:bg-red-600 text-white w-full sm:w-auto">
-            <Plus className="w-4 h-4 mr-2" />
-            <span className="sm:hidden">{activeTab === "supplies" ? "Add" : "Add Service"}</span>
-            <span className="hidden sm:inline">{activeTab === "supplies" ? "Add Product" : "Add Service"}</span>
+  const filteredItems = useMemo(() => {
+    if (!fetchedItems) return [] // Additional safety check, though default in hook should handle this
+
+    const lowerCaseSearchTerm = searchTerm.toLowerCase()
+
+    return fetchedItems.filter((item) => {
+      const matchesSearch = item.name.toLowerCase().includes(lowerCaseSearchTerm)
+
+      if (activeTab === "products") {
+        // Filter for products (MERCHANDISE or no type specified)
+        return matchesSearch && (!item.type || item.type === "MERCHANDISE" || item.type === "Merchandise")
+      } else {
+        // Filter for services
+        return matchesSearch && (item.type === "SERVICE" || item.type === "SERVICES")
+      }
+    })
+  }, [fetchedItems, searchTerm, activeTab])
+
+  const handleAddClick = () => {
+    if (activeTab === "products") {
+      router.push("/dashboard/products/add")
+    } else {
+      router.push("/dashboard/services/add")
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold">Loading...</h1>
+          <Button disabled>
+            <Plus className="mr-2 h-4 w-4" /> Add Item
           </Button>
         </div>
+        {renderSkeletons()}
+      </div>
+    )
+  }
 
-        {/* Company Information Form Overlay */}
-        {showCompanyForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b">
-                <div className="flex items-center space-x-2">
-                  <Building2 className="w-5 h-5 text-red-500" />
-                  <h3 className="text-lg font-semibold text-gray-900">Company Information Required</h3>
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold">Error</h1>
+        <p className="text-red-500">Failed to load items: {error.message}</p>
+        <Button onClick={forceRefetch}>Retry</Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Your Listings</h1>
+        <Button onClick={handleAddClick}>
+          <Plus className="mr-2 h-4 w-4" /> {activeTab === "products" ? "Add Product" : "Add Service"}
+        </Button>
+      </div>
+
+      <div className="flex flex-col sm:flex-row items-center gap-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-grow">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="products">Products</TabsTrigger>
+            <TabsTrigger value="services">Services</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <div className="relative w-full sm:w-auto">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+          <Input
+            type="text"
+            placeholder="Search items..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 w-full"
+          />
+        </div>
+      </div>
+
+      <TabsContent value={activeTab}>
+        {filteredItems.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500">
+              No {activeTab} found. Click "Add {activeTab === "products" ? "Product" : "Service"}" to create one.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {filteredItems.map((item) => (
+              <Card key={item.id} className="flex flex-col overflow-hidden">
+                <div className="relative w-full h-48 bg-gray-100 flex items-center justify-center">
+                  {item.imageUrl ? (
+                    <Image
+                      src={item.imageUrl || "/placeholder.svg"}
+                      alt={item.name}
+                      layout="fill"
+                      objectFit="cover"
+                      className="rounded-t-lg"
+                    />
+                  ) : (
+                    <div className="text-gray-400">No Image</div>
+                  )}
+                  {item.type === "SERVICE" || item.type === "SERVICES" ? (
+                    <Badge className="absolute top-2 left-2 bg-blue-500 text-white">Service</Badge>
+                  ) : (
+                    <Badge className="absolute top-2 left-2 bg-green-500 text-white">Product</Badge>
+                  )}
                 </div>
-                <Button variant="ghost" size="sm" onClick={handleCloseCompanyForm} className="p-1">
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-
-              <div className="p-6">
-                <div className="mb-6">
-                  <p className="text-gray-600 mb-2">
-                    To add {activeTab === "supplies" ? "products" : "services"}, we need your company information first.
-                    Please fill out the details below.
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    This information will be used for your product listings and business profile.
-                  </p>
-                </div>
-
-                {companyError && (
-                  <Alert variant="destructive" className="mb-4">
-                    <AlertDescription>{companyError}</AlertDescription>
-                  </Alert>
-                )}
-
-                {companySuccess && (
-                  <Alert className="mb-4 border-green-200 bg-green-50">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                    <AlertDescription className="text-green-800">{companySuccess}</AlertDescription>
-                  </Alert>
-                )}
-
-                <form onSubmit={handleCompanySubmit} className="space-y-4">
-                  <div>
-                    <Label htmlFor="company_name">Company Name *</Label>
-                    <Input
-                      id="company_name"
-                      name="name"
-                      value={companyData.name}
-                      onChange={handleCompanyInputChange}
-                      placeholder="Enter your company name"
-                      required
-                      disabled={savingCompany}
-                    />
+                <CardHeader className="p-4 pb-2">
+                  <CardTitle className="text-lg font-semibold truncate">{item.name}</CardTitle>
+                  <CardDescription className="text-sm text-gray-600 line-clamp-2">{item.description}</CardDescription>
+                </CardHeader>
+                <CardContent className="p-4 pt-0 flex-grow flex flex-col justify-between">
+                  <div className="flex items-center justify-between text-sm text-gray-700 mb-2">
+                    <span>Price:</span>
+                    <span className="font-medium">PHP {item.price?.toFixed(2) || "N/A"}</span>
                   </div>
-
-                  <div>
-                    <Label htmlFor="address_street">Street Address</Label>
-                    <Input
-                      id="address_street"
-                      name="address_street"
-                      value={companyData.address_street}
-                      onChange={handleCompanyInputChange}
-                      placeholder="Enter street address (optional)"
-                      disabled={savingCompany}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="address_city">City *</Label>
-                      <Input
-                        id="address_city"
-                        name="address_city"
-                        value={companyData.address_city}
-                        onChange={handleCompanyInputChange}
-                        placeholder="Enter city"
-                        required
-                        disabled={savingCompany}
-                      />
+                  {(item.type === "SERVICE" || item.type === "SERVICES") && item.schedule && (
+                    <div className="text-xs text-gray-500 mb-2">
+                      Available:{" "}
+                      {Object.keys(item.schedule)
+                        .filter((day) => item.schedule[day].available)
+                        .map((day) => day.charAt(0).toUpperCase() + day.slice(1))
+                        .join(", ") || "N/A"}
                     </div>
-                    <div>
-                      <Label htmlFor="address_province">Province *</Label>
-                      <Input
-                        id="address_province"
-                        name="address_province"
-                        value={companyData.address_province}
-                        onChange={handleCompanyInputChange}
-                        placeholder="Enter province"
-                        required
-                        disabled={savingCompany}
-                      />
-                    </div>
+                  )}
+                  <div className="text-xs text-gray-500 mb-4">
+                    Last updated:{" "}
+                    {item.updatedAt ? format(new Date(item.updatedAt.seconds * 1000), "MMM dd, yyyy") : "N/A"}
                   </div>
-
-                  <div>
-                    <Label htmlFor="website">Website (optional)</Label>
-                    <Input
-                      id="website"
-                      name="website"
-                      type="url"
-                      value={companyData.website}
-                      onChange={handleCompanyInputChange}
-                      placeholder="https://www.example.com"
-                      disabled={savingCompany}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="position">Your Position *</Label>
-                    <Input
-                      id="position"
-                      name="position"
-                      value={companyData.position}
-                      onChange={handleCompanyInputChange}
-                      placeholder="e.g., CEO, Founder, Manager"
-                      required
-                      disabled={savingCompany}
-                    />
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 justify-end pt-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleCloseCompanyForm}
-                      disabled={savingCompany}
-                      className="w-full sm:w-auto bg-transparent"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={savingCompany}
-                      className="bg-red-500 hover:bg-red-600 text-white w-full sm:w-auto"
-                    >
-                      {savingCompany ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <Building2 className="w-4 h-4 mr-2" />
-                          Save & Continue
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </form>
-              </div>
-            </div>
+                  <Button
+                    variant="outline"
+                    className="w-full bg-transparent"
+                    onClick={() => handleEditClick(item.id, item.type || "MERCHANDISE")}
+                  >
+                    Edit
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         )}
-
-        {/* Delete Product Dialog */}
-        <DeleteProductDialog
-          product={productToDelete}
-          isOpen={!!productToDelete}
-          isDeleting={isDeleting}
-          onConfirm={handleDeleteConfirm}
-          onCancel={handleDeleteCancel}
-        />
-
-        {/* Tabs for Supplies and Services */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="supplies" className="flex items-center gap-2">
-              <Package className="w-4 h-4" />
-              Supplies
-            </TabsTrigger>
-            <TabsTrigger value="services" className="flex items-center gap-2">
-              <Wrench className="w-4 h-4" />
-              Services
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="supplies" className="mt-6 space-y-6">
-            {/* Filters and Search */}
-            {filteredProducts.length > 0 && (
-              <div className="bg-white rounded-lg shadow-sm border p-4 sm:p-6">
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                  {/* Search */}
-                  <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <Input
-                      placeholder="Search products..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-
-                  {/* Filters */}
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <select
-                      value={selectedCategory}
-                      onChange={(e) => setSelectedCategory(e.target.value)}
-                      className="w-full px-3 pr-6 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                      disabled={categoriesLoading}
-                    >
-                      {categoriesLoading ? (
-                        <option value="all">Loading categories...</option>
-                      ) : (
-                        categories.map((category) => (
-                          <option key={category.id} value={category.id}>
-                            {category.name}
-                          </option>
-                        ))
-                      )}
-                    </select>
-
-                    {/* View Mode Toggle */}
-                    <div className="flex border border-gray-300 rounded-md">
-                      <Button
-                        variant={viewMode === "grid" ? "default" : "ghost"}
-                        size="sm"
-                        onClick={() => setViewMode("grid")}
-                        className={`rounded-r-none ${viewMode === "grid" ? "bg-red-500 hover:bg-red-600" : ""}`}
-                      >
-                        <Grid3X3 className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant={viewMode === "list" ? "default" : "ghost"}
-                        size="sm"
-                        onClick={() => setViewMode("list")}
-                        className={`rounded-l-none ${viewMode === "list" ? "bg-red-500 hover:bg-red-600" : ""}`}
-                      >
-                        <List className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Products Grid/List */}
-            {loading ? (
-              renderSkeletons()
-            ) : filteredProducts.length === 0 ? (
-              <div className="text-center py-12 bg-white rounded-lg shadow-sm border">
-                <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Supplies found</h3>
-                <p className="text-gray-500 mb-6">
-                  {searchTerm || selectedCategory !== "all"
-                    ? "Try adjusting your search or filters"
-                    : "Get started by adding your first product"}
-                </p>
-                {!searchTerm && selectedCategory === "all" && (
-                  <Button onClick={handleAddProduct} className="bg-red-500 hover:bg-red-600 text-white">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Your First Product
-                  </Button>
-                )}
-              </div>
-            ) : viewMode === "grid" ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredProducts.map((product) => (
-                  <div
-                    key={product.id}
-                    className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow relative"
-                  >
-                    {/* Clickable card content */}
-                    <div
-                      className="cursor-pointer"
-                      onClick={() => (window.location.href = `/dashboard/products/${product.id}`)}
-                    >
-                      <div className="relative">
-                        <img
-                          src={product.image_url || "/placeholder.svg?height=200&width=300"}
-                          alt={product.name}
-                          className="w-full h-48 object-cover rounded-t-lg"
-                          onError={(e) => {
-                            e.currentTarget.src = "/placeholder.svg?height=200&width=300"
-                          }}
-                        />
-                        <Badge className={`absolute top-2 right-2 ${getStatusColor(product.status)}`}>
-                          {product.status}
-                        </Badge>
-                      </div>
-
-                      <div className="p-4">
-                        <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2">{product.name}</h3>
-                        <p className="text-sm text-gray-500 mb-2">SKU: {product.sku}</p>
-
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-lg font-bold text-red-600">{getPriceFromVariations(product)}</span>
-                          <div className="flex items-center space-x-1">
-                            <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                            <span className="text-sm text-gray-600">{product.rating || 5}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
-                          <span>Stock: {getStockFromVariations(product)}</span>
-                          <span>Sales: {product.sales}</span>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-1 text-sm text-gray-500">
-                            <Eye className="w-4 h-4" />
-                            <span>{product.views}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Three-dot menu positioned absolutely */}
-                    <div className="absolute bottom-4 right-4">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 bg-white/80 backdrop-blur-sm hover:bg-white/90 shadow-sm"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreHorizontal className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => (window.location.href = `/dashboard/products/${product.id}`)}
-                          >
-                            <Eye className="w-4 h-4 mr-2" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => (window.location.href = `/dashboard/products/edit/${product.id}`)}
-                          >
-                            <Edit className="w-4 h-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteClick(product)}>
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 border-b">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Product
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          SKU
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Price
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Stock
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Sales
-                        </th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredProducts.map((product) => (
-                        <tr key={product.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <img
-                                src={product.image_url || "/placeholder.svg?height=40&width=40"}
-                                alt={product.name}
-                                className="w-10 h-10 rounded-lg object-cover mr-3"
-                                onError={(e) => {
-                                  e.currentTarget.src = "/placeholder.svg?height=40&width=40"
-                                }}
-                              />
-                              <div>
-                                <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                                <div className="text-sm text-gray-500">{product.category}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.sku}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {getPriceFromVariations(product)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {getStockFromVariations(product)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <Badge className={getStatusColor(product.status)}>{product.status}</Badge>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.sales}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                  <MoreHorizontal className="w-4 h-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  onClick={() => (window.location.href = `/dashboard/products/${product.id}`)}
-                                >
-                                  <Eye className="w-4 h-4 mr-2" />
-                                  View Details
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => (window.location.href = `/dashboard/products/edit/${product.id}`)}
-                                >
-                                  <Edit className="w-4 h-4 mr-2" />
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteClick(product)}>
-                                  <Trash2 className="w-4 h-4 mr-2" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="services" className="mt-6 space-y-6">
-            {/* Filters and Search for Services */}
-            {filteredProducts.length > 0 && (
-              <div className="bg-white rounded-lg shadow-sm border p-4 sm:p-6">
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                  {/* Search */}
-                  <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <Input
-                      placeholder="Search services..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-
-                  {/* Service Type Filter */}
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <select
-                      value={selectedCategory}
-                      onChange={(e) => setSelectedCategory(e.target.value)}
-                      className="w-full px-3 pr-6 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                    >
-                      <option value="all">All Service Types</option>
-                      <option value="roll_up">Roll Up</option>
-                      <option value="roll_down">Roll Down</option>
-                      <option value="delivery">Delivery</option>
-                    </select>
-
-                    {/* View Mode Toggle */}
-                    <div className="flex border border-gray-300 rounded-md">
-                      <Button
-                        variant={viewMode === "grid" ? "default" : "ghost"}
-                        size="sm"
-                        onClick={() => setViewMode("grid")}
-                        className={`rounded-r-none ${viewMode === "grid" ? "bg-red-500 hover:bg-red-600" : ""}`}
-                      >
-                        <Grid3X3 className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant={viewMode === "list" ? "default" : "ghost"}
-                        size="sm"
-                        onClick={() => setViewMode("list")}
-                        className={`rounded-l-none ${viewMode === "list" ? "bg-red-500 hover:bg-red-600" : ""}`}
-                      >
-                        <List className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Services Grid/List */}
-            {loading ? (
-              renderSkeletons()
-            ) : filteredProducts.length === 0 ? (
-              <div className="text-center py-12 bg-white rounded-lg shadow-sm border">
-                <Wrench className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Services found</h3>
-                <p className="text-gray-500 mb-6">
-                  {searchTerm || selectedCategory !== "all"
-                    ? "Try adjusting your search or filters"
-                    : "Get started by adding your first service"}
-                </p>
-                {!searchTerm && selectedCategory === "all" && (
-                  <Button onClick={handleAddProduct} className="bg-red-500 hover:bg-red-600 text-white">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Your First Service
-                  </Button>
-                )}
-              </div>
-            ) : viewMode === "grid" ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredProducts.map((service) => (
-                  <div
-                    key={service.id}
-                    className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow relative"
-                  >
-                    {/* Clickable card content */}
-                    <div
-                      className="cursor-pointer"
-                      onClick={() => (window.location.href = `/dashboard/products/${service.id}`)}
-                    >
-                      <div className="relative">
-                        <img
-                          src={service.image_url || "/placeholder.svg?height=200&width=300"}
-                          alt={service.name}
-                          className="w-full h-48 object-cover rounded-t-lg"
-                          onError={(e) => {
-                            e.currentTarget.src = "/placeholder.svg?height=200&width=300"
-                          }}
-                        />
-                        <Badge className={`absolute top-2 right-2 ${getStatusColor(service.status)}`}>
-                          {service.status}
-                        </Badge>
-                      </div>
-
-                      <div className="p-4">
-                        <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2">{service.name}</h3>
-                        <p className="text-sm text-gray-500 mb-2">Type: {getServiceTypeLabel(service.serviceType)}</p>
-
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-lg font-bold text-red-600">{formatPrice(service.price || 0)}</span>
-                          <div className="flex items-center space-x-1">
-                            <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                            <span className="text-sm text-gray-600">{service.rating || 5}</span>
-                          </div>
-                        </div>
-
-                        <div className="text-sm text-gray-600 mb-4">
-                          <span>Available: {getAvailableDays(service.schedule)}</span>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-1 text-sm text-gray-500">
-                            <Eye className="w-4 h-4" />
-                            <span>{service.views}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Three-dot menu positioned absolutely */}
-                    <div className="absolute bottom-4 right-4">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 bg-white/80 backdrop-blur-sm hover:bg-white/90 shadow-sm"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreHorizontal className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => (window.location.href = `/dashboard/products/${service.id}`)}
-                          >
-                            <Eye className="w-4 h-4 mr-2" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => (window.location.href = `/dashboard/products/edit/${service.id}`)}
-                          >
-                            <Edit className="w-4 h-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteClick(service)}>
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 border-b">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Service
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Type
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Price
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Schedule
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredProducts.map((service) => (
-                        <tr key={service.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <img
-                                src={service.image_url || "/placeholder.svg?height=40&width=40"}
-                                alt={service.name}
-                                className="w-10 h-10 rounded-lg object-cover mr-3"
-                                onError={(e) => {
-                                  e.currentTarget.src = "/placeholder.svg?height=40&width=40"
-                                }}
-                              />
-                              <div>
-                                <div className="text-sm font-medium text-gray-900">{service.name}</div>
-                                <div className="text-sm text-gray-500">{service.description}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {getServiceTypeLabel(service.serviceType)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {formatPrice(service.price || 0)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {getAvailableDays(service.schedule)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <Badge className={getStatusColor(service.status)}>{service.status}</Badge>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                  <MoreHorizontal className="w-4 h-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  onClick={() => (window.location.href = `/dashboard/products/${service.id}`)}
-                                >
-                                  <Eye className="w-4 h-4 mr-2" />
-                                  View Details
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => (window.location.href = `/dashboard/products/edit/${service.id}`)}
-                                >
-                                  <Edit className="w-4 h-4 mr-2" />
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteClick(service)}>
-                                  <Trash2 className="w-4 h-4 mr-2" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      </div>
+      </TabsContent>
     </div>
   )
 }
