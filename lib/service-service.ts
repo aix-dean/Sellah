@@ -9,6 +9,7 @@ import {
   where,
   orderBy,
   getDoc,
+  serverTimestamp,
 } from "firebase/firestore"
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"
 import { db, storage } from "./firebase"
@@ -32,8 +33,8 @@ export class ServiceService {
         ...serviceData,
         imageUrl,
         type: "SERVICE",
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       })
 
       return docRef.id
@@ -59,7 +60,7 @@ export class ServiceService {
       await updateDoc(docRef, {
         ...updates,
         imageUrl,
-        updatedAt: new Date(),
+        updatedAt: serverTimestamp(),
       })
     } catch (error) {
       console.error("Error updating service:", error)

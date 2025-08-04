@@ -4,30 +4,29 @@ import type React from "react"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Upload, X, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Upload, X, Clock, Calendar, Wrench } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { useToast } from "@/hooks/use-toast"
-import { addDoc, collection } from "firebase/firestore"
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
-import { db, storage } from "@/lib/firebase"
-import Image from "next/image"
+import { ServiceService } from "@/lib/service-service"
+import type { Service } from "@/types/service"
 
-interface Schedule {
-  [key: string]: {
-    available: boolean
-    startTime: string
-    endTime: string
-  }
-}
-
-const DAYS_OF_WEEK = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+const DAYS_OF_WEEK = [
+  { key: "monday", label: "Monday" },
+  { key: "tuesday", label: "Tuesday" },
+  { key: "wednesday", label: "Wednesday" },
+  { key: "thursday", label: "Thursday" },
+  { key: "friday", label: "Friday" },
+  { key: "saturday", label: "Saturday" },
+  { key: "sunday", label: "Sunday" },
+]
 
 const SERVICE_TYPES = [
   { value: "roll_up", label: "Roll Up" },
@@ -35,7 +34,17 @@ const SERVICE_TYPES = [
   { value: "delivery", label: "Delivery" },
 ]
 
-export default function AddServicePage() {
+interface ScheduleDay {
+  available: boolean
+  startTime: string
+  endTime: string
+}
+
+type Schedule = {
+  [key: string]: ScheduleDay
+}
+
+export function AddServicePage() {
   const router = useRouter()
   const { user } = useAuth()
   const { toast } = useToast()
@@ -43,15 +52,14 @@ export default function AddServicePage() {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    price: "",
     serviceType: "",
-    category: "",
+    price: "",
   })
 
   const [schedule, setSchedule] = useState<Schedule>(() => {
     const initialSchedule: Schedule = {}
-    DAYS_OF_WEEK.forEach((day) => {
-      initialSchedule[day] = {
+    DAYS_OF_WEEK.forEach(({ key }) => {
+      initialSchedule[key] = {
         available: false,
         startTime: "00:00",
         endTime: "23:59",
@@ -60,18 +68,19 @@ export default function AddServicePage() {
     return initialSchedule
   })
 
-  const [image, setImage] = useState<File | null>(null)
+  const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }))
+    setFormData((prev) => ({ ...prev, [field]: value }))
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: "" }))
+    }
   }
 
-  const handleScheduleChange = (day: string, field: "available" | "startTime" | "endTime", value: boolean | string) => {
+  const handleScheduleChange = (day: string, field: keyof ScheduleDay, value: boolean | string) => {
     setSchedule((prev) => ({
       ...prev,
       [day]: {
@@ -84,24 +93,56 @@ export default function AddServicePage() {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      setImage(file)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "Error",
+          description: "Image size should be less than 5MB",
+          variant: "destructive",
+        })
+        return
+      }
+
+      setImageFile(file)
       const reader = new FileReader()
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string)
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string)
       }
       reader.readAsDataURL(file)
     }
   }
 
   const removeImage = () => {
-    setImage(null)
+    setImageFile(null)
     setImagePreview(null)
   }
 
-  const uploadImage = async (file: File): Promise<string> => {
-    const storageRef = ref(storage, `services/${user?.uid}/${Date.now()}_${file.name}`)
-    const snapshot = await uploadBytes(storageRef, file)
-    return await getDownloadURL(snapshot.ref)
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {}
+
+    if (!formData.name.trim()) {
+      newErrors.name = "Service name is required"
+    }
+
+    if (!formData.description.trim()) {
+      newErrors.description = "Description is required"
+    }
+
+    if (!formData.serviceType) {
+      newErrors.serviceType = "Service type is required"
+    }
+
+    if (!formData.price || Number.parseFloat(formData.price) <= 0) {
+      newErrors.price = "Valid price is required"
+    }
+
+    // Check if at least one day is selected
+    const hasAvailableDay = Object.values(schedule).some((day) => day.available)
+    if (!hasAvailableDay) {
+      newErrors.schedule = "Please select at least one available day"
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -110,67 +151,48 @@ export default function AddServicePage() {
     if (!user) {
       toast({
         title: "Error",
-        description: "You must be logged in to add a service",
+        description: "You must be logged in to create a service",
         variant: "destructive",
       })
       return
     }
 
-    if (!formData.name || !formData.description || !formData.price || !formData.serviceType) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Check if at least one day is selected
-    const hasAvailableDay = Object.values(schedule).some((day) => day.available)
-    if (!hasAvailableDay) {
-      toast({
-        title: "Error",
-        description: "Please select at least one available day",
-        variant: "destructive",
-      })
+    if (!validateForm()) {
       return
     }
 
     setIsSubmitting(true)
 
     try {
-      let imageUrl = ""
-      if (image) {
-        imageUrl = await uploadImage(image)
-      }
-
-      const serviceData = {
-        name: formData.name,
-        description: formData.description,
+      const serviceData: Omit<Service, "id" | "createdAt" | "updatedAt"> = {
+        name: formData.name.trim(),
+        description: formData.description.trim(),
+        serviceType: formData.serviceType as "roll_up" | "roll_down" | "delivery",
         price: Number.parseFloat(formData.price),
-        serviceType: formData.serviceType,
-        category: formData.category || "General",
         schedule,
-        imageUrl,
-        type: "SERVICE",
         userId: user.uid,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        type: "SERVICE",
+        status: "active",
+        views: 0,
+        bookings: 0,
+        rating: 5,
+        imageUrl: "",
       }
 
-      await addDoc(collection(db, "products"), serviceData)
+      const serviceId = await ServiceService.createService(serviceData, imageFile || undefined)
 
       toast({
         title: "Success",
-        description: "Service added successfully!",
+        description: "Service created successfully!",
+        variant: "default",
       })
 
       router.push("/dashboard/products")
-    } catch (error) {
-      console.error("Error adding service:", error)
+    } catch (error: any) {
+      console.error("Error creating service:", error)
       toast({
         title: "Error",
-        description: "Failed to add service. Please try again.",
+        description: error.message || "Failed to create service. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -179,64 +201,39 @@ export default function AddServicePage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.back()}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <h1 className="text-3xl font-bold">Add New Service</h1>
+    <div className="max-w-4xl mx-auto p-6 space-y-8">
+      <div className="flex items-center gap-3">
+        <Wrench className="h-8 w-8 text-blue-600" />
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Add New Service</h1>
+          <p className="text-gray-600">Create a new service offering for your customers</p>
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Basic Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Basic Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {/* Basic Information */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Basic Information</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
                 <Label htmlFor="name">Service Name *</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => handleInputChange("name", e.target.value)}
                   placeholder="Enter service name"
-                  required
+                  className={errors.name ? "border-red-500" : ""}
                 />
+                {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
               </div>
 
-              <div>
-                <Label htmlFor="description">Description *</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => handleInputChange("description", e.target.value)}
-                  placeholder="Describe your service"
-                  rows={4}
-                  required
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="price">Price *</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.price}
-                  onChange={(e) => handleInputChange("price", e.target.value)}
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="serviceType">Service Type *</Label>
                 <Select value={formData.serviceType} onValueChange={(value) => handleInputChange("serviceType", value)}>
-                  <SelectTrigger>
+                  <SelectTrigger className={errors.serviceType ? "border-red-500" : ""}>
                     <SelectValue placeholder="Select service type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -247,135 +244,148 @@ export default function AddServicePage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {errors.serviceType && <p className="text-sm text-red-500">{errors.serviceType}</p>}
               </div>
+            </div>
 
-              <div>
-                <Label htmlFor="category">Category</Label>
-                <Input
-                  id="category"
-                  value={formData.category}
-                  onChange={(e) => handleInputChange("category", e.target.value)}
-                  placeholder="Enter category (optional)"
-                />
-              </div>
-            </CardContent>
-          </Card>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description *</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => handleInputChange("description", e.target.value)}
+                placeholder="Describe your service..."
+                rows={4}
+                className={errors.description ? "border-red-500" : ""}
+              />
+              {errors.description && <p className="text-sm text-red-500">{errors.description}</p>}
+            </div>
 
-          {/* Image Upload */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Service Image</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {imagePreview ? (
-                  <div className="relative">
-                    <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
-                      <Image
-                        src={imagePreview || "/placeholder.svg"}
-                        alt="Service preview"
-                        width={400}
-                        height={400}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-2 right-2"
-                      onClick={removeImage}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
-                    <div className="text-center">
-                      <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                      <div className="mt-4">
-                        <Label htmlFor="image" className="cursor-pointer">
-                          <span className="mt-2 block text-sm font-medium text-gray-900">Upload service image</span>
-                          <span className="mt-1 block text-sm text-gray-500">PNG, JPG, GIF up to 10MB</span>
-                        </Label>
-                        <Input
-                          id="image"
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageChange}
-                          className="hidden"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            <div className="space-y-2">
+              <Label htmlFor="price">Price (PHP) *</Label>
+              <Input
+                id="price"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.price}
+                onChange={(e) => handleInputChange("price", e.target.value)}
+                placeholder="0.00"
+                className={errors.price ? "border-red-500" : ""}
+              />
+              {errors.price && <p className="text-sm text-red-500">{errors.price}</p>}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Schedule */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
+              <Calendar className="h-5 w-5" />
               Service Schedule
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {errors.schedule && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertDescription>{errors.schedule}</AlertDescription>
+              </Alert>
+            )}
             <div className="space-y-4">
-              <p className="text-sm text-gray-600">Select the days and times when this service is available</p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {DAYS_OF_WEEK.map((day) => (
-                  <div key={day} className="border rounded-lg p-4 space-y-3">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id={day}
-                        checked={schedule[day].available}
-                        onCheckedChange={(checked) => handleScheduleChange(day, "available", checked as boolean)}
-                      />
-                      <Label htmlFor={day} className="capitalize font-medium">
-                        {day}
-                      </Label>
-                    </div>
-
-                    {schedule[day].available && (
-                      <div className="space-y-2">
-                        <div>
-                          <Label className="text-xs text-gray-500">Start Time</Label>
-                          <Input
-                            type="time"
-                            value={schedule[day].startTime}
-                            onChange={(e) => handleScheduleChange(day, "startTime", e.target.value)}
-                            className="text-sm"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs text-gray-500">End Time</Label>
-                          <Input
-                            type="time"
-                            value={schedule[day].endTime}
-                            onChange={(e) => handleScheduleChange(day, "endTime", e.target.value)}
-                            className="text-sm"
-                          />
-                        </div>
-                      </div>
-                    )}
+              {DAYS_OF_WEEK.map(({ key, label }) => (
+                <div key={key} className="flex items-center space-x-4 p-4 border rounded-lg">
+                  <div className="flex items-center space-x-2 min-w-[120px]">
+                    <Checkbox
+                      id={key}
+                      checked={schedule[key].available}
+                      onCheckedChange={(checked) => handleScheduleChange(key, "available", !!checked)}
+                    />
+                    <Label htmlFor={key} className="font-medium">
+                      {label}
+                    </Label>
                   </div>
-                ))}
-              </div>
+
+                  {schedule[key].available && (
+                    <div className="flex items-center space-x-2 flex-1">
+                      <Clock className="h-4 w-4 text-gray-500" />
+                      <Input
+                        type="time"
+                        value={schedule[key].startTime}
+                        onChange={(e) => handleScheduleChange(key, "startTime", e.target.value)}
+                        className="w-32"
+                      />
+                      <span className="text-gray-500">to</span>
+                      <Input
+                        type="time"
+                        value={schedule[key].endTime}
+                        onChange={(e) => handleScheduleChange(key, "endTime", e.target.value)}
+                        className="w-32"
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Image Upload */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Service Image</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {!imagePreview ? (
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                  <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <div className="space-y-2">
+                    <p className="text-lg font-medium text-gray-900">Upload service image</p>
+                    <p className="text-gray-500">PNG, JPG up to 5MB</p>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                    id="image-upload"
+                  />
+                  <Label htmlFor="image-upload" className="cursor-pointer">
+                    <Button type="button" variant="outline" className="mt-4 bg-transparent">
+                      Choose Image
+                    </Button>
+                  </Label>
+                </div>
+              ) : (
+                <div className="relative">
+                  <img
+                    src={imagePreview || "/placeholder.svg"}
+                    alt="Service preview"
+                    className="w-full h-64 object-cover rounded-lg border"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={removeImage}
+                    className="absolute top-2 right-2"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
 
         {/* Submit Button */}
-        <div className="flex justify-end gap-4">
+        <div className="flex justify-end space-x-4">
           <Button type="button" variant="outline" onClick={() => router.back()}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Adding Service..." : "Add Service"}
+          <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700">
+            {isSubmitting ? "Creating..." : "Create Service"}
           </Button>
         </div>
       </form>

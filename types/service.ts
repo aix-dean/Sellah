@@ -2,9 +2,8 @@ export interface Service {
   id: string
   name: string
   description: string
-  price: number
   serviceType: "roll_up" | "roll_down" | "delivery"
-  category: string
+  price: number
   schedule: {
     [key: string]: {
       available: boolean
@@ -12,17 +11,34 @@ export interface Service {
       endTime: string
     }
   }
-  imageUrl?: string
-  type: "SERVICE"
   userId: string
-  createdAt: Date
-  updatedAt: Date
+  type: "SERVICE"
+  status: "active" | "inactive" | "draft"
+  views: number
+  bookings: number
+  rating: number
+  imageUrl: string
+  createdAt?: any
+  updatedAt?: any
 }
 
-export interface ServiceFormData {
+export interface CreateServiceData {
   name: string
   description: string
-  price: string
-  serviceType: string
-  category: string
+  serviceType: "roll_up" | "roll_down" | "delivery"
+  price: number
+  schedule: {
+    [key: string]: {
+      available: boolean
+      startTime: string
+      endTime: string
+    }
+  }
+  userId: string
+  type: "SERVICE"
+  status: "active" | "inactive" | "draft"
+  views: number
+  bookings: number
+  rating: number
+  imageUrl: string
 }
