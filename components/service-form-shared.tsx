@@ -158,6 +158,7 @@ export function ServiceFormShared({ initialData, onSubmit, submitButtonText, isS
     }
 
     const serviceData = {
+      active: true,
       name: formData.name.trim(),
       description: formData.description.trim(),
       serviceType: formData.serviceType as "roll_up" | "roll_down" | "delivery",
