@@ -1,530 +1,615 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Plus, X, Upload, ImageIcon } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import {
+  X,
+  ImageIcon,
+  AlertCircle,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+} from "lucide-react"
 
-interface ProductVariation {
-  id: string
-  name: string
-  price: string
-  stock: string
-  sku?: string
-  images: File[]
-  media: string | null
-}
+// Step definitions for product creation/editing
+export const STEPS = [
+  { id: 1, title: "Product Details", description: "Basic product information" },
+  { id: 2, title: "Specification", description: "Product variations and specifications" },
+  { id: 3, title: "Sales Information", description: "Pricing and stock management" },
+  { id: 4, title: "Shipping", description: "Delivery and pickup options" },
+  { id: 5, title: "Media", description: "Product images and videos" },
+  { id: 6, title: "Others", description: "Additional settings" },
+]
 
-interface ProductFormData {
+// Unit options for products
+export const UNIT_OPTIONS = [
+  { value: "per_bottle", label: "Per Bottle" },
+  { value: "per_gallon", label: "Per Gallon" },
+  { value: "per_piece", label: "Per Piece" },
+  { value: "per_set", label: "Per Set" },
+  { value: "per_box", label: "Per Box" },
+  { value: "per_square_foot", label: "Per Square Foot" },
+  { value: "per_square_meter", label: "Per Square Meter" },
+  { value: "per_roll", label: "Per Roll" },
+  { value: "per_dozon", label: "Per Dozen"},
+  { value: "per_hundred", label: "Per Hundred"},
+  { value: "per_unit", label: "Per Unit"},
+  { value: "per_watt", label: "Per Watt"}
+]
+
+// Product form data interface
+export interface ProductFormData {
   name: string
   description: string
-  category: string
-  brand: string
-  sku: string
-  price: string
-  comparePrice: string
-  costPrice: string
-  trackQuantity: boolean
-  quantity: string
-  lowStockThreshold: string
-  weight: string
-  dimensions: {
-    length: string
-    width: string
+  categories: string[]
+  unit: string
+  delivery_options: {
+    delivery: boolean
+    pickup: boolean
+    delivery_note: string
+    pickup_note: string
+    couriers: {
+      lalamove: boolean
+      transportify: boolean
+    }
+  }
+  product_images: File[]
+  product_video: File | null
+  media: Array<{
+    distance: string
+    isVideo: boolean
+    type: string
+    url: string
+  }>
+  delivery_days: string
+  condition: string
+  is_pre_order: boolean
+  pre_order_days: string
+  payment_methods: {
+    ewallet: boolean
+    bank_transfer: boolean
+    gcash: boolean
+    maya: boolean
+    manual: boolean
+  }
+  variations: Array<{
+    id: string
+    name: string
+    color: string
+    weight: string
     height: string
-    unit: "cm" | "in"
-  }
-  images: File[]
-  mainImage: string
-  tags: string
-  specifications: Record<string, string>
-  seoTitle: string
-  seoDescription: string
-  seoKeywords: string
-  status: "active" | "draft" | "archived"
-  visibility: "public" | "private"
-  featured: boolean
-  condition: "new" | "used" | "refurbished"
-  variations: ProductVariation[]
+    length: string
+    price: string
+    stock: string
+    images: File[]
+    media: string | null
+  }>
 }
 
-interface ProductFormSharedProps {
-  formData: ProductFormData
-  setFormData: (data: ProductFormData) => void
-  onSubmit: (e: React.FormEvent) => void
-  isSubmitting: boolean
-  submitButtonText: string
-  title: string
-  description: string
+// Validation function for each step
+export function validateStep(
+  step: number,
+  formData: ProductFormData,
+): { isValid: boolean; errors: { [key: string]: string } } {
+  const errors: { [key: string]: string } = {}
+
+  switch (step) {
+    case 1: // Product Details
+      if (!formData.name.trim()) {
+        errors.name = "Product name is required"
+      }
+      if (!formData.description.trim()) {
+        errors.description = "Product description is required"
+      }
+      if (!formData.categories || formData.categories.length === 0) {
+        errors.categories = "At least one category must be selected"
+      }
+      break
+
+    case 2: // Specification
+      if (!formData.unit) {
+        errors.unit = "Unit is required"
+      }
+      if (!formData.variations || formData.variations.length === 0) {
+        errors.variations = "At least one variation is required"
+      } else {
+        // Validate each variation
+        formData.variations.forEach((variation, index) => {
+          if (!variation.name.trim()) {
+            errors[`variation_${index}_name`] = `Variation ${index + 1} name is required`
+          }
+        })
+      }
+      break
+
+    case 3: // Sales Information
+      if (formData.variations && formData.variations.length > 0) {
+        formData.variations.forEach((variation, index) => {
+          if (!variation.price || Number.parseFloat(variation.price) <= 0) {
+            errors[`variation_${index}_price`] = `Variation ${index + 1} price is required and must be greater than 0`
+          }
+          if (!variation.stock || Number.parseInt(variation.stock) < 0) {
+            errors[`variation_${index}_stock`] = `Variation ${index + 1} stock is required and cannot be negative`
+          }
+        })
+      }
+      break
+
+    case 4: // Shipping
+      if (!formData.delivery_options.delivery && !formData.delivery_options.pickup) {
+        errors.delivery_options = "At least one delivery option (delivery or pickup) must be selected"
+      }
+      if (formData.delivery_options.delivery) {
+        if (!formData.delivery_options.couriers.lalamove && !formData.delivery_options.couriers.transportify) {
+          errors.couriers = "At least one courier must be selected when delivery is enabled"
+        }
+      }
+      break
+
+    case 5: // Media
+      const hasImages = formData.media.filter((item) => !item.isVideo).length > 0 || formData.product_images.length > 0
+      if (!hasImages) {
+        errors.product_images = "At least one product image is required"
+      }
+      break
+
+    case 6: // Others
+      if (!formData.condition) {
+        errors.condition = "Product condition is required"
+      }
+      if (formData.is_pre_order && (!formData.pre_order_days || Number.parseInt(formData.pre_order_days) <= 0)) {
+        errors.pre_order_days = "Pre-order delivery days is required and must be greater than 0"
+      }
+      break
+  }
+
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors,
+  }
 }
 
-export function ProductFormShared({
-  formData,
-  setFormData,
-  onSubmit,
-  isSubmitting,
-  submitButtonText,
-  title,
-  description,
-}: ProductFormSharedProps) {
-  const [newSpecKey, setNewSpecKey] = useState("")
-  const [newSpecValue, setNewSpecValue] = useState("")
+// Step Navigation Component
+interface StepNavigationProps {
+  currentStep: number
+  steps: typeof STEPS
+}
 
-  const handleInputChange = (field: keyof ProductFormData, value: any) => {
-    setFormData({
-      ...formData,
-      [field]: value,
-    })
-  }
+export function StepNavigation({ currentStep, steps }: StepNavigationProps) {
+  return (
+    <div className="bg-white rounded-lg shadow-sm border p-6">
+      <h3 className="text-lg font-semibold text-gray-800 mb-4">Steps</h3>
+      <div className="space-y-2">
+        {steps.map((step) => (
+          <button
+            key={step.id}
+            className={`w-full text-left p-3 rounded-lg transition-colors ${
+              currentStep === step.id
+                ? "bg-red-50 border border-red-200 text-red-700"
+                : currentStep > step.id
+                  ? "bg-green-50 border border-green-200 text-green-700"
+                  : "bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100"
+            }`}
+          >
+            <div className="flex items-center">
+              <div
+                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium mr-3 ${
+                  currentStep === step.id
+                    ? "bg-red-500 text-white"
+                    : currentStep > step.id
+                      ? "bg-green-500 text-white"
+                      : "bg-gray-300 text-gray-600"
+                }`}
+              >
+                {currentStep > step.id ? <Check className="w-3 h-3" /> : step.id}
+              </div>
+              <div>
+                <div className="font-medium text-sm">{step.title}</div>
+                <div className="text-xs opacity-75">{step.description}</div>
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
 
-  const handleDimensionChange = (dimension: keyof ProductFormData["dimensions"], value: string) => {
-    setFormData({
-      ...formData,
-      dimensions: {
-        ...formData.dimensions,
-        [dimension]: value,
-      },
-    })
-  }
+// Category Selection Component
+interface CategorySelectionProps {
+  categories: Array<{
+    id: string
+    name: string
+    description?: string
+    active: boolean
+    deleted: boolean
+  }>
+  selectedCategories: string[]
+  onCategoryChange: (categoryId: string, checked: boolean) => void
+  loading: boolean
+  error: string | null
+  fieldError?: string
+}
 
-  const handleTagsChange = (value: string) => {
-    setFormData({
-      ...formData,
-      tags: value,
-    })
-  }
-
-  const addSpecification = () => {
-    if (newSpecKey && newSpecValue) {
-      setFormData({
-        ...formData,
-        specifications: {
-          ...formData.specifications,
-          [newSpecKey]: newSpecValue,
-        },
-      })
-      setNewSpecKey("")
-      setNewSpecValue("")
-    }
-  }
-
-  const removeSpecification = (key: string) => {
-    const newSpecs = { ...formData.specifications }
-    delete newSpecs[key]
-    setFormData({
-      ...formData,
-      specifications: newSpecs,
-    })
-  }
-
-  const addVariation = () => {
-    const newVariation: ProductVariation = {
-      id: Date.now().toString(),
-      name: "",
-      price: "",
-      stock: "",
-      sku: "",
-      images: [],
-      media: null,
-    }
-    setFormData({
-      ...formData,
-      variations: [...formData.variations, newVariation],
-    })
-  }
-
-  const updateVariation = (index: number, field: keyof ProductVariation, value: any) => {
-    const updatedVariations = formData.variations.map((variation, i) =>
-      i === index ? { ...variation, [field]: value } : variation,
+export function CategorySelection({
+  categories,
+  selectedCategories,
+  onCategoryChange,
+  loading,
+  error,
+  fieldError,
+}: CategorySelectionProps) {
+  if (loading) {
+    return (
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-gray-700 mb-2 block text-left">
+          Categories <span className="text-red-500">*</span>
+        </Label>
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          <span className="ml-2 text-gray-500">Loading categories...</span>
+        </div>
+      </div>
     )
-    setFormData({
-      ...formData,
-      variations: updatedVariations,
-    })
   }
 
-  const removeVariation = (index: number) => {
-    const updatedVariations = formData.variations.filter((_, i) => i !== index)
-    setFormData({
-      ...formData,
-      variations: updatedVariations,
-    })
-  }
-
-  const handleImageUpload = (files: FileList | null) => {
-    if (files) {
-      const newImages = Array.from(files)
-      setFormData({
-        ...formData,
-        images: [...formData.images, ...newImages],
-      })
-    }
-  }
-
-  const removeImage = (index: number) => {
-    const updatedImages = formData.images.filter((_, i) => i !== index)
-    setFormData({
-      ...formData,
-      images: updatedImages,
-    })
+  if (error) {
+    return (
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-gray-700 mb-2 block text-left">
+          Categories <span className="text-red-500">*</span>
+        </Label>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      </div>
+    )
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-8">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
-        <p className="text-gray-600 mt-2">{description}</p>
+    <div className="space-y-2">
+      <Label className="text-sm font-medium text-gray-700 mb-2 block text-left">
+        Categories <span className="text-red-500">*</span> (Select at least one)
+      </Label>
+      <div
+        className={`border rounded-lg p-4 max-h-48 overflow-y-auto ${fieldError ? "border-red-500" : "border-gray-300"}`}
+      >
+        {categories.length === 0 ? (
+          <p className="text-gray-500 text-sm">No categories available</p>
+        ) : (
+          <div className="space-y-2">
+            {categories.map((category) => (
+              <label key={category.id} className="flex items-center space-x-2 cursor-pointer select-none">
+                <input
+                  type="radio"
+                  checked={selectedCategories.includes(category.id)}
+                  onChange={(e) => onCategoryChange(category.id, e.target.checked)}
+                  className="rounded border-gray-300 text-red-500 focus:ring-red-500"
+                />
+                <span className="text-sm text-gray-700">{category.name}</span>
+                {category.description && <span className="text-xs text-gray-500">- {category.description}</span>}
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+      {fieldError && (
+        <div className="mt-1 flex items-center text-red-600 text-sm">
+          <AlertCircle className="w-4 h-4 mr-1 flex-shrink-0" />
+          <span>{fieldError}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Variation Item Component
+interface VariationItemProps {
+  variation: ProductFormData["variations"][0]
+  index: number
+  isCollapsed: boolean
+  onToggleCollapse: () => void
+  onRemove: () => void
+  onUpdate: (field: string, value: string) => void
+  onUpdatePriceStock: (field: string, value: string) => void
+  onImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onRemoveImage: () => void
+  uploading: boolean
+  fieldErrors: { [key: string]: string }
+  showPricing?: boolean
+  showMedia?: boolean
+  unit: string
+}
+
+export function VariationItem({
+  variation,
+  index,
+  isCollapsed,
+  onToggleCollapse,
+  onRemove,
+  onUpdate,
+  onUpdatePriceStock,
+  onImageUpload,
+  onRemoveImage,
+  uploading,
+  fieldErrors,
+  showPricing = false,
+  showMedia = false,
+  unit,
+}: VariationItemProps) {
+  return (
+    <div className="border border-gray-200 rounded-lg">
+      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-t-lg">
+        <div className="flex items-center space-x-3">
+          <button type="button" onClick={onToggleCollapse} className="text-gray-500 hover:text-gray-700">
+            {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+          </button>
+          <h4 className="font-medium text-gray-800">
+            Variation {index + 1} {variation.name && `- ${variation.name}`}
+          </h4>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onRemove}
+          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+        >
+          <X className="w-4 h-4" />
+        </Button>
       </div>
 
-      <form onSubmit={onSubmit} className="space-y-8">
-        {/* Basic Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Basic Information</CardTitle>
-            <CardDescription>Enter the basic details of your product</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="name">Product Name *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange("name", e.target.value)}
-                  placeholder="Enter product name"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="sku">SKU *</Label>
-                <Input
-                  id="sku"
-                  value={formData.sku}
-                  onChange={(e) => handleInputChange("sku", e.target.value)}
-                  placeholder="Enter SKU"
-                  required
-                />
-              </div>
+      {!isCollapsed && (
+        <div className="p-4 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor={`variation-name-${variation.id}`}>Variation Name *</Label>
+              <Input
+                id={`variation-name-${variation.id}`}
+                value={variation.name}
+                onChange={(e) => onUpdate("name", e.target.value)}
+                placeholder="e.g., Small, Red, etc."
+                className={fieldErrors[`variation_${index}_name`] ? "border-red-500" : ""}
+              />
+              {fieldErrors[`variation_${index}_name`] && (
+                <p className="mt-1 text-sm text-red-600">{fieldErrors[`variation_${index}_name`]}</p>
+              )}
             </div>
 
             <div>
-              <Label htmlFor="description">Description *</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => handleInputChange("description", e.target.value)}
-                placeholder="Enter product description"
-                rows={4}
-                required
+              <Label htmlFor={`variation-color-${variation.id}`}>Color</Label>
+              <Input
+                id={`variation-color-${variation.id}`}
+                value={variation.color}
+                onChange={(e) => onUpdate("color", e.target.value)}
+                placeholder="e.g., Red, Blue, etc."
               />
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="category">Category *</Label>
-                <Input
-                  id="category"
-                  value={formData.category}
-                  onChange={(e) => handleInputChange("category", e.target.value)}
-                  placeholder="Enter category"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="brand">Brand</Label>
-                <Input
-                  id="brand"
-                  value={formData.brand}
-                  onChange={(e) => handleInputChange("brand", e.target.value)}
-                  placeholder="Enter brand"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Pricing */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Pricing</CardTitle>
-            <CardDescription>Set your product pricing</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="price">Price *</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  step="0.01"
-                  value={formData.price}
-                  onChange={(e) => handleInputChange("price", e.target.value)}
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="comparePrice">Compare Price</Label>
-                <Input
-                  id="comparePrice"
-                  type="number"
-                  step="0.01"
-                  value={formData.comparePrice}
-                  onChange={(e) => handleInputChange("comparePrice", e.target.value)}
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <Label htmlFor="costPrice">Cost Price</Label>
-                <Input
-                  id="costPrice"
-                  type="number"
-                  step="0.01"
-                  value={formData.costPrice}
-                  onChange={(e) => handleInputChange("costPrice", e.target.value)}
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Inventory */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Inventory</CardTitle>
-            <CardDescription>Manage your product inventory</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="trackQuantity"
-                checked={formData.trackQuantity}
-                onCheckedChange={(checked) => handleInputChange("trackQuantity", checked)}
-              />
-              <Label htmlFor="trackQuantity">Track quantity</Label>
-            </div>
-
-            {formData.trackQuantity && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="quantity">Quantity</Label>
-                  <Input
-                    id="quantity"
-                    type="number"
-                    value={formData.quantity}
-                    onChange={(e) => handleInputChange("quantity", e.target.value)}
-                    placeholder="0"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="lowStockThreshold">Low Stock Threshold</Label>
-                  <Input
-                    id="lowStockThreshold"
-                    type="number"
-                    value={formData.lowStockThreshold}
-                    onChange={(e) => handleInputChange("lowStockThreshold", e.target.value)}
-                    placeholder="5"
-                  />
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Product Images */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Product Images</CardTitle>
-            <CardDescription>Upload images for your product</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <Label htmlFor="images">Upload Images</Label>
-              <div className="mt-2">
-                <input
-                  id="images"
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={(e) => handleImageUpload(e.target.files)}
-                  className="hidden"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => document.getElementById("images")?.click()}
-                  className="w-full"
-                >
-                  <Upload className="w-4 h-4 mr-2" />
-                  Upload Images
-                </Button>
-              </div>
+              <Label htmlFor={`variation-weight-${variation.id}`}>Weight (kg)</Label>
+              <Input
+                id={`variation-weight-${variation.id}`}
+                type="number"
+                step="0.1"
+                value={variation.weight}
+                onChange={(e) => onUpdate("weight", e.target.value)}
+                placeholder="0.0"
+              />
             </div>
 
-            {formData.images.length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {formData.images.map((image, index) => (
-                  <div key={index} className="relative">
-                    <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center">
-                      <ImageIcon className="w-8 h-8 text-gray-400" />
-                    </div>
+            <div>
+              <Label htmlFor={`variation-height-${variation.id}`}>Height (cm)</Label>
+              <Input
+                id={`variation-height-${variation.id}`}
+                type="number"
+                value={variation.height}
+                onChange={(e) => onUpdate("height", e.target.value)}
+                placeholder="0"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor={`variation-length-${variation.id}`}>Length (cm)</Label>
+              <Input
+                id={`variation-length-${variation.id}`}
+                type="number"
+                value={variation.length}
+                onChange={(e) => onUpdate("length", e.target.value)}
+                placeholder="0"
+              />
+            </div>
+          </div>
+
+          {showPricing && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+              <div>
+                <Label htmlFor={`variation-price-${variation.id}`}>Price (₱) *</Label>
+                <Input
+                  id={`variation-price-${variation.id}`}
+                  type="number"
+                  step="0.01"
+                  value={variation.price}
+                  onChange={(e) => onUpdatePriceStock("price", e.target.value)}
+                  placeholder="0.00"
+                  className={fieldErrors[`variation_${index}_price`] ? "border-red-500" : ""}
+                />
+                {fieldErrors[`variation_${index}_price`] && (
+                  <p className="mt-1 text-sm text-red-600">{fieldErrors[`variation_${index}_price`]}</p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor={`variation-stock-${variation.id}`}>Stock Quantity *</Label>
+                <Input
+                  id={`variation-stock-${variation.id}`}
+                  type="number"
+                  value={variation.stock}
+                  onChange={(e) => onUpdatePriceStock("stock", e.target.value)}
+                  placeholder="0"
+                  className={fieldErrors[`variation_${index}_stock`] ? "border-red-500" : ""}
+                />
+                {fieldErrors[`variation_${index}_stock`] && (
+                  <p className="mt-1 text-sm text-red-600">{fieldErrors[`variation_${index}_stock`]}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {showMedia && (
+            <div className="pt-4 border-t">
+              <Label className="text-sm font-medium mb-2 block">Variation Image</Label>
+              {variation.media ? (
+                <div className="space-y-3">
+                  <div className="relative group inline-block">
+                    <img
+                      src={variation.media || "/placeholder.svg"}
+                      alt={`${variation.name} image`}
+                      className="w-20 h-20 object-cover rounded border"
+                      onError={(e) => {
+                        e.currentTarget.src = "/placeholder.svg?height=80&width=80"
+                      }}
+                    />
                     <Button
                       type="button"
                       variant="destructive"
                       size="sm"
-                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
-                      onClick={() => removeImage(index)}
+                      onClick={onRemoveImage}
+                      className="absolute -top-1 -right-1 w-5 h-5 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <X className="w-3 h-3" />
                     </Button>
-                    <p className="text-xs text-gray-500 mt-1 truncate">{image.name}</p>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Product Variations */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Product Variations</CardTitle>
-            <CardDescription>Add different variations of your product</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {formData.variations.map((variation, index) => (
-              <div key={variation.id} className="border rounded-lg p-4 space-y-4">
-                <div className="flex justify-between items-center">
-                  <h4 className="font-medium">Variation {index + 1}</h4>
-                  <Button type="button" variant="destructive" size="sm" onClick={() => removeVariation(index)}>
-                    <X className="w-4 h-4" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={onImageUpload}
+                    className="hidden"
+                    id={`variation-replace-${variation.id}`}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById(`variation-replace-${variation.id}`)?.click()}
+                    disabled={uploading}
+                  >
+                    Replace Image
                   </Button>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Variation Name</Label>
-                    <Input
-                      value={variation.name}
-                      onChange={(e) => updateVariation(index, "name", e.target.value)}
-                      placeholder="e.g., Size M, Color Red"
-                    />
-                  </div>
-                  <div>
-                    <Label>SKU</Label>
-                    <Input
-                      value={variation.sku || ""}
-                      onChange={(e) => updateVariation(index, "sku", e.target.value)}
-                      placeholder="Variation SKU"
-                    />
-                  </div>
+              ) : (
+                <div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={onImageUpload}
+                    className="hidden"
+                    id={`variation-upload-${variation.id}`}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById(`variation-upload-${variation.id}`)?.click()}
+                    disabled={uploading}
+                    className="w-full"
+                  >
+                    {uploading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <ImageIcon className="w-4 h-4 mr-2" />
+                        Add Image
+                      </>
+                    )}
+                  </Button>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Price</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={variation.price}
-                      onChange={(e) => updateVariation(index, "price", e.target.value)}
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div>
-                    <Label>Stock</Label>
-                    <Input
-                      type="number"
-                      value={variation.stock}
-                      onChange={(e) => updateVariation(index, "stock", e.target.value)}
-                      placeholder="0"
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-
-            <Button type="button" variant="outline" onClick={addVariation} className="w-full bg-transparent">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Variation
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* SEO & Settings */}
-        <Card>
-          <CardHeader>
-            <CardTitle>SEO & Settings</CardTitle>
-            <CardDescription>Configure SEO and product settings</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="status">Status</Label>
-                <Select value={formData.status} onValueChange={(value: any) => handleInputChange("status", value)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="archived">Archived</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="visibility">Visibility</Label>
-                <Select
-                  value={formData.visibility}
-                  onValueChange={(value: any) => handleInputChange("visibility", value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="public">Public</SelectItem>
-                    <SelectItem value="private">Private</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              )}
             </div>
-
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="featured"
-                checked={formData.featured}
-                onCheckedChange={(checked) => handleInputChange("featured", checked)}
-              />
-              <Label htmlFor="featured">Featured product</Label>
-            </div>
-
-            <div>
-              <Label htmlFor="tags">Tags</Label>
-              <Input
-                id="tags"
-                value={formData.tags}
-                onChange={(e) => handleTagsChange(e.target.value)}
-                placeholder="Enter tags separated by commas"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Submit Button */}
-        <div className="flex justify-end">
-          <Button type="submit" disabled={isSubmitting} className="bg-red-500 hover:bg-red-600">
-            {isSubmitting ? "Saving..." : submitButtonText}
-          </Button>
+          )}
         </div>
-      </form>
+      )}
+    </div>
+  )
+}
+
+// Navigation Buttons Component
+interface NavigationButtonsProps {
+  currentStep: number
+  totalSteps: number
+  loading: boolean
+  canProceed: boolean
+  onPrevious: () => void
+  onNext: () => void
+  onSaveDraft: () => void
+  onSubmit: () => void
+  submitLabel?: string
+  isEdit?: boolean
+}
+
+export function NavigationButtons({
+  currentStep,
+  totalSteps,
+  loading,
+  canProceed,
+  onPrevious,
+  onNext,
+  onSaveDraft,
+  onSubmit,
+  submitLabel = "Publish Product",
+  isEdit = false,
+}: NavigationButtonsProps) {
+  return (
+    <div className="flex justify-between items-center p-6 border-t bg-gray-50">
+      <div className="flex space-x-3">
+        <Button type="button" variant="outline" onClick={onPrevious} disabled={currentStep === 1 || loading}>
+          <ChevronLeft className="w-4 h-4 mr-2" />
+          Previous
+        </Button>
+      </div>
+
+      <div className="flex space-x-3">
+        <Button type="button" variant="outline" onClick={onSaveDraft} disabled={loading}>
+          {loading ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            "Save as Draft"
+          )}
+        </Button>
+
+        {currentStep < totalSteps ? (
+          <Button type="button" onClick={onNext} disabled={!canProceed || loading}>
+            Next
+            <ChevronRight className="w-4 h-4 ml-2" />
+          </Button>
+        ) : (
+          <Button type="button" onClick={onSubmit} disabled={!canProceed || loading}>
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                {isEdit ? "Updating..." : "Publishing..."}
+              </>
+            ) : (
+              submitLabel
+            )}
+          </Button>
+        )}
+      </div>
     </div>
   )
 }

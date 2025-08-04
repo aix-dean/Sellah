@@ -12,6 +12,8 @@ import {
   limit,
   startAfter,
   serverTimestamp,
+  writeBatch,
+  increment,
   type QueryDocumentSnapshot,
 } from "firebase/firestore"
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"
@@ -48,6 +50,7 @@ export interface Product {
   status: "active" | "draft" | "archived"
   visibility: "public" | "private"
   featured: boolean
+  condition: "new" | "used" | "refurbished"
   userId: string
   createdAt?: any
   updatedAt?: any
@@ -235,12 +238,14 @@ export async function deleteProduct(productId: string, userId: string): Promise<
 
     const productData = productDoc.data() as Product
 
+
     // Soft delete: set active=false and deleted=true
     await updateDoc(productRef, {
       active: false,
       deleted: true,
       updatedAt: serverTimestamp(),
     })
+
   } catch (error) {
     throw error
   }
@@ -271,7 +276,6 @@ export async function hardDeleteProduct(productId: string, userId: string): Prom
     // Delete product document
     await deleteDoc(productRef)
   } catch (error) {
-    console.error("Error hard deleting product:", error)
     throw error
   }
 }
@@ -506,30 +510,118 @@ export async function getLowStockProducts(userId: string): Promise<Product[]> {
 
 // Utility function to update user's product count
 
-// Company and User related functions (moved from product-service to be exported)
-export async function addCompany(companyData: any) {
+
+export async function getProductCategories(): Promise<string[]> {
   try {
-    const docRef = await addDoc(collection(db, "companies"), {
-      ...companyData,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+    const q = query(collection(db, "products"), where("active", "==", true), where("deleted", "==", false))
+    const querySnapshot = await getDocs(q)
+
+    const categories = new Set<string>()
+    querySnapshot.docs.forEach((doc) => {
+      const product = doc.data() as Product
+      if (product.category) {
+        categories.add(product.category)
+      }
     })
-    return docRef
+
+    return Array.from(categories).sort()
   } catch (error) {
-    console.error("Error adding company:", error)
+    console.error("Error getting product categories:", error)
     throw error
   }
 }
 
-export async function updateUser(userId: string, updates: any) {
+export async function getProductBrands(): Promise<string[]> {
   try {
-    const userRef = doc(db, "iboard_users", userId)
-    await updateDoc(userRef, {
-      ...updates,
-      updatedAt: serverTimestamp(),
+    const q = query(collection(db, "products"), where("active", "==", true), where("deleted", "==", false))
+    const querySnapshot = await getDocs(q)
+
+    const brands = new Set<string>()
+    querySnapshot.docs.forEach((doc) => {
+      const product = doc.data() as Product
+      if (product.brand) {
+        brands.add(product.brand)
+      }
     })
+
+    return Array.from(brands).sort()
   } catch (error) {
-    console.error("Error updating user:", error)
+    console.error("Error getting product brands:", error)
+    throw error
+  }
+}
+
+export function generateSKU(productName: string, category: string): string {
+  const namePrefix = productName
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .substring(0, 3)
+    .toUpperCase()
+  const categoryPrefix = category
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .substring(0, 3)
+    .toUpperCase()
+  const timestamp = Date.now().toString().slice(-6)
+
+  return `${namePrefix}${categoryPrefix}${timestamp}`
+}
+
+// Batch operations
+export async function bulkUpdateProducts(
+  updates: Array<{ id: string; data: Partial<Product> }>,
+  userId: string,
+): Promise<void> {
+  try {
+    const batch = writeBatch(db)
+
+    updates.forEach(({ id, data }) => {
+      const productRef = doc(db, "products", id)
+      batch.update(productRef, {
+        ...data,
+        updatedAt: serverTimestamp(),
+      })
+    })
+
+    await batch.commit()
+
+    console.log("Bulk update completed for", updates.length, "products")
+  } catch (error) {
+    console.error("Error bulk updating products:", error)
+    throw error
+  }
+}
+
+export async function bulkDeleteProducts(productIds: string[], userId: string): Promise<void> {
+  try {
+    const batch = writeBatch(db)
+
+    // Get all products to delete their images
+    const products = await Promise.all(productIds.map((id) => getProduct(id)))
+
+    // Delete images
+    const allImages = products.filter((product) => product !== null).flatMap((product) => product!.images || [])
+
+    if (allImages.length > 0) {
+      await deleteProductImages(allImages)
+    }
+
+    // Soft delete product documents
+    productIds.forEach((id) => {
+      const productRef = doc(db, "products", id)
+      batch.update(productRef, {
+        active: false,
+        deleted: true,
+        updatedAt: serverTimestamp(),
+      })
+    })
+
+    await batch.commit()
+
+    // Decrease user's product count by the number of deleted products
+
+    console.log("Bulk delete completed for", productIds.length, "products")
+    console.log(`User product count decremented by ${productIds.length}`)
+  } catch (error) {
+    console.error("Error bulk deleting products:", error)
     throw error
   }
 }
@@ -554,11 +646,18 @@ export async function getUserProductStats(userId: string): Promise<{
     const allProductsQuery = query(collection(db, "products"), where("userId", "==", userId))
     const allProductsSnapshot = await getDocs(allProductsQuery)
 
+    // Get active products only
+    const activeProductsQuery = query(
+      collection(db, "products"),
+      where("userId", "==", userId),
+      where("active", "==", true),
+      where("deleted", "==", false),
+    )
+    const activeProductsSnapshot = await getDocs(activeProductsQuery)
+
     let activeProducts = 0
     let draftProducts = 0
     let archivedProducts = 0
-
-    const activeProductsSnapshot = allProductsSnapshot // Declare the variable here
 
     activeProductsSnapshot.docs.forEach((doc) => {
       const product = doc.data() as Product
@@ -595,11 +694,12 @@ export async function getUserProductStats(userId: string): Promise<{
   }
 }
 
+
 // Product Stock
 export async function updateProductStock(
   productId: string,
   variationId: string,
-  quantityToDecrease: number,
+  quantityToDecrease: number
 ): Promise<void> {
   try {
     const productRef = doc(db, "products", productId)
@@ -638,8 +738,8 @@ export async function updateProductStock(
 // 🔁 Function to loop through order items and decrease stock for each
 export async function decreaseStockForOrder(order: {
   items: {
-    product_id: string
-    quantity: number
+    product_id: string,
+    quantity: number,
     variation_data: { id: string }
   }[]
 }): Promise<void> {
@@ -647,7 +747,7 @@ export async function decreaseStockForOrder(order: {
     for (const item of order.items) {
       const { product_id, quantity, variation_data } = item
 
-      if (!product_id || !variation_data?.id || typeof quantity !== "number") {
+      if (!product_id || !variation_data?.id || typeof quantity !== 'number') {
         console.warn("⚠️ Skipping invalid item:", item)
         continue
       }

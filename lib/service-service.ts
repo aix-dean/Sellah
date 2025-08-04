@@ -1,318 +1,144 @@
-import { db, storage } from "@/lib/firebase"
 import {
   collection,
   addDoc,
-  getDocs,
-  doc,
-  getDoc,
+  updateDoc,
   deleteDoc,
+  doc,
+  getDocs,
   query,
-  serverTimestamp,
   where,
   orderBy,
-  limit,
-  startAfter,
-  type QueryDocumentSnapshot,
-  updateDoc, // Import updateDoc
+  getDoc,
 } from "firebase/firestore"
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"
+import { db, storage } from "./firebase"
 import type { Service } from "@/types/service"
-import { PRODUCT_LIMITS, type UserStatus } from "./product-service" // Reusing product limits for services
 
-const SERVICES_COLLECTION = "services"
-const SERVICE_IMAGES_FOLDER = "service_images"
-const servicesCollection = collection(db, "services")
+export class ServiceService {
+  private static collection = "products" // Using same collection as products
 
-export interface ServicesResponse {
-  services: Service[]
-  total: number
-  hasMore: boolean
-  lastDoc?: QueryDocumentSnapshot
-}
+  static async createService(
+    serviceData: Omit<Service, "id" | "createdAt" | "updatedAt">,
+    imageFile?: File,
+  ): Promise<string> {
+    try {
+      let imageUrl = ""
 
-// Check if user can add more services (reusing product limits for now)
-export async function canUserAddService(userId: string): Promise<{
-  canAdd: boolean
-  currentCount: number
-  limit: number
-  status: string
-  message?: string
-}> {
-  try {
-    // Get user data to check status and current service count
-    const userRef = doc(db, "iboard_users", userId)
-    const userDoc = await getDoc(userRef)
-
-    if (!userDoc.exists()) {
-      throw new Error("User not found")
-    }
-
-    const userData = userDoc.data()
-    const userStatus: UserStatus = userData.status || "UNKNOWN"
-    const currentCount = userData.service_count || 0 // Assuming a 'service_count' field
-
-    // Get limit based on user status
-    const limit = PRODUCT_LIMITS[userStatus] || PRODUCT_LIMITS.UNKNOWN
-
-    const canAdd = currentCount < limit
-
-    let message: string | undefined
-    if (!canAdd) {
-      switch (userStatus) {
-        case "UNKNOWN":
-          message =
-            "You can only create 1 service with UNKNOWN status. Please complete your profile to upgrade your account."
-          break
-        case "BASIC":
-          message =
-            "You have reached the limit of 5 services for BASIC status. Please verify your account to remove this limit."
-          break
-        case "INCOMPLETE": // Legacy support
-          message =
-            "You have reached the limit of 5 services for INCOMPLETE status. Please verify your account to remove this limit."
-          break
-        default:
-          message = "You have reached your service limit. Please upgrade your account status."
+      if (imageFile) {
+        imageUrl = await this.uploadImage(imageFile, serviceData.userId)
       }
-    }
 
-    return {
-      canAdd,
-      currentCount,
-      limit,
-      status: userStatus,
-      message,
+      const docRef = await addDoc(collection(db, this.collection), {
+        ...serviceData,
+        imageUrl,
+        type: "SERVICE",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+
+      return docRef.id
+    } catch (error) {
+      console.error("Error creating service:", error)
+      throw error
     }
-  } catch (error) {
-    console.error("Error checking service limit:", error)
-    throw error
   }
-}
 
-// Service CRUD operations
-export async function createService(serviceData: Omit<Service, "id" | "created_at" | "updated_at">): Promise<string> {
-  try {
-    // Check if user can add more services
-    const limitCheck = await canUserAddService(serviceData.userId)
-    if (!limitCheck.canAdd) {
-      throw new Error(limitCheck.message || "Service limit reached")
+  static async updateService(serviceId: string, updates: Partial<Service>, imageFile?: File): Promise<void> {
+    try {
+      let imageUrl = updates.imageUrl
+
+      if (imageFile) {
+        // Delete old image if exists
+        if (updates.imageUrl) {
+          await this.deleteImage(updates.imageUrl)
+        }
+        imageUrl = await this.uploadImage(imageFile, updates.userId!)
+      }
+
+      const docRef = doc(db, this.collection, serviceId)
+      await updateDoc(docRef, {
+        ...updates,
+        imageUrl,
+        updatedAt: new Date(),
+      })
+    } catch (error) {
+      console.error("Error updating service:", error)
+      throw error
     }
-
-    const service: Omit<Service, "id"> = {
-      ...serviceData,
-      // Set default values for required fields
-      active: true,
-      deleted: false,
-      bookings: 0,
-      views: 0,
-      rating: 5,
-      image_url: serviceData.mainImage || serviceData.images[0] || "",
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    }
-
-    // Create the service document
-    const docRef = await addDoc(collection(db, "services"), service)
-
-    // Increment user's service count
-    const userRef = doc(db, "iboard_users", serviceData.userId)
-    await updateDoc(userRef, {
-      service_count: (limitCheck.currentCount || 0) + 1,
-      updated_at: serverTimestamp(),
-    })
-
-    return docRef.id
-  } catch (error) {
-    throw error
   }
-}
 
-export async function updateService(serviceId: string, updates: Partial<Service>, userId: string): Promise<void> {
-  try {
-    const serviceRef = doc(db, "services", serviceId)
+  static async deleteService(serviceId: string): Promise<void> {
+    try {
+      // Get service data to delete image
+      const serviceDoc = await getDoc(doc(db, this.collection, serviceId))
+      const serviceData = serviceDoc.data()
 
-    const updateData = {
-      ...updates,
-      updated_at: serverTimestamp(),
+      if (serviceData?.imageUrl) {
+        await this.deleteImage(serviceData.imageUrl)
+      }
+
+      await deleteDoc(doc(db, this.collection, serviceId))
+    } catch (error) {
+      console.error("Error deleting service:", error)
+      throw error
     }
-
-    await updateDoc(serviceRef, updateData)
-    console.log("Service updated successfully:", serviceId)
-  } catch (error) {
-    console.error("Error updating service:", error)
-    throw error
   }
-}
 
-export async function deleteService(serviceId: string, userId: string): Promise<void> {
-  try {
-    const serviceRef = doc(db, "services", serviceId)
-    const serviceDoc = await getDoc(serviceRef)
+  static async getServicesByUser(userId: string): Promise<Service[]> {
+    try {
+      const q = query(
+        collection(db, this.collection),
+        where("userId", "==", userId),
+        where("type", "==", "SERVICE"),
+        orderBy("createdAt", "desc"),
+      )
 
-    if (!serviceDoc.exists()) {
-      throw new Error("Service not found")
+      const querySnapshot = await getDocs(q)
+      return querySnapshot.docs.map(
+        (doc) =>
+          ({
+            id: doc.id,
+            ...doc.data(),
+          }) as Service,
+      )
+    } catch (error) {
+      console.error("Error getting services:", error)
+      throw error
     }
-
-    const serviceData = serviceDoc.data() as Service
-
-    // Verify ownership
-    if (serviceData.user_id !== userId) {
-      throw new Error("Unauthorized: You can only delete your own services")
-    }
-
-    await deleteDoc(serviceRef)
-  } catch (error) {
-    console.error("Error deleting service:", error)
-    throw error
   }
-}
 
-export async function getService(serviceId: string): Promise<Service | null> {
-  try {
-    const serviceDoc = await getDoc(doc(db, "services", serviceId))
+  static async getService(serviceId: string): Promise<Service | null> {
+    try {
+      const docRef = doc(db, this.collection, serviceId)
+      const docSnap = await getDoc(docRef)
 
-    if (serviceDoc.exists()) {
-      return {
-        id: serviceDoc.id,
-        ...serviceDoc.data(),
-      } as Service
+      if (docSnap.exists()) {
+        return {
+          id: docSnap.id,
+          ...docSnap.data(),
+        } as Service
+      }
+
+      return null
+    } catch (error) {
+      console.error("Error getting service:", error)
+      throw error
     }
-
-    return null
-  } catch (error) {
-    console.error("Error getting service:", error)
-    throw error
   }
-}
 
-export async function getServices(
-  filters: any = {}, // Renamed ServiceFilter to any to avoid redeclaration
-  pageSize = 20,
-  lastDoc?: QueryDocumentSnapshot,
-): Promise<ServicesResponse> {
-  try {
-    let q = query(collection(db, "services"))
-
-    // Apply filters
-    if (filters.category) {
-      q = query(q, where("categories", "array-contains", filters.category))
-    }
-
-    if (filters.status) {
-      q = query(q, where("status", "==", filters.status))
-    }
-
-    // Add ordering
-    q = query(q, orderBy("created_at", "desc"))
-
-    // Add pagination
-    if (lastDoc) {
-      q = query(q, startAfter(lastDoc))
-    }
-
-    q = query(q, limit(pageSize + 1))
-
-    const querySnapshot = await getDocs(q)
-    const docs = querySnapshot.docs
-
-    const hasMore = docs.length > pageSize
-    const services = docs.slice(0, pageSize).map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Service[]
-
-    return {
-      services,
-      total: services.length,
-      hasMore,
-      lastDoc: hasMore ? docs[pageSize - 1] : undefined,
-    }
-  } catch (error) {
-    console.error("Error getting services:", error)
-    throw error
-  }
-}
-
-export async function getUserServices(
-  userId: string,
-  filters: any = {}, // Renamed ServiceFilter to any to avoid redeclaration
-  pageSize = 20,
-  lastDoc?: QueryDocumentSnapshot,
-): Promise<ServicesResponse> {
-  try {
-    let q = query(collection(db, "services"), where("user_id", "==", userId))
-
-    // Apply additional filters
-    if (filters.status) {
-      q = query(q, where("status", "==", filters.status))
-    }
-
-    if (filters.category) {
-      q = query(q, where("categories", "array-contains", filters.category))
-    }
-
-    // Add ordering
-    q = query(q, orderBy("created_at", "desc"))
-
-    // Add pagination
-    if (lastDoc) {
-      q = query(q, startAfter(lastDoc))
-    }
-
-    q = query(q, limit(pageSize + 1))
-
-    const querySnapshot = await getDocs(q)
-    const docs = querySnapshot.docs
-
-    const hasMore = docs.length > pageSize
-    const services = docs.slice(0, pageSize).map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Service[]
-
-    return {
-      services,
-      total: services.length,
-      hasMore,
-      lastDoc: hasMore ? docs[pageSize - 1] : undefined,
-    }
-  } catch (error) {
-    console.error("Error getting user services:", error)
-    throw error
-  }
-}
-
-// Image management for services
-export async function uploadServiceImage(file: File, userId: string, serviceId?: string): Promise<string> {
-  try {
-    const fileName = `${Date.now()}_${file.name}`
-    const path = serviceId ? `services/${userId}/${serviceId}/${fileName}` : `services/${userId}/temp/${fileName}`
-    const storageRef = ref(storage, path)
-
+  private static async uploadImage(file: File, userId: string): Promise<string> {
+    const storageRef = ref(storage, `services/${userId}/${Date.now()}_${file.name}`)
     const snapshot = await uploadBytes(storageRef, file)
-    const downloadURL = await getDownloadURL(snapshot.ref)
-
-    return downloadURL
-  } catch (error) {
-    console.error("Error uploading service image:", error)
-    throw error
+    return await getDownloadURL(snapshot.ref)
   }
-}
 
-export async function deleteServiceImages(imageUrls: string[]): Promise<void> {
-  try {
-    const deletePromises = imageUrls.map(async (url) => {
-      try {
-        const imageRef = ref(storage, url)
-        await deleteObject(imageRef)
-      } catch (error) {
-        console.error("Error deleting image:", url, error)
-      }
-    })
-
-    await Promise.all(deletePromises)
-  } catch (error) {
-    console.error("Error deleting service images:", error)
-    throw error
+  private static async deleteImage(imageUrl: string): Promise<void> {
+    try {
+      const imageRef = ref(storage, imageUrl)
+      await deleteObject(imageRef)
+    } catch (error) {
+      console.error("Error deleting image:", error)
+      // Don't throw error for image deletion failures
+    }
   }
 }
