@@ -144,10 +144,14 @@ export default function ProductsPage() {
 
       setCompanySuccess("Company information saved successfully!")
 
-      // Hide the form after a short delay and redirect to add product
+      // Hide the form after a short delay and redirect to add product/service
       setTimeout(() => {
         setShowCompanyForm(false)
-        window.location.href = "/dashboard/products/add"
+        if (activeTab === "supplies") {
+          window.location.href = "/dashboard/products/add"
+        } else {
+          window.location.href = "/dashboard/services/add"
+        }
       }, 1500)
     } catch (error: any) {
       console.error("Error saving company:", error)
@@ -157,7 +161,7 @@ export default function ProductsPage() {
     }
   }
 
-  const handleAddProduct = async () => {
+  const handleAddButtonClick = async () => {
     if (!currentUser) return
 
     // Check if user has company information
@@ -166,7 +170,13 @@ export default function ProductsPage() {
       setShowCompanyForm(true)
       return
     }
-    window.location.href = "/dashboard/services/add"
+
+    // Redirect based on active tab
+    if (activeTab === "supplies") {
+      window.location.href = "/dashboard/products/add"
+    } else {
+      window.location.href = "/dashboard/services/add"
+    }
   }
 
   const handleCloseCompanyForm = () => {
@@ -326,7 +336,7 @@ export default function ProductsPage() {
   const renderSkeletons = () => {
     if (viewMode === "grid") {
       return (
-        <div className="text-center py-12 bg-white border shadow-sm rounded-lg">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {Array.from({ length: 8 }).map((_, index) => (
             <ProductCardSkeleton key={index} />
           ))}
@@ -354,10 +364,10 @@ export default function ProductsPage() {
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Inventory</h1>
             <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your product inventory and listings</p>
           </div>
-          <Button onClick={handleAddProduct} className="bg-red-500 hover:bg-red-600 text-white w-full sm:w-auto">
+          <Button onClick={handleAddButtonClick} className="bg-red-500 hover:bg-red-600 text-white w-full sm:w-auto">
             <Plus className="w-4 h-4 mr-2" />
-            <span className="sm:hidden">Add</span>
-            <span className="hidden sm:inline">Add Product</span>
+            <span className="sm:hidden">{activeTab === "supplies" ? "Add" : "Add Service"}</span>
+            <span className="hidden sm:inline">{activeTab === "supplies" ? "Add Product" : "Add Service"}</span>
           </Button>
         </div>
 
@@ -378,7 +388,8 @@ export default function ProductsPage() {
               <div className="p-6">
                 <div className="mb-6">
                   <p className="text-gray-600 mb-2">
-                    To add products, we need your company information first. Please fill out the details below.
+                    To add {activeTab === "supplies" ? "products" : "services"}, we need your company information first.
+                    Please fill out the details below.
                   </p>
                   <p className="text-sm text-gray-500">
                     This information will be used for your product listings and business profile.
@@ -521,14 +532,10 @@ export default function ProductsPage() {
         />
 
         {/* Tabs for Supplies and Services */}
-        <Tabs defaultValue="supplies" className="mt-6">
+        <Tabs defaultValue="supplies" className="mt-6" onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="supplies" onClick={() => setActiveTab("supplies")}>
-              Supplies
-            </TabsTrigger>
-            <TabsTrigger value="services" onClick={() => setActiveTab("services")}>
-              Services
-            </TabsTrigger>
+            <TabsTrigger value="supplies">Supplies</TabsTrigger>
+            <TabsTrigger value="services">Services</TabsTrigger>
           </TabsList>
 
           <TabsContent value="supplies" className="mt-6 space-y-6">
@@ -603,7 +610,7 @@ export default function ProductsPage() {
                     : "Get started by adding your first product"}
                 </p>
                 {!searchTerm && selectedCategory === "all" && (
-                  <Button onClick={handleAddProduct} className="bg-red-500 hover:bg-red-600 text-white">
+                  <Button onClick={handleAddButtonClick} className="bg-red-500 hover:bg-red-600 text-white">
                     <Plus className="w-4 h-4 mr-2" />
                     Add Your First Product
                   </Button>
@@ -800,10 +807,7 @@ export default function ProductsPage() {
                 This section is dedicated to managing your services. Functionality for adding and listing services will
                 be available here.
               </p>
-              <Button
-                onClick={handleAddProduct} // You might want a separate handler for adding services later
-                className="bg-red-500 hover:bg-red-600 text-white"
-              >
+              <Button onClick={handleAddButtonClick} className="bg-red-500 hover:bg-red-600 text-white">
                 <Plus className="w-4 h-4 mr-2" />
                 Add New Service
               </Button>
