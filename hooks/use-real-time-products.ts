@@ -30,7 +30,6 @@ export function useRealTimeProducts() {
       where("seller_id", "==", user.uid),
       where("active", "==", true),
       where("deleted", "==", false),
-      where("type", "in", ["MERCHANDISE", "Merchandise", "SERVICES"]), // Include SERVICES
       orderBy("createdAt", "desc"),
     )
 
