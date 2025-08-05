@@ -23,7 +23,7 @@ interface Product {
   price: number
   stock: number
   sales: number
-  status: "published" | "unpublished"
+  status: "published" | "unpublished" | "active" | "inactive" | "draft"
   views: number
   likes: number
   type: string
@@ -35,7 +35,18 @@ interface Product {
   category?: string
   image_url?: string
   rating?: number
-  variations?: ProductVariation[] // Add variations array
+  variations?: ProductVariation[]
+  // Service-specific fields
+  serviceType?: "roll_up" | "roll_down" | "delivery"
+  schedule?: {
+    [key: string]: {
+      available: boolean
+      startTime: string
+      endTime: string
+    }
+  }
+  bookings?: number
+  imageUrls?: string[]
 }
 
 export function useRealTimeProducts(userId: string | null) {
@@ -44,7 +55,6 @@ export function useRealTimeProducts(userId: string | null) {
   const [error, setError] = useState<string | null>(null)
 
   const forceRefetch = () => {
-    // Force a re-render by updating the loading state briefly
     setLoading(true)
     setTimeout(() => setLoading(false), 100)
   }
@@ -64,12 +74,10 @@ export function useRealTimeProducts(userId: string | null) {
       const q = query(
         productsRef,
         where("seller_id", "==", userId),
-        where("type", "in", ["MERCHANDISE", "Merchandise"]),
-        where("active", "==", true), // Only get active products
-        where("deleted", "==", false), // Only get non-deleted products
+        where("active", "==", true),
+        where("deleted", "==", false),
       )
 
-      // Set up real-time listener
       const unsubscribe = onSnapshot(
         q,
         (querySnapshot) => {
@@ -78,52 +86,82 @@ export function useRealTimeProducts(userId: string | null) {
           querySnapshot.forEach((doc) => {
             const data = doc.data()
 
-            // Double-check that the product is not deleted (extra safety)
             if (data.deleted === true || data.active === false) return
 
-            // Get images from media field where isVideo is false
-            const mediaImages = Array.isArray(data.media)
-              ? data.media.filter((item: any) => item.isVideo === false).map((item: any) => item.url)
-              : []
+            // Handle both products and services
+            if (data.type === "SERVICES") {
+              // Service data structure
+              const serviceImages = Array.isArray(data.imageUrls) ? data.imageUrls : []
 
-            // Preserve variations array from Firebase
-            const variations = Array.isArray(data.variations)
-              ? data.variations.map((variation: any) => ({
-                  id: variation.id || "",
-                  name: variation.name || "",
-                  price: Number(variation.price) || 0,
-                  stock: Number(variation.stock) || 0,
-                  media: variation.media || "",
-                  color: variation.color,
-                  height: variation.height,
-                  length: variation.length,
-                  weight: variation.weight,
-                }))
-              : []
+              fetchedProducts.push({
+                id: doc.id,
+                name: data.name || "Untitled Service",
+                sku: data.sku || "N/A",
+                price: data.price || 0,
+                stock: 0, // Services don't have stock
+                sales: data.bookings || 0, // Use bookings for services
+                status: data.status || "unpublished",
+                views: data.views || 0,
+                likes: data.likes || 0,
+                type: data.type,
+                seller_id: data.seller_id || "",
+                deleted: data.deleted || false,
+                photo_urls: serviceImages,
+                created_at: data.created_at,
+                description: data.description || "",
+                category: data.category || "service",
+                image_url: serviceImages.length > 0 ? serviceImages[0] : undefined,
+                rating: data.rating || 5,
+                serviceType: data.serviceType,
+                schedule: data.schedule,
+                bookings: data.bookings || 0,
+                imageUrls: serviceImages,
+              })
+            } else {
+              // Product data structure
+              const mediaImages = Array.isArray(data.media)
+                ? data.media.filter((item: any) => item.isVideo === false).map((item: any) => item.url)
+                : []
 
-            fetchedProducts.push({
-              id: doc.id,
-              name: data.name || "Untitled Product",
-              sku: data.sku || "N/A",
-              price: data.price || 0, // Keep original price as fallback
-              stock: data?.specs_merchant?.stock || data?.stock || 0,
-              sales: data.sales || 0,
-              status: data.status || "unpublished",
-              views: data.views || 0,
-              likes: data.likes || 0,
-              type: data.type || "MERCHANDISE",
-              seller_id: data.seller_id || "",
-              deleted: data.deleted || false,
-              photo_urls: mediaImages,
-              created_at: data.created_at,
-              description: data.description || "",
-              category: data.categories && data.categories.length > 0 ? data.categories[0] : "other",
-              image_url: mediaImages.length > 0 ? mediaImages[0] : undefined,
-              rating: 5, // Default rating
-              variations: variations, // Include variations array
-            })
+              const variations = Array.isArray(data.variations)
+                ? data.variations.map((variation: any) => ({
+                    id: variation.id || "",
+                    name: variation.name || "",
+                    price: Number(variation.price) || 0,
+                    stock: Number(variation.stock) || 0,
+                    media: variation.media || "",
+                    color: variation.color,
+                    height: variation.height,
+                    length: variation.length,
+                    weight: variation.weight,
+                  }))
+                : []
+
+              fetchedProducts.push({
+                id: doc.id,
+                name: data.name || "Untitled Product",
+                sku: data.sku || "N/A",
+                price: data.price || 0,
+                stock: data?.specs_merchant?.stock || data?.stock || 0,
+                sales: data.sales || 0,
+                status: data.status || "unpublished",
+                views: data.views || 0,
+                likes: data.likes || 0,
+                type: data.type || "MERCHANDISE",
+                seller_id: data.seller_id || "",
+                deleted: data.deleted || false,
+                photo_urls: mediaImages,
+                created_at: data.created_at,
+                description: data.description || "",
+                category: data.categories && data.categories.length > 0 ? data.categories[0] : "other",
+                image_url: mediaImages.length > 0 ? mediaImages[0] : undefined,
+                rating: data.rating || 5,
+                variations: variations,
+              })
+            }
           })
 
+          console.log("Fetched products:", fetchedProducts) // Debug log
           setProducts(fetchedProducts)
           setLoading(false)
         },
@@ -134,7 +172,6 @@ export function useRealTimeProducts(userId: string | null) {
         },
       )
 
-      // Cleanup listener on unmount
       return () => unsubscribe()
     } catch (err: any) {
       console.error("Error setting up products listener:", err)
