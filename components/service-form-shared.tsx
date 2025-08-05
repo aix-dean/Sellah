@@ -2,18 +2,26 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Upload, X, Clock, Calendar, Loader2 } from "lucide-react"
+import { Upload, X, ImageIcon } from "lucide-react"
+import { ServiceService } from "@/lib/service-service"
+import { useAuth } from "@/hooks/use-auth"
 import { useToast } from "@/hooks/use-toast"
-import type { Service } from "@/types/service"
+import type { CreateServiceData, Service } from "@/types/service"
+
+interface ServiceFormSharedProps {
+  initialData?: Partial<Service>
+  onSubmit: (data: CreateServiceData) => Promise<void>
+  isSubmitting: boolean
+  submitButtonText: React.ReactNode
+}
 
 const DAYS_OF_WEEK = [
   { key: "monday", label: "Monday" },
@@ -25,67 +33,43 @@ const DAYS_OF_WEEK = [
   { key: "sunday", label: "Sunday" },
 ]
 
-const SERVICE_TYPES = [
-  { value: "roll_up", label: "Roll Up" },
-  { value: "roll_down", label: "Roll Down" },
-  { value: "delivery", label: "Delivery" },
-]
-
-interface ScheduleDay {
-  available: boolean
-  startTime: string
-  endTime: string
-}
-
-type Schedule = {
-  [key: string]: ScheduleDay
-}
-
-interface ServiceFormSharedProps {
-  initialData?: Partial<Service>
-  onSubmit: (data: any, imageFile?: File) => Promise<void>
-  submitButtonText: string
-  isSubmitting: boolean
-}
-
-export function ServiceFormShared({ initialData, onSubmit, submitButtonText, isSubmitting }: ServiceFormSharedProps) {
+export function ServiceFormShared({ initialData, onSubmit, isSubmitting, submitButtonText }: ServiceFormSharedProps) {
+  const { user } = useAuth()
   const { toast } = useToast()
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [formData, setFormData] = useState({
     name: initialData?.name || "",
     description: initialData?.description || "",
-    serviceType: initialData?.serviceType || "",
-    price: initialData?.price?.toString() || "",
+    serviceType: initialData?.serviceType || "delivery",
+    price: initialData?.price || 0,
+    status: initialData?.status || "active",
   })
 
-  const [schedule, setSchedule] = useState<Schedule>(() => {
-    if (initialData?.schedule) {
-      return initialData.schedule
-    }
-
-    const initialSchedule: Schedule = {}
-    DAYS_OF_WEEK.forEach(({ key }) => {
-      initialSchedule[key] = {
-        available: false,
-        startTime: "00:00",
-        endTime: "23:59",
-      }
-    })
-    return initialSchedule
-  })
+  const [schedule, setSchedule] = useState(
+    initialData?.schedule || {
+      monday: { available: false, startTime: "09:00", endTime: "17:00" },
+      tuesday: { available: false, startTime: "09:00", endTime: "17:00" },
+      wednesday: { available: false, startTime: "09:00", endTime: "17:00" },
+      thursday: { available: false, startTime: "09:00", endTime: "17:00" },
+      friday: { available: false, startTime: "09:00", endTime: "17:00" },
+      saturday: { available: false, startTime: "09:00", endTime: "17:00" },
+      sunday: { available: false, startTime: "09:00", endTime: "17:00" },
+    },
+  )
 
   const [imageFile, setImageFile] = useState<File | null>(null)
-  const [imagePreview, setImagePreview] = useState<string | null>(initialData?.imageUrl || null)
-  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [imagePreview, setImagePreview] = useState<string>(initialData?.imageUrl || "")
+  const [uploadingImage, setUploadingImage] = useState(false)
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: "" }))
-    }
+  const handleInputChange = (field: string, value: any) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }))
   }
 
-  const handleScheduleChange = (day: string, field: keyof ScheduleDay, value: boolean | string) => {
+  const handleScheduleChange = (day: string, field: string, value: any) => {
     setSchedule((prev) => ({
       ...prev,
       [day]: {
@@ -95,19 +79,12 @@ export function ServiceFormShared({ initialData, onSubmit, submitButtonText, isS
     }))
   }
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast({
-          title: "Error",
-          description: "Image size should be less than 5MB",
-          variant: "destructive",
-        })
-        return
-      }
-
       setImageFile(file)
+
+      // Create preview
       const reader = new FileReader()
       reader.onload = (e) => {
         setImagePreview(e.target?.result as string)
@@ -118,136 +95,205 @@ export function ServiceFormShared({ initialData, onSubmit, submitButtonText, isS
 
   const removeImage = () => {
     setImageFile(null)
-    setImagePreview(null)
-  }
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {}
-
-    if (!formData.name.trim()) {
-      newErrors.name = "Service name is required"
+    setImagePreview("")
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
     }
-
-    if (!formData.description.trim()) {
-      newErrors.description = "Description is required"
-    }
-
-    if (!formData.serviceType) {
-      newErrors.serviceType = "Service type is required"
-    }
-
-    if (!formData.price || Number.parseFloat(formData.price) <= 0) {
-      newErrors.price = "Valid price is required"
-    }
-
-    // Check if at least one day is selected
-    const hasAvailableDay = Object.values(schedule).some((day) => day.available)
-    if (!hasAvailableDay) {
-      newErrors.schedule = "Please select at least one available day"
-    }
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!validateForm()) {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to create a service.",
+        variant: "destructive",
+      })
       return
     }
 
-    const serviceData = {
-      active: true,
-      name: formData.name.trim(),
-      description: formData.description.trim(),
-      serviceType: formData.serviceType as "roll_up" | "roll_down" | "delivery",
-      price: Number.parseFloat(formData.price),
-      schedule,
-      deleted: false,
-      type: "SERVICE",
-      status: "active",
-      views: initialData?.views || 0,
-      bookings: initialData?.bookings || 0,
-      rating: initialData?.rating || 5,
-      // imageUrl: imagePreview || "", // Removed this line
-    }
+    try {
+      let imageUrl = initialData?.imageUrl || ""
 
-    await onSubmit(serviceData, imageFile || undefined)
+      // Upload image if a new one was selected
+      if (imageFile) {
+        setUploadingImage(true)
+        imageUrl = await ServiceService.uploadServiceImage(imageFile, user.uid)
+        setUploadingImage(false)
+      }
+
+      const serviceData: CreateServiceData = {
+        name: formData.name,
+        description: formData.description,
+        serviceType: formData.serviceType as "roll_up" | "roll_down" | "delivery",
+        price: Number(formData.price),
+        schedule,
+        userId: user.uid,
+        type: "SERVICES",
+        status: formData.status as "active" | "inactive" | "draft",
+        views: 0,
+        bookings: 0,
+        rating: 5,
+        imageUrl,
+      }
+
+      await onSubmit(serviceData)
+    } catch (error: any) {
+      console.error("Error in form submission:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save service. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setUploadingImage(false)
+    }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
+    <form onSubmit={handleSubmit} className="space-y-6">
       {/* Basic Information */}
       <Card>
         <CardHeader>
           <CardTitle>Basic Information</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="name">Service Name *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => handleInputChange("name", e.target.value)}
-                placeholder="Enter service name"
-                className={errors.name ? "border-red-500" : ""}
-                disabled={isSubmitting}
-              />
-              {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="serviceType">Service Type *</Label>
-              <Select
-                value={formData.serviceType}
-                onValueChange={(value) => handleInputChange("serviceType", value)}
-                disabled={isSubmitting}
-              >
-                <SelectTrigger className={errors.serviceType ? "border-red-500" : ""}>
-                  <SelectValue placeholder="Select service type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {SERVICE_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.serviceType && <p className="text-sm text-red-500">{errors.serviceType}</p>}
-            </div>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="name">Service Name *</Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => handleInputChange("name", e.target.value)}
+              placeholder="Enter service name"
+              required
+              disabled={isSubmitting}
+            />
           </div>
 
-          <div className="space-y-2">
+          <div>
             <Label htmlFor="description">Description *</Label>
             <Textarea
               id="description"
               value={formData.description}
               onChange={(e) => handleInputChange("description", e.target.value)}
-              placeholder="Describe your service..."
+              placeholder="Describe your service"
               rows={4}
-              className={errors.description ? "border-red-500" : ""}
+              required
               disabled={isSubmitting}
             />
-            {errors.description && <p className="text-sm text-red-500">{errors.description}</p>}
           </div>
 
-          <div className="space-y-2">
+          <div>
+            <Label htmlFor="serviceType">Service Type *</Label>
+            <Select
+              value={formData.serviceType}
+              onValueChange={(value) => handleInputChange("serviceType", value)}
+              disabled={isSubmitting}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select service type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="roll_up">Roll Up</SelectItem>
+                <SelectItem value="roll_down">Roll Down</SelectItem>
+                <SelectItem value="delivery">Delivery</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
             <Label htmlFor="price">Price (PHP) *</Label>
             <Input
               id="price"
               type="number"
-              step="0.01"
               min="0"
+              step="0.01"
               value={formData.price}
-              onChange={(e) => handleInputChange("price", e.target.value)}
+              onChange={(e) => handleInputChange("price", Number.parseFloat(e.target.value) || 0)}
               placeholder="0.00"
-              className={errors.price ? "border-red-500" : ""}
+              required
               disabled={isSubmitting}
             />
-            {errors.price && <p className="text-sm text-red-500">{errors.price}</p>}
+          </div>
+
+          <div>
+            <Label htmlFor="status">Status</Label>
+            <Select
+              value={formData.status}
+              onValueChange={(value) => handleInputChange("status", value)}
+              disabled={isSubmitting}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Service Image */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Service Image</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {imagePreview ? (
+              <div className="relative">
+                <img
+                  src={imagePreview || "/placeholder.svg"}
+                  alt="Service preview"
+                  className="w-full h-48 object-cover rounded-lg border"
+                />
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  className="absolute top-2 right-2"
+                  onClick={removeImage}
+                  disabled={isSubmitting || uploadingImage}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            ) : (
+              <div
+                className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-gray-400 transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600 mb-2">Click to upload service image</p>
+                <p className="text-sm text-gray-500">PNG, JPG, GIF up to 10MB</p>
+              </div>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageSelect}
+              className="hidden"
+              disabled={isSubmitting || uploadingImage}
+            />
+
+            {!imagePreview && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isSubmitting || uploadingImage}
+                className="w-full"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                {uploadingImage ? "Uploading..." : "Upload Image"}
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -255,49 +301,37 @@ export function ServiceFormShared({ initialData, onSubmit, submitButtonText, isS
       {/* Schedule */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Service Schedule
-          </CardTitle>
+          <CardTitle>Availability Schedule</CardTitle>
         </CardHeader>
         <CardContent>
-          {errors.schedule && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>{errors.schedule}</AlertDescription>
-            </Alert>
-          )}
           <div className="space-y-4">
-            {DAYS_OF_WEEK.map(({ key, label }) => (
-              <div key={key} className="flex items-center space-x-4 p-4 border rounded-lg">
+            {DAYS_OF_WEEK.map((day) => (
+              <div key={day.key} className="flex items-center space-x-4 p-4 border rounded-lg">
                 <div className="flex items-center space-x-2 min-w-[120px]">
-                  <Checkbox
-                    id={key}
-                    checked={schedule[key].available}
-                    onCheckedChange={(checked) => handleScheduleChange(key, "available", !!checked)}
+                  <Switch
+                    checked={schedule[day.key]?.available || false}
+                    onCheckedChange={(checked) => handleScheduleChange(day.key, "available", checked)}
                     disabled={isSubmitting}
                   />
-                  <Label htmlFor={key} className="font-medium">
-                    {label}
-                  </Label>
+                  <Label className="font-medium">{day.label}</Label>
                 </div>
 
-                {schedule[key].available && (
+                {schedule[day.key]?.available && (
                   <div className="flex items-center space-x-2 flex-1">
-                    <Clock className="h-4 w-4 text-gray-500" />
                     <Input
                       type="time"
-                      value={schedule[key].startTime}
-                      onChange={(e) => handleScheduleChange(key, "startTime", e.target.value)}
-                      className="w-32"
+                      value={schedule[day.key]?.startTime || "09:00"}
+                      onChange={(e) => handleScheduleChange(day.key, "startTime", e.target.value)}
                       disabled={isSubmitting}
+                      className="w-32"
                     />
                     <span className="text-gray-500">to</span>
                     <Input
                       type="time"
-                      value={schedule[key].endTime}
-                      onChange={(e) => handleScheduleChange(key, "endTime", e.target.value)}
-                      className="w-32"
+                      value={schedule[day.key]?.endTime || "17:00"}
+                      onChange={(e) => handleScheduleChange(day.key, "endTime", e.target.value)}
                       disabled={isSubmitting}
+                      className="w-32"
                     />
                   </div>
                 )}
@@ -307,71 +341,14 @@ export function ServiceFormShared({ initialData, onSubmit, submitButtonText, isS
         </CardContent>
       </Card>
 
-      {/* Image Upload */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Service Image</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {!imagePreview ? (
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <div className="space-y-2">
-                  <p className="text-lg font-medium text-gray-900">Upload service image</p>
-                  <p className="text-gray-500">PNG, JPG up to 5MB</p>
-                </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className="hidden"
-                  id="image-upload"
-                  disabled={isSubmitting}
-                />
-                <Label htmlFor="image-upload" className="cursor-pointer">
-                  <Button type="button" variant="outline" className="mt-4 bg-transparent" disabled={isSubmitting}>
-                    Choose Image
-                  </Button>
-                </Label>
-              </div>
-            ) : (
-              <div className="relative">
-                <img
-                  src={imagePreview || "/placeholder.svg"}
-                  alt="Service preview"
-                  className="w-full h-64 object-cover rounded-lg border"
-                />
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  onClick={removeImage}
-                  className="absolute top-2 right-2"
-                  disabled={isSubmitting}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Submit Button */}
-      <div className="flex justify-end space-x-4">
-        <Button type="button" variant="outline" disabled={isSubmitting}>
-          Cancel
-        </Button>
-        <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700">
-          {isSubmitting ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Processing...
-            </>
-          ) : (
-            submitButtonText
-          )}
+      <div className="flex justify-end">
+        <Button
+          type="submit"
+          disabled={isSubmitting || uploadingImage || !formData.name || !formData.description}
+          className="bg-red-500 hover:bg-red-600 text-white min-w-[150px]"
+        >
+          {submitButtonText}
         </Button>
       </div>
     </form>

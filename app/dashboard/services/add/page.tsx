@@ -9,8 +9,26 @@ import { ServiceService } from "@/lib/service-service"
 import { ServiceFormShared } from "@/components/service-form-shared"
 import { useState } from "react"
 import type { Service } from "@/types/service"
+import { Suspense } from "react"
+import { ProductCardSkeleton } from "@/components/skeleton/product-card-skeleton"
 
-export default function AddServicePage() {
+export default function AddServicePageRoute() {
+  return (
+    <Suspense
+      fallback={
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <ProductCardSkeleton key={index} />
+          ))}
+        </div>
+      }
+    >
+      <AddServicePage />
+    </Suspense>
+  )
+}
+
+function AddServicePage() {
   const router = useRouter()
   const { user } = useAuth()
   const { toast } = useToast()

@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -77,6 +77,30 @@ export default function ProductsPage() {
 
   const { currentUser, userData, loading: userLoading } = useUserData()
   const { products = [], loading, error, forceRefetch } = useRealTimeProducts(currentUser?.uid)
+
+  // Filter products and services based on active tab
+  const filteredItems = useMemo(() => {
+    return (products || []).filter((item) => {
+      // Basic filters that apply to both products and services
+      const matchesSearch =
+        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase()))
+
+      // Filter by active tab
+      if (activeTab === "supplies") {
+        // Products: items without type or with type "MERCHANDISE"
+        const isProduct = !item.type || item.type === "MERCHANDISE" || item.type === "Merchandise"
+        const matchesCategory = selectedCategory === "all" || item.category === selectedCategory
+        return matchesSearch && isProduct && matchesCategory
+      } else {
+        // Services: items with type "SERVICES"
+        const isService = item.type === "SERVICES"
+        // For services, we can filter by serviceType if needed
+        const matchesServiceType = selectedCategory === "all" || item.serviceType === selectedCategory
+        return matchesSearch && isService && matchesServiceType
+      }
+    })
+  }, [products, activeTab, searchTerm, selectedCategory])
 
   // Check for company information when user data loads
   useEffect(() => {
@@ -199,7 +223,7 @@ export default function ProductsPage() {
     setProductToDelete({
       id: product.id,
       name: product.name,
-      sku: product.sku,
+      sku: product.sku || "N/A",
     })
   }
 
@@ -212,7 +236,7 @@ export default function ProductsPage() {
       await deleteProduct(productToDelete.id, currentUser.uid)
 
       toast({
-        title: "Product deleted",
+        title: `${activeTab === "supplies" ? "Product" : "Service"} deleted`,
         description: `${productToDelete.name} has been successfully deleted and removed from your active inventory.`,
         variant: "default",
       })
@@ -223,10 +247,11 @@ export default function ProductsPage() {
       // Close the dialog
       setProductToDelete(null)
     } catch (error: any) {
-      console.error("Error deleting product:", error)
+      console.error("Error deleting item:", error)
       toast({
         title: "Error",
-        description: error.message || "Failed to delete product. Please try again.",
+        description:
+          error.message || `Failed to delete ${activeTab === "supplies" ? "product" : "service"}. Please try again.`,
         variant: "destructive",
       })
     } finally {
@@ -238,43 +263,16 @@ export default function ProductsPage() {
     setProductToDelete(null)
   }
 
-  // Filter and sort products - ensure products is always an array
-  const filteredProducts = (products || [])
-    .filter((product) => {
-      const matchesSearch =
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (product.description && product.description.toLowerCase().includes(searchTerm.toLowerCase()))
-      const matchesCategory = selectedCategory === "all" || product.category === selectedCategory
-
-      // Filter by type based on active tab
-      const matchesType =
-        activeTab === "supplies"
-          ? product.type === "MERCHANDISE" || product.type === "Merchandise" || !product.type
-          : product.type === "SERVICE" || product.type === "SERVICES"
-
-      return matchesSearch && matchesCategory && matchesType
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case "newest":
-          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-        case "oldest":
-          return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
-        case "price-high":
-          return b.price - a.price
-        case "price-low":
-          return a.price - b.price
-        case "name":
-          return a.name.localeCompare(b.name)
-        default:
-          return 0
-      }
-    })
-
   const { categories: fetchedCategories, loading: categoriesLoading } = useCategories("MERCHANDISE")
   const categories = [
-    { id: "all", name: "All Categories" },
-    ...(fetchedCategories || []).map((cat) => ({ id: cat.id, name: cat.name })),
+    { id: "all", name: activeTab === "supplies" ? "All Categories" : "All Service Types" },
+    ...(activeTab === "supplies"
+      ? (fetchedCategories || []).map((cat) => ({ id: cat.id, name: cat.name }))
+      : [
+          { id: "roll_up", name: "Roll Up" },
+          { id: "roll_down", name: "Roll Down" },
+          { id: "delivery", name: "Delivery" },
+        ]),
   ]
 
   const formatPrice = (price: number) => {
@@ -300,7 +298,12 @@ export default function ProductsPage() {
   }
 
   const getPriceFromVariations = (product: any) => {
-    // If no variations array or empty, fallback to main price
+    // For services, just return the main price
+    if (product.type === "SERVICES") {
+      return formatPrice(product.price || 0)
+    }
+
+    // For products, handle variations
     if (!product.variations || !Array.isArray(product.variations) || product.variations.length === 0) {
       return formatPrice(product.price || 0)
     }
@@ -328,6 +331,11 @@ export default function ProductsPage() {
 
   // Also add a function to get total stock from variations
   const getStockFromVariations = (product: any) => {
+    // Services don't have stock
+    if (product.type === "SERVICES") {
+      return "N/A"
+    }
+
     if (!product.variations || !Array.isArray(product.variations) || product.variations.length === 0) {
       return product.stock || 0
     }
@@ -575,7 +583,7 @@ export default function ProductsPage() {
 
           <TabsContent value="supplies" className="mt-6 space-y-6">
             {/* Filters and Search */}
-            {filteredProducts.length > 0 && (
+            {filteredItems.length > 0 && (
               <div className="bg-white rounded-lg shadow-sm border p-4 sm:p-6">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                   {/* Search */}
@@ -635,7 +643,7 @@ export default function ProductsPage() {
             {/* Products Grid/List */}
             {loading ? (
               renderSkeletons()
-            ) : filteredProducts.length === 0 ? (
+            ) : filteredItems.length === 0 ? (
               <div className="text-center py-12 bg-white rounded-lg shadow-sm border">
                 <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No Supplies found</h3>
@@ -653,7 +661,7 @@ export default function ProductsPage() {
               </div>
             ) : viewMode === "grid" ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredProducts.map((product) => (
+                {filteredItems.map((product) => (
                   <div
                     key={product.id}
                     className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow relative"
@@ -769,7 +777,7 @@ export default function ProductsPage() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredProducts.map((product) => (
+                      {filteredItems.map((product) => (
                         <tr key={product.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
@@ -836,7 +844,7 @@ export default function ProductsPage() {
 
           <TabsContent value="services" className="mt-6 space-y-6">
             {/* Filters and Search for Services */}
-            {filteredProducts.length > 0 && (
+            {filteredItems.length > 0 && (
               <div className="bg-white rounded-lg shadow-sm border p-4 sm:p-6">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                   {/* Search */}
@@ -857,10 +865,11 @@ export default function ProductsPage() {
                       onChange={(e) => setSelectedCategory(e.target.value)}
                       className="w-full px-3 pr-6 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                     >
-                      <option value="all">All Service Types</option>
-                      <option value="roll_up">Roll Up</option>
-                      <option value="roll_down">Roll Down</option>
-                      <option value="delivery">Delivery</option>
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
                     </select>
 
                     {/* View Mode Toggle */}
@@ -890,7 +899,7 @@ export default function ProductsPage() {
             {/* Services Grid/List */}
             {loading ? (
               renderSkeletons()
-            ) : filteredProducts.length === 0 ? (
+            ) : filteredItems.length === 0 ? (
               <div className="text-center py-12 bg-white rounded-lg shadow-sm border">
                 <Wrench className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No Services found</h3>
@@ -908,7 +917,7 @@ export default function ProductsPage() {
               </div>
             ) : viewMode === "grid" ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredProducts.map((service) => (
+                {filteredItems.map((service) => (
                   <div
                     key={service.id}
                     className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow relative"
@@ -1020,7 +1029,7 @@ export default function ProductsPage() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredProducts.map((service) => (
+                      {filteredItems.map((service) => (
                         <tr key={service.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
