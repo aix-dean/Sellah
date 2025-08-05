@@ -2,368 +2,386 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useState, useEffect, useCallback } from "react"
+import { useRouter } from "next/navigation"
+import Image from "next/image"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
+import { X, Plus } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Upload, X, ImageIcon } from "lucide-react"
-import { ServiceService } from "@/lib/service-service"
-import { useAuth } from "@/hooks/use-auth"
-import { useToast } from "@/hooks/use-toast"
-import type { CreateServiceData, Service } from "@/types/service"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
+import type { Service } from "@/types/service"
+
+const serviceFormSchema = z.object({
+  name: z.string().min(1, "Service name is required"),
+  description: z.string().min(1, "Description is required"),
+  price: z.coerce.number().min(0, "Price must be a positive number"),
+  category: z.string().min(1, "Category is required"),
+  service_type: z.enum(["Online", "In-person", "Hybrid"]),
+  duration_minutes: z.coerce.number().min(1, "Duration must be at least 1 minute"),
+  schedule: z.record(
+    z.string(),
+    z.array(
+      z.object({
+        start: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:MM)"),
+        end: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:MM)"),
+      }),
+    ),
+  ),
+})
+
+type ServiceFormValues = z.infer<typeof serviceFormSchema>
 
 interface ServiceFormSharedProps {
-  initialData?: Partial<Service>
-  onSubmit: (data: CreateServiceData) => Promise<void>
-  isSubmitting: boolean
-  submitButtonText: React.ReactNode
+  initialData?: Service | null
+  onSubmit: (data: ServiceFormValues, imageUrls: string[], newImageFiles: File[]) => Promise<void>
+  isLoading: boolean
+  userId: string
 }
 
-const DAYS_OF_WEEK = [
-  { key: "monday", label: "Monday" },
-  { key: "tuesday", label: "Tuesday" },
-  { key: "wednesday", label: "Wednesday" },
-  { key: "thursday", label: "Thursday" },
-  { key: "friday", label: "Friday" },
-  { key: "saturday", label: "Saturday" },
-  { key: "sunday", label: "Sunday" },
-]
+export function ServiceFormShared({ initialData, onSubmit, isLoading, userId }: ServiceFormSharedProps) {
+  const router = useRouter()
+  const [imageFiles, setImageFiles] = useState<File[]>([])
+  const [imagePreviews, setImagePreviews] = useState<string[]>([])
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>(initialData?.imageUrls || [])
 
-export function ServiceFormShared({ initialData, onSubmit, isSubmitting, submitButtonText }: ServiceFormSharedProps) {
-  const { user } = useAuth()
-  const { toast } = useToast()
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const [formData, setFormData] = useState({
-    name: initialData?.name || "",
-    description: initialData?.description || "",
-    serviceType: initialData?.serviceType || "delivery",
-    price: initialData?.price || 0,
-    status: initialData?.status || "active",
+  const form = useForm<ServiceFormValues>({
+    resolver: zodResolver(serviceFormSchema),
+    defaultValues: {
+      name: initialData?.name || "",
+      description: initialData?.description || "",
+      price: initialData?.price || 0,
+      category: initialData?.category || "",
+      service_type: initialData?.service_type || "Online",
+      duration_minutes: initialData?.duration_minutes || 60,
+      schedule: initialData?.schedule || {
+        Monday: [],
+        Tuesday: [],
+        Wednesday: [],
+        Thursday: [],
+        Friday: [],
+        Saturday: [],
+        Sunday: [],
+      },
+    },
   })
 
-  const [schedule, setSchedule] = useState(
-    initialData?.schedule || {
-      monday: { available: false, startTime: "09:00", endTime: "17:00" },
-      tuesday: { available: false, startTime: "09:00", endTime: "17:00" },
-      wednesday: { available: false, startTime: "09:00", endTime: "17:00" },
-      thursday: { available: false, startTime: "09:00", endTime: "17:00" },
-      friday: { available: false, startTime: "09:00", endTime: "17:00" },
-      saturday: { available: false, startTime: "09:00", endTime: "17:00" },
-      sunday: { available: false, startTime: "09:00", endTime: "17:00" },
+  useEffect(() => {
+    if (initialData) {
+      form.reset({
+        name: initialData.name,
+        description: initialData.description,
+        price: initialData.price,
+        category: initialData.category,
+        service_type: initialData.service_type,
+        duration_minutes: initialData.duration_minutes,
+        schedule: initialData.schedule,
+      })
+      setExistingImageUrls(initialData.imageUrls || [])
+    }
+  }, [initialData, form])
+
+  const handleImageSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files) {
+      const files = Array.from(event.target.files)
+      setImageFiles((prev) => [...prev, ...files])
+
+      const newPreviews = files.map((file) => URL.createObjectURL(file))
+      setImagePreviews((prev) => [...prev, ...newPreviews])
+    }
+  }, [])
+
+  const removeImage = useCallback(
+    (index: number, isExisting: boolean) => {
+      if (isExisting) {
+        const urlToRemove = existingImageUrls[index]
+        setExistingImageUrls((prev) => prev.filter((_, i) => i !== index))
+        // Optionally, call a service to delete from storage immediately
+        // ServiceService.deleteServiceImage(urlToRemove);
+      } else {
+        const fileToRemove = imageFiles[index]
+        const previewToRemove = imagePreviews[index]
+
+        setImageFiles((prev) => prev.filter((_, i) => i !== index))
+        setImagePreviews((prev) => prev.filter((_, i) => i !== index))
+        URL.revokeObjectURL(previewToRemove)
+      }
     },
+    [imageFiles, imagePreviews, existingImageUrls],
   )
 
-  const [imageFiles, setImageFiles] = useState<File[]>([])
-  const [imagePreviews, setImagePreviews] = useState<string[]>(initialData?.imageUrls || [])
-  const [uploadingImage, setUploadingImage] = useState(false)
+  const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
-  const handleInputChange = (field: string, value: any) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }))
-  }
-
-  const handleScheduleChange = (day: string, field: string, value: any) => {
-    setSchedule((prev) => ({
-      ...prev,
-      [day]: {
-        ...prev[day],
-        [field]: value,
-      },
-    }))
-  }
-
-  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || [])
-    if (files.length > 0) {
-      const newImageFiles = [...imageFiles, ...files]
-      setImageFiles(newImageFiles)
-
-      const newImagePreviews: string[] = []
-      files.forEach((file) => {
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          newImagePreviews.push(e.target?.result as string)
-          if (newImagePreviews.length === files.length) {
-            setImagePreviews((prev) => [...prev, ...newImagePreviews])
-          }
-        }
-        reader.readAsDataURL(file)
-      })
+  const handleScheduleChange = (day: string, index: number, field: "start" | "end", value: string) => {
+    const currentSchedule = form.getValues("schedule")
+    const updatedDaySchedule = [...(currentSchedule[day] || [])]
+    if (updatedDaySchedule[index]) {
+      updatedDaySchedule[index] = { ...updatedDaySchedule[index], [field]: value }
     }
+    form.setValue("schedule", { ...currentSchedule, [day]: updatedDaySchedule })
   }
 
-  const removeImage = (indexToRemove: number) => {
-    setImageFiles((prev) => prev.filter((_, index) => index !== indexToRemove))
-    setImagePreviews((prev) => prev.filter((_, index) => index !== indexToRemove))
-    // If it's an existing image (from initialData), we might need to track it for deletion on save
-    // For simplicity, this example only handles new uploads.
-    // A more robust solution would track initialData.imageUrls separately and manage deletions.
+  const addTimeSlot = (day: string) => {
+    const currentSchedule = form.getValues("schedule")
+    const updatedDaySchedule = [...(currentSchedule[day] || []), { start: "09:00", end: "17:00" }]
+    form.setValue("schedule", { ...currentSchedule, [day]: updatedDaySchedule })
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const removeTimeSlot = (day: string, index: number) => {
+    const currentSchedule = form.getValues("schedule")
+    const updatedDaySchedule = (currentSchedule[day] || []).filter((_, i) => i !== index)
+    form.setValue("schedule", { ...currentSchedule, [day]: updatedDaySchedule })
+  }
 
-    if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "Please log in to create a service.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    try {
-      let uploadedImageUrls: string[] = []
-
-      // Upload new images if any
-      if (imageFiles.length > 0) {
-        setUploadingImage(true)
-        const uploadPromises = imageFiles.map((file) => ServiceService.uploadServiceImage(file, user.uid))
-        uploadedImageUrls = await Promise.all(uploadPromises)
-        setUploadingImage(false)
-      }
-
-      // Combine existing image URLs with newly uploaded ones
-      const finalImageUrls = [...(initialData?.imageUrls || []), ...uploadedImageUrls]
-
-      const serviceData: CreateServiceData = {
-        name: formData.name,
-        description: formData.description,
-        serviceType: formData.serviceType as "roll_up" | "roll_down" | "delivery",
-        price: Number(formData.price),
-        schedule,
-        userId: user.uid,
-        type: "SERVICES",
-        status: formData.status as "active" | "inactive" | "draft",
-        views: 0,
-        bookings: 0,
-        rating: 5,
-        imageUrls: finalImageUrls, // Use imageUrls array
-      }
-
-      await onSubmit(serviceData)
-    } catch (error: any) {
-      console.error("Error in form submission:", error)
-      toast({
-        title: "Error",
-        description: error.message || "Failed to save service. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setUploadingImage(false)
-    }
+  const onSubmitHandler = async (values: ServiceFormValues) => {
+    await onSubmit(values, existingImageUrls, imageFiles)
+    // Clear new image files and previews after successful submission
+    setImageFiles([])
+    setImagePreviews([])
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Basic Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Basic Information</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="name">Service Name *</Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => handleInputChange("name", e.target.value)}
-              placeholder="Enter service name"
-              required
-              disabled={isSubmitting}
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmitHandler)} className="space-y-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Service Details</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Service Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g. Online Coaching Session" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-
-          <div>
-            <Label htmlFor="description">Description *</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => handleInputChange("description", e.target.value)}
-              placeholder="Describe your service"
-              rows={4}
-              required
-              disabled={isSubmitting}
+            <FormField
+              control={form.control}
+              name="price"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Price</FormLabel>
+                  <FormControl>
+                    <Input type="number" placeholder="0.00" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-
-          <div>
-            <Label htmlFor="serviceType">Service Type *</Label>
-            <Select
-              value={formData.serviceType}
-              onValueChange={(value) => handleInputChange("serviceType", value)}
-              disabled={isSubmitting}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select service type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="roll_up">Roll Up</SelectItem>
-                <SelectItem value="roll_down">Roll Down</SelectItem>
-                <SelectItem value="delivery">Delivery</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="price">Price (PHP) *</Label>
-            <Input
-              id="price"
-              type="number"
-              min="0"
-              step="0.01"
-              value={formData.price}
-              onChange={(e) => handleInputChange("price", Number.parseFloat(e.target.value) || 0)}
-              placeholder="0.00"
-              required
-              disabled={isSubmitting}
+            <FormField
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Category</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Consulting">Consulting</SelectItem>
+                      <SelectItem value="Education">Education</SelectItem>
+                      <SelectItem value="Health & Wellness">Health & Wellness</SelectItem>
+                      <SelectItem value="Creative Services">Creative Services</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-
-          <div>
-            <Label htmlFor="status">Status</Label>
-            <Select
-              value={formData.status}
-              onValueChange={(value) => handleInputChange("status", value)}
-              disabled={isSubmitting}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Service Images */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Service Images</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {imagePreviews.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {imagePreviews.map((src, index) => (
-                  <div key={index} className="relative group">
-                    <img
-                      src={src || "/placeholder.svg"}
-                      alt={`Service preview ${index + 1}`}
-                      className="w-full h-32 object-cover rounded-lg border"
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => removeImage(index)}
-                      disabled={isSubmitting || uploadingImage}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div
-              className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-gray-400 transition-colors"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 mb-2">Click to upload more images</p>
-              <p className="text-sm text-gray-500">PNG, JPG, GIF up to 10MB each</p>
-            </div>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple // Allow multiple file selection
-              onChange={handleImageSelect}
-              className="hidden"
-              disabled={isSubmitting || uploadingImage}
+            <FormField
+              control={form.control}
+              name="service_type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Service Type</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select service type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Online">Online</SelectItem>
+                      <SelectItem value="In-person">In-person</SelectItem>
+                      <SelectItem value="Hybrid">Hybrid</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
+            <FormField
+              control={form.control}
+              name="duration_minutes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Duration (minutes)</FormLabel>
+                  <FormControl>
+                    <Input type="number" placeholder="e.g. 60" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem className="col-span-full">
+                  <FormLabel>Description</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Describe your service" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
 
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isSubmitting || uploadingImage}
-              className="w-full"
-            >
-              <Upload className="w-4 h-4 mr-2" />
-              {uploadingImage ? "Uploading..." : "Add More Images"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Schedule */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Availability Schedule</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {DAYS_OF_WEEK.map((day) => (
-              <div key={day.key} className="flex items-center space-x-4 p-4 border rounded-lg">
-                <div className="flex items-center space-x-2 min-w-[120px]">
-                  <Switch
-                    checked={schedule[day.key]?.available || false}
-                    onCheckedChange={(checked) => handleScheduleChange(day.key, "available", checked)}
-                    disabled={isSubmitting}
+        <Card>
+          <CardHeader>
+            <CardTitle>Service Images</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {existingImageUrls.map((url, index) => (
+                <div
+                  key={`existing-${index}`}
+                  className="relative w-full aspect-square rounded-md overflow-hidden border"
+                >
+                  <Image
+                    src={url || "/placeholder.svg"}
+                    alt={`Service Image ${index + 1}`}
+                    fill
+                    style={{ objectFit: "cover" }}
                   />
-                  <Label className="font-medium">{day.label}</Label>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-1 right-1 h-6 w-6 rounded-full"
+                    onClick={() => removeImage(index, true)}
+                  >
+                    <X className="h-4 w-4" />
+                    <span className="sr-only">Remove image</span>
+                  </Button>
                 </div>
+              ))}
+              {imagePreviews.map((preview, index) => (
+                <div key={`new-${index}`} className="relative w-full aspect-square rounded-md overflow-hidden border">
+                  <Image
+                    src={preview || "/placeholder.svg"}
+                    alt={`New Service Image ${index + 1}`}
+                    fill
+                    style={{ objectFit: "cover" }}
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-1 right-1 h-6 w-6 rounded-full"
+                    onClick={() => removeImage(index, false)}
+                  >
+                    <X className="h-4 w-4" />
+                    <span className="sr-only">Remove image</span>
+                  </Button>
+                </div>
+              ))}
+              <div className="relative w-full aspect-square rounded-md border-2 border-dashed flex items-center justify-center">
+                <Label
+                  htmlFor="image-upload"
+                  className="cursor-pointer flex flex-col items-center justify-center w-full h-full"
+                >
+                  <Plus className="h-8 w-8 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground mt-2">Add Image(s)</span>
+                </Label>
+                <Input
+                  id="image-upload"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                  onChange={handleImageSelect}
+                />
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground mt-2">Upload up to 5 images. Max file size 5MB.</p>
+          </CardContent>
+        </Card>
 
-                {schedule[day.key]?.available && (
-                  <div className="flex items-center space-x-2 flex-1">
-                    <Input
-                      type="time"
-                      value={schedule[day.key]?.startTime || "09:00"}
-                      onChange={(e) => handleScheduleChange(day.key, "startTime", e.target.value)}
-                      disabled={isSubmitting}
-                      className="w-32"
-                    />
-                    <span className="text-gray-500">to</span>
-                    <Input
-                      type="time"
-                      value={schedule[day.key]?.endTime || "17:00"}
-                      onChange={(e) => handleScheduleChange(day.key, "endTime", e.target.value)}
-                      disabled={isSubmitting}
-                      className="w-32"
-                    />
-                  </div>
-                )}
+        <Card>
+          <CardHeader>
+            <CardTitle>Service Schedule</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {daysOfWeek.map((day) => (
+              <div key={day} className="border rounded-md p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="font-semibold">{day}</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={() => addTimeSlot(day)}>
+                    Add Time Slot
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {form.watch(`schedule.${day}`)?.map((slot, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Input
+                        type="time"
+                        value={slot.start}
+                        onChange={(e) => handleScheduleChange(day, index, "start", e.target.value)}
+                        className="w-auto"
+                      />
+                      <span>-</span>
+                      <Input
+                        type="time"
+                        value={slot.end}
+                        onChange={(e) => handleScheduleChange(day, index, "end", e.target.value)}
+                        className="w-auto"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        onClick={() => removeTimeSlot(day, index)}
+                      >
+                        <X className="h-4 w-4" />
+                        <span className="sr-only">Remove time slot</span>
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* Submit Button */}
-      <div className="flex justify-end">
-        <Button
-          type="submit"
-          disabled={isSubmitting || uploadingImage || !formData.name || !formData.description}
-          className="bg-red-500 hover:bg-red-600 text-white min-w-[150px]"
-        >
-          {submitButtonText}
-        </Button>
-      </div>
-    </form>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={() => router.back()} disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isLoading}>
+            {isLoading ? "Saving..." : "Save Service"}
+          </Button>
+        </div>
+      </form>
+    </Form>
   )
 }

@@ -1,94 +1,66 @@
 "use client"
 
-import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Loader2 } from "lucide-react"
-import { useAuth } from "@/hooks/use-auth"
-import { useToast } from "@/hooks/use-toast"
+import { ServiceFormShared } from "@/components/service-form-shared"
 import { ServiceService } from "@/lib/service-service"
-import { ServiceFormShared } from "@/components/service-form-shared" // Corrected import path
+import { useAuth } from "@/hooks/use-auth"
+import { useState } from "react"
+import { toast } from "@/components/ui/use-toast"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { CreateServiceData } from "@/types/service"
 
-export default function AddServicePage() {
+export function AddServicePage() {
   const router = useRouter()
   const { user } = useAuth()
-  const { toast } = useToast()
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = async (serviceData: CreateServiceData) => {
+  const handleSubmit = async (data: CreateServiceData, existingImageUrls: string[], newImageFiles: File[]) => {
     if (!user) {
       toast({
         title: "Authentication required",
-        description: "Please log in to create a service.",
+        description: "Please log in to add a service.",
         variant: "destructive",
       })
       return
     }
 
-    setIsSubmitting(true)
-
+    setIsLoading(true)
     try {
-      // Create the service with type "SERVICES"
-      const serviceId = await ServiceService.createService({
-        ...serviceData,
-        userId: user.uid,
-        type: "SERVICES", // Explicitly set type to SERVICES
-      })
+      // ServiceService.createService now handles image uploads internally
+      // It expects the full service data and the new image files
+      const newService = await ServiceService.createService(
+        {
+          ...data,
+          seller_id: user.uid,
+          type: "SERVICES", // Ensure type is explicitly SERVICES
+          imageUrls: existingImageUrls, // Pass existing URLs if any (for edit scenarios, though this is add page)
+        },
+        newImageFiles, // Pass new image files for upload
+      )
 
+      if (newService) {
+        router.push("/dashboard/products") // Redirect to products page after creation
+      }
+    } catch (error) {
+      console.error("Failed to add service:", error)
       toast({
-        title: "Service created successfully!",
-        description: "Your service has been added to your inventory.",
-      })
-
-      // Redirect to the services list
-      router.push("/dashboard/products?tab=services")
-    } catch (error: any) {
-      console.error("Error creating service:", error)
-      toast({
-        title: "Error creating service",
-        description: error.message || "Failed to create service. Please try again.",
+        title: "Error adding service",
+        description: (error as Error).message,
         variant: "destructive",
       })
     } finally {
-      setIsSubmitting(false)
+      setIsLoading(false)
     }
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="mb-6">
-        <Button variant="ghost" onClick={() => router.back()} className="mb-4 hover:bg-gray-100">
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
-        </Button>
-
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Add New Service</h1>
-          <p className="text-gray-600 mt-2">Create a new service offering for your customers</p>
-        </div>
-      </div>
-
+    <div className="container mx-auto py-8">
       <Card>
         <CardHeader>
-          <CardTitle>Service Information</CardTitle>
+          <CardTitle>Add New Service</CardTitle>
         </CardHeader>
         <CardContent>
-          <ServiceFormShared
-            onSubmit={handleSubmit}
-            isSubmitting={isSubmitting}
-            submitButtonText={
-              isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Creating Service...
-                </>
-              ) : (
-                "Create Service"
-              )
-            }
-          />
+          <ServiceFormShared onSubmit={handleSubmit} isLoading={isLoading} userId={user?.uid || ""} />
         </CardContent>
       </Card>
     </div>
