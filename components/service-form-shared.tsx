@@ -13,12 +13,14 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, Upload, X, Clock, Calendar } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import type { Service } from "@/types/service"
 
 interface ServiceFormValues {
   name: string
   description: string
   serviceType: "roll_up" | "roll_down" | "delivery"
   price: number
+  status: "active" | "inactive" | "draft"
   schedule: {
     [key: string]: {
       available: boolean
@@ -29,7 +31,7 @@ interface ServiceFormValues {
 }
 
 interface ServiceFormSharedProps {
-  initialData?: Partial<ServiceFormValues & { imageUrls?: string[] }>
+  initialData?: Partial<Service>
   onSubmit: (data: ServiceFormValues, imageUrls: string[], newImageFiles: File[]) => Promise<void>
   isLoading?: boolean
   submitButtonText?: string
@@ -56,6 +58,7 @@ export default function ServiceFormShared({
     description: initialData?.description || "",
     serviceType: initialData?.serviceType || "roll_up",
     price: initialData?.price || 0,
+    status: initialData?.status || "active",
     schedule: initialData?.schedule || {
       monday: { available: false, startTime: "09:00", endTime: "17:00" },
       tuesday: { available: false, startTime: "09:00", endTime: "17:00" },
@@ -209,6 +212,7 @@ export default function ServiceFormShared({
               onChange={(e) => handleInputChange("name", e.target.value)}
               placeholder="Enter service name"
               required
+              disabled={isLoading}
             />
           </div>
 
@@ -221,21 +225,46 @@ export default function ServiceFormShared({
               placeholder="Describe your service"
               rows={4}
               required
+              disabled={isLoading}
             />
           </div>
 
-          <div>
-            <Label htmlFor="serviceType">Service Type *</Label>
-            <Select value={formData.serviceType} onValueChange={(value) => handleInputChange("serviceType", value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select service type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="roll_up">Roll Up</SelectItem>
-                <SelectItem value="roll_down">Roll Down</SelectItem>
-                <SelectItem value="delivery">Delivery</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="serviceType">Service Type *</Label>
+              <Select
+                value={formData.serviceType}
+                onValueChange={(value) => handleInputChange("serviceType", value)}
+                disabled={isLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select service type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="roll_up">Roll Up</SelectItem>
+                  <SelectItem value="roll_down">Roll Down</SelectItem>
+                  <SelectItem value="delivery">Delivery</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="status">Status</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value) => handleInputChange("status", value)}
+                disabled={isLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div>
@@ -249,6 +278,7 @@ export default function ServiceFormShared({
               onChange={(e) => handleInputChange("price", Number.parseFloat(e.target.value) || 0)}
               placeholder="0.00"
               required
+              disabled={isLoading}
             />
           </div>
         </CardContent>
@@ -269,6 +299,7 @@ export default function ServiceFormShared({
               multiple
               onChange={handleImageSelect}
               className="cursor-pointer"
+              disabled={isLoading}
             />
             <p className="text-sm text-gray-500 mt-1">Select multiple images (JPG, PNG, GIF). Max 5MB each.</p>
           </div>
@@ -290,6 +321,7 @@ export default function ServiceFormShared({
                     size="sm"
                     className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={() => removeExistingImage(index)}
+                    disabled={isLoading}
                   >
                     <X className="h-3 w-3" />
                   </Button>
@@ -313,6 +345,7 @@ export default function ServiceFormShared({
                     size="sm"
                     className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={() => removeNewImage(index)}
+                    disabled={isLoading}
                   >
                     <X className="h-3 w-3" />
                   </Button>
@@ -342,6 +375,7 @@ export default function ServiceFormShared({
                   id={`${key}-available`}
                   checked={formData.schedule[key]?.available || false}
                   onCheckedChange={(checked) => handleScheduleChange(key, "available", checked)}
+                  disabled={isLoading}
                 />
                 <Label htmlFor={`${key}-available`} className="font-medium">
                   {label}
@@ -356,6 +390,7 @@ export default function ServiceFormShared({
                     value={formData.schedule[key]?.startTime || "09:00"}
                     onChange={(e) => handleScheduleChange(key, "startTime", e.target.value)}
                     className="w-auto"
+                    disabled={isLoading}
                   />
                   <span className="text-gray-500">to</span>
                   <Input
@@ -363,6 +398,7 @@ export default function ServiceFormShared({
                     value={formData.schedule[key]?.endTime || "17:00"}
                     onChange={(e) => handleScheduleChange(key, "endTime", e.target.value)}
                     className="w-auto"
+                    disabled={isLoading}
                   />
                 </div>
               )}
@@ -372,7 +408,10 @@ export default function ServiceFormShared({
       </Card>
 
       {/* Submit Button */}
-      <div className="flex justify-end">
+      <div className="flex justify-end space-x-4">
+        <Button type="button" variant="outline" disabled={isLoading} onClick={() => window.history.back()}>
+          Cancel
+        </Button>
         <Button type="submit" disabled={isLoading} className="bg-red-500 hover:bg-red-600 text-white">
           {isLoading ? (
             <>

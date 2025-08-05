@@ -5,18 +5,18 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
-import { useUserData } from "@/hooks/use-user-data"
+import { useAuth } from "@/hooks/use-auth"
 import ServiceFormShared from "./service-form-shared"
-import * as ServiceService from "@/lib/service-service"
+import { ServiceService } from "@/lib/service-service"
 
 export default function AddServicePage() {
   const router = useRouter()
   const { toast } = useToast()
-  const { currentUser } = useUserData()
+  const { user } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (serviceData: any, existingImageUrls: string[], newImageFiles: File[]) => {
-    if (!currentUser) {
+    if (!user) {
       toast({
         title: "Error",
         description: "You must be logged in to create a service",
@@ -30,9 +30,9 @@ export default function AddServicePage() {
     try {
       const createData = {
         ...serviceData,
-        seller_id: currentUser.uid,
+        seller_id: user.uid,
         type: "SERVICES" as const,
-        status: "published" as const,
+        status: serviceData.status || "active",
       }
 
       const serviceId = await ServiceService.createService(createData, newImageFiles)

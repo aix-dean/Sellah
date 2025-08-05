@@ -2,44 +2,46 @@ export interface Service {
   id: string
   name: string
   description: string
+  serviceType: "roll_up" | "roll_down" | "delivery"
   price: number
-  type: "SERVICES" // Explicitly "SERVICES" for services
+  schedule: {
+    [key: string]: {
+      available: boolean
+      startTime: string
+      endTime: string
+    }
+  }
   seller_id: string
-  imageUrls: string[] // Array of image URLs for services
-  status: "published" | "unpublished"
+  type: "SERVICES"
+  status: "active" | "inactive" | "draft"
   views: number
   likes: number
-  bookings: number // Specific to services
-  service_type: string // e.g., "Online", "In-person"
-  duration_minutes: number // Duration of the service
-  schedule: {
-    [day: string]: {
-      start: string
-      end: string
-    }[]
-  }
-  deleted: boolean
+  bookings: number
+  rating: number
+  imageUrls: string[]
   active: boolean
-  created_at?: any // Firebase Timestamp
-  category?: string
-  rating?: number
+  deleted: boolean
+  created_at?: any
+  updated_at?: any
 }
 
 export interface CreateServiceData {
   name: string
   description: string
+  serviceType: "roll_up" | "roll_down" | "delivery"
   price: number
-  type: "SERVICES"
-  seller_id: string
-  imageUrls: string[]
-  status: "published" | "unpublished"
-  service_type: string
-  duration_minutes: number
   schedule: {
-    [day: string]: {
-      start: string
-      end: string
-    }[]
+    [key: string]: {
+      available: boolean
+      startTime: string
+      endTime: string
+    }
   }
-  category?: string
+  seller_id: string
+  type: "SERVICES"
+  status: "active" | "inactive" | "draft"
+  views: number
+  bookings: number
+  rating: number
+  imageUrls: string[]
 }

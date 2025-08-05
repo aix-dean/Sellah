@@ -17,7 +17,6 @@ import {
 } from "firebase/firestore"
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"
 import type { Service, CreateServiceData } from "@/types/service"
-import { toast } from "@/components/ui/use-toast"
 
 export interface ServiceFilter {
   serviceType?: string
@@ -69,7 +68,10 @@ export const ServiceService = {
     try {
       const deletePromises = imageUrls.map(async (url) => {
         try {
-          const imageRef = ref(storage, url)
+          // Extract path from Firebase Storage URL
+          const urlObj = new URL(url)
+          const path = decodeURIComponent(urlObj.pathname.split("/o/")[1].split("?")[0])
+          const imageRef = ref(storage, path)
           await deleteObject(imageRef)
         } catch (error) {
           console.error("Error deleting image:", url, error)
@@ -104,18 +106,9 @@ export const ServiceService = {
 
       const docRef = await addDoc(collection(db, "products"), service)
       console.log("Service created successfully:", docRef.id)
-      toast({
-        title: "Service created successfully!",
-        description: serviceData.name,
-      })
       return docRef.id
     } catch (error) {
       console.error("Error creating service:", error)
-      toast({
-        title: "Failed to create service",
-        description: (error as Error).message,
-        variant: "destructive",
-      })
       throw error
     }
   },
@@ -147,17 +140,8 @@ export const ServiceService = {
 
       await updateDoc(serviceRef, updateData)
       console.log("Service updated successfully:", serviceId)
-      toast({
-        title: "Service updated successfully!",
-        description: updates.name,
-      })
     } catch (error) {
       console.error("Error updating service:", error)
-      toast({
-        title: "Failed to update service",
-        description: (error as Error).message,
-        variant: "destructive",
-      })
       throw error
     }
   },
@@ -187,17 +171,8 @@ export const ServiceService = {
       })
 
       console.log("Service soft deleted successfully:", serviceId)
-      toast({
-        title: "Service deleted successfully!",
-        description: serviceData.name,
-      })
     } catch (error) {
       console.error("Error deleting service:", error)
-      toast({
-        title: "Failed to delete service",
-        description: (error as Error).message,
-        variant: "destructive",
-      })
       throw error
     }
   },
@@ -380,17 +355,8 @@ export const ServiceService = {
 
       await batch.commit()
       console.log("Bulk delete completed for", serviceIds.length, "services")
-      toast({
-        title: "Services deleted successfully!",
-        description: `${serviceIds.length} services marked as deleted.`,
-      })
     } catch (error) {
       console.error("Error bulk deleting services:", error)
-      toast({
-        title: "Failed to bulk delete services",
-        description: (error as Error).message,
-        variant: "destructive",
-      })
       throw error
     }
   },
