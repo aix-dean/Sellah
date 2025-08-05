@@ -58,6 +58,7 @@
     "react-dom": "^19",
     "react-firebase-hooks": "latest",
     "react-hook-form": "latest",
+    "react-query": "latest",
     "react-resizable-panels": "latest",
     "recharts": "latest",
     "sonner": "latest",
