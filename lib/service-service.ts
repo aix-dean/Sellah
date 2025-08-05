@@ -12,7 +12,7 @@ import {
   serverTimestamp,
   writeBatch,
   type QueryDocumentSnapshot,
-  getDoc, // Declare getDoc here
+  getDoc,
 } from "firebase/firestore"
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"
 import { db, storage } from "./firebase"
@@ -80,7 +80,7 @@ export async function updateService(serviceId: string, updates: Partial<Service>
 export async function deleteService(serviceId: string, userId: string): Promise<void> {
   try {
     const serviceRef = doc(db, "products", serviceId)
-    const serviceDoc = await getDoc(serviceRef) // Use getDoc here
+    const serviceDoc = await getDoc(serviceRef)
 
     if (!serviceDoc.exists()) {
       throw new Error("Service not found")
@@ -109,7 +109,7 @@ export async function deleteService(serviceId: string, userId: string): Promise<
 
 export async function getService(serviceId: string): Promise<Service | null> {
   try {
-    const serviceDoc = await getDoc(doc(db, "products", serviceId)) // Use getDoc here
+    const serviceDoc = await getDoc(doc(db, "products", serviceId))
 
     if (serviceDoc.exists()) {
       return {
@@ -273,7 +273,10 @@ export async function deleteServiceImages(imageUrls: string[]): Promise<void> {
   try {
     const deletePromises = imageUrls.map(async (url) => {
       try {
-        const imageRef = ref(storage, url)
+        // Firebase Storage URLs can be complex. Extract path from URL.
+        const urlObj = new URL(url)
+        const path = decodeURIComponent(urlObj.pathname.split("/o/")[1].split("?")[0])
+        const imageRef = ref(storage, path)
         await deleteObject(imageRef)
       } catch (error) {
         console.error("Error deleting image:", url, error)
@@ -322,7 +325,7 @@ export async function bulkDeleteServices(serviceIds: string[], userId: string): 
     // Delete images
     const allImages = services
       .filter((service) => service !== null)
-      .flatMap((service) => (service!.imageUrl ? [service!.imageUrl] : []))
+      .flatMap((service) => (service!.imageUrls ? service!.imageUrls : [])) // Use imageUrls
 
     if (allImages.length > 0) {
       await deleteServiceImages(allImages)

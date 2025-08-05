@@ -17,7 +17,7 @@ export interface Service {
   views: number
   bookings: number
   rating: number
-  imageUrl: string
+  imageUrls: string[] // Changed from imageUrl: string to imageUrls: string[]
   createdAt?: any
   updatedAt?: any
 }
@@ -40,5 +40,5 @@ export interface CreateServiceData {
   views: number
   bookings: number
   rating: number
-  imageUrl: string
+  imageUrls: string[] // Changed from imageUrl: string to imageUrls: string[]
 }

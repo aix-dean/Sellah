@@ -8,34 +8,8 @@ import { ArrowLeft, Loader2 } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { useToast } from "@/hooks/use-toast"
 import { ServiceService } from "@/lib/service-service"
-import { ServiceFormShared } from "./service-form-shared"
+import { ServiceFormShared } from "@/components/service-form-shared" // Corrected import path
 import type { CreateServiceData } from "@/types/service"
-
-const DAYS_OF_WEEK = [
-  { key: "monday", label: "Monday" },
-  { key: "tuesday", label: "Tuesday" },
-  { key: "wednesday", label: "Wednesday" },
-  { key: "thursday", label: "Thursday" },
-  { key: "friday", label: "Friday" },
-  { key: "saturday", label: "Saturday" },
-  { key: "sunday", label: "Sunday" },
-]
-
-const SERVICE_TYPES = [
-  { value: "roll_up", label: "Roll Up" },
-  { value: "roll_down", label: "Roll Down" },
-  { value: "delivery", label: "Delivery" },
-]
-
-interface ScheduleDay {
-  available: boolean
-  startTime: string
-  endTime: string
-}
-
-type Schedule = {
-  [key: string]: ScheduleDay
-}
 
 export default function AddServicePage() {
   const router = useRouter()

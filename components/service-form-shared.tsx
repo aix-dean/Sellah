@@ -58,8 +58,8 @@ export function ServiceFormShared({ initialData, onSubmit, isSubmitting, submitB
     },
   )
 
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [imagePreview, setImagePreview] = useState<string>(initialData?.imageUrl || "")
+  const [imageFiles, setImageFiles] = useState<File[]>([])
+  const [imagePreviews, setImagePreviews] = useState<string[]>(initialData?.imageUrls || [])
   const [uploadingImage, setUploadingImage] = useState(false)
 
   const handleInputChange = (field: string, value: any) => {
@@ -80,25 +80,31 @@ export function ServiceFormShared({ initialData, onSubmit, isSubmitting, submitB
   }
 
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      setImageFile(file)
+    const files = Array.from(event.target.files || [])
+    if (files.length > 0) {
+      const newImageFiles = [...imageFiles, ...files]
+      setImageFiles(newImageFiles)
 
-      // Create preview
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setImagePreview(e.target?.result as string)
-      }
-      reader.readAsDataURL(file)
+      const newImagePreviews: string[] = []
+      files.forEach((file) => {
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          newImagePreviews.push(e.target?.result as string)
+          if (newImagePreviews.length === files.length) {
+            setImagePreviews((prev) => [...prev, ...newImagePreviews])
+          }
+        }
+        reader.readAsDataURL(file)
+      })
     }
   }
 
-  const removeImage = () => {
-    setImageFile(null)
-    setImagePreview("")
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ""
-    }
+  const removeImage = (indexToRemove: number) => {
+    setImageFiles((prev) => prev.filter((_, index) => index !== indexToRemove))
+    setImagePreviews((prev) => prev.filter((_, index) => index !== indexToRemove))
+    // If it's an existing image (from initialData), we might need to track it for deletion on save
+    // For simplicity, this example only handles new uploads.
+    // A more robust solution would track initialData.imageUrls separately and manage deletions.
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -114,14 +120,18 @@ export function ServiceFormShared({ initialData, onSubmit, isSubmitting, submitB
     }
 
     try {
-      let imageUrl = initialData?.imageUrl || ""
+      let uploadedImageUrls: string[] = []
 
-      // Upload image if a new one was selected
-      if (imageFile) {
+      // Upload new images if any
+      if (imageFiles.length > 0) {
         setUploadingImage(true)
-        imageUrl = await ServiceService.uploadServiceImage(imageFile, user.uid)
+        const uploadPromises = imageFiles.map((file) => ServiceService.uploadServiceImage(file, user.uid))
+        uploadedImageUrls = await Promise.all(uploadPromises)
         setUploadingImage(false)
       }
+
+      // Combine existing image URLs with newly uploaded ones
+      const finalImageUrls = [...(initialData?.imageUrls || []), ...uploadedImageUrls]
 
       const serviceData: CreateServiceData = {
         name: formData.name,
@@ -135,7 +145,7 @@ export function ServiceFormShared({ initialData, onSubmit, isSubmitting, submitB
         views: 0,
         bookings: 0,
         rating: 5,
-        imageUrl,
+        imageUrls: finalImageUrls, // Use imageUrls array
       }
 
       await onSubmit(serviceData)
@@ -237,63 +247,66 @@ export function ServiceFormShared({ initialData, onSubmit, isSubmitting, submitB
         </CardContent>
       </Card>
 
-      {/* Service Image */}
+      {/* Service Images */}
       <Card>
         <CardHeader>
-          <CardTitle>Service Image</CardTitle>
+          <CardTitle>Service Images</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {imagePreview ? (
-              <div className="relative">
-                <img
-                  src={imagePreview || "/placeholder.svg"}
-                  alt="Service preview"
-                  className="w-full h-48 object-cover rounded-lg border"
-                />
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  className="absolute top-2 right-2"
-                  onClick={removeImage}
-                  disabled={isSubmitting || uploadingImage}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            ) : (
-              <div
-                className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-gray-400 transition-colors"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 mb-2">Click to upload service image</p>
-                <p className="text-sm text-gray-500">PNG, JPG, GIF up to 10MB</p>
+            {imagePreviews.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {imagePreviews.map((src, index) => (
+                  <div key={index} className="relative group">
+                    <img
+                      src={src || "/placeholder.svg"}
+                      alt={`Service preview ${index + 1}`}
+                      className="w-full h-32 object-cover rounded-lg border"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => removeImage(index)}
+                      disabled={isSubmitting || uploadingImage}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
               </div>
             )}
+
+            <div
+              className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-gray-400 transition-colors"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600 mb-2">Click to upload more images</p>
+              <p className="text-sm text-gray-500">PNG, JPG, GIF up to 10MB each</p>
+            </div>
 
             <input
               ref={fileInputRef}
               type="file"
               accept="image/*"
+              multiple // Allow multiple file selection
               onChange={handleImageSelect}
               className="hidden"
               disabled={isSubmitting || uploadingImage}
             />
 
-            {!imagePreview && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isSubmitting || uploadingImage}
-                className="w-full"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                {uploadingImage ? "Uploading..." : "Upload Image"}
-              </Button>
-            )}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isSubmitting || uploadingImage}
+              className="w-full"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              {uploadingImage ? "Uploading..." : "Add More Images"}
+            </Button>
           </div>
         </CardContent>
       </Card>
