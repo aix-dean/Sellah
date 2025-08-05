@@ -2,386 +2,391 @@
 
 import type React from "react"
 
-import { useState, useEffect, useCallback } from "react"
-import { useRouter } from "next/navigation"
-import Image from "next/image"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import { X, Plus } from "lucide-react"
-
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
-import type { Service } from "@/types/service"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Loader2, Upload, X, Clock, Calendar } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 
-const serviceFormSchema = z.object({
-  name: z.string().min(1, "Service name is required"),
-  description: z.string().min(1, "Description is required"),
-  price: z.coerce.number().min(0, "Price must be a positive number"),
-  category: z.string().min(1, "Category is required"),
-  service_type: z.enum(["Online", "In-person", "Hybrid"]),
-  duration_minutes: z.coerce.number().min(1, "Duration must be at least 1 minute"),
-  schedule: z.record(
-    z.string(),
-    z.array(
-      z.object({
-        start: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:MM)"),
-        end: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:MM)"),
-      }),
-    ),
-  ),
-})
-
-type ServiceFormValues = z.infer<typeof serviceFormSchema>
-
-interface ServiceFormSharedProps {
-  initialData?: Service | null
-  onSubmit: (data: ServiceFormValues, imageUrls: string[], newImageFiles: File[]) => Promise<void>
-  isLoading: boolean
-  userId: string
+interface ServiceFormValues {
+  name: string
+  description: string
+  serviceType: "roll_up" | "roll_down" | "delivery"
+  price: number
+  schedule: {
+    [key: string]: {
+      available: boolean
+      startTime: string
+      endTime: string
+    }
+  }
 }
 
-export function ServiceFormShared({ initialData, onSubmit, isLoading, userId }: ServiceFormSharedProps) {
-  const router = useRouter()
-  const [imageFiles, setImageFiles] = useState<File[]>([])
-  const [imagePreviews, setImagePreviews] = useState<string[]>([])
-  const [existingImageUrls, setExistingImageUrls] = useState<string[]>(initialData?.imageUrls || [])
+interface ServiceFormSharedProps {
+  initialData?: Partial<ServiceFormValues & { imageUrls?: string[] }>
+  onSubmit: (data: ServiceFormValues, imageUrls: string[], newImageFiles: File[]) => Promise<void>
+  isLoading?: boolean
+  submitButtonText?: string
+}
 
-  const form = useForm<ServiceFormValues>({
-    resolver: zodResolver(serviceFormSchema),
-    defaultValues: {
-      name: initialData?.name || "",
-      description: initialData?.description || "",
-      price: initialData?.price || 0,
-      category: initialData?.category || "",
-      service_type: initialData?.service_type || "Online",
-      duration_minutes: initialData?.duration_minutes || 60,
-      schedule: initialData?.schedule || {
-        Monday: [],
-        Tuesday: [],
-        Wednesday: [],
-        Thursday: [],
-        Friday: [],
-        Saturday: [],
-        Sunday: [],
-      },
+const DAYS_OF_WEEK = [
+  { key: "monday", label: "Monday" },
+  { key: "tuesday", label: "Tuesday" },
+  { key: "wednesday", label: "Wednesday" },
+  { key: "thursday", label: "Thursday" },
+  { key: "friday", label: "Friday" },
+  { key: "saturday", label: "Saturday" },
+  { key: "sunday", label: "Sunday" },
+]
+
+export default function ServiceFormShared({
+  initialData,
+  onSubmit,
+  isLoading = false,
+  submitButtonText = "Create Service",
+}: ServiceFormSharedProps) {
+  const [formData, setFormData] = useState<ServiceFormValues>({
+    name: initialData?.name || "",
+    description: initialData?.description || "",
+    serviceType: initialData?.serviceType || "roll_up",
+    price: initialData?.price || 0,
+    schedule: initialData?.schedule || {
+      monday: { available: false, startTime: "09:00", endTime: "17:00" },
+      tuesday: { available: false, startTime: "09:00", endTime: "17:00" },
+      wednesday: { available: false, startTime: "09:00", endTime: "17:00" },
+      thursday: { available: false, startTime: "09:00", endTime: "17:00" },
+      friday: { available: false, startTime: "09:00", endTime: "17:00" },
+      saturday: { available: false, startTime: "09:00", endTime: "17:00" },
+      sunday: { available: false, startTime: "09:00", endTime: "17:00" },
     },
   })
 
-  useEffect(() => {
-    if (initialData) {
-      form.reset({
-        name: initialData.name,
-        description: initialData.description,
-        price: initialData.price,
-        category: initialData.category,
-        service_type: initialData.service_type,
-        duration_minutes: initialData.duration_minutes,
-        schedule: initialData.schedule,
-      })
-      setExistingImageUrls(initialData.imageUrls || [])
-    }
-  }, [initialData, form])
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>(initialData?.imageUrls || [])
+  const [newImageFiles, setNewImageFiles] = useState<File[]>([])
+  const [newImagePreviews, setNewImagePreviews] = useState<string[]>([])
+  const [error, setError] = useState("")
 
-  const handleImageSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files) {
-      const files = Array.from(event.target.files)
-      setImageFiles((prev) => [...prev, ...files])
+  const handleInputChange = (field: keyof ServiceFormValues, value: any) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }))
+  }
 
-      const newPreviews = files.map((file) => URL.createObjectURL(file))
-      setImagePreviews((prev) => [...prev, ...newPreviews])
-    }
-  }, [])
+  const handleScheduleChange = (day: string, field: "available" | "startTime" | "endTime", value: any) => {
+    setFormData((prev) => ({
+      ...prev,
+      schedule: {
+        ...prev.schedule,
+        [day]: {
+          ...prev.schedule[day],
+          [field]: value,
+        },
+      },
+    }))
+  }
 
-  const removeImage = useCallback(
-    (index: number, isExisting: boolean) => {
-      if (isExisting) {
-        const urlToRemove = existingImageUrls[index]
-        setExistingImageUrls((prev) => prev.filter((_, i) => i !== index))
-        // Optionally, call a service to delete from storage immediately
-        // ServiceService.deleteServiceImage(urlToRemove);
-      } else {
-        const fileToRemove = imageFiles[index]
-        const previewToRemove = imagePreviews[index]
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
 
-        setImageFiles((prev) => prev.filter((_, i) => i !== index))
-        setImagePreviews((prev) => prev.filter((_, i) => i !== index))
-        URL.revokeObjectURL(previewToRemove)
+    // Validate file types
+    const validFiles = files.filter((file) => {
+      if (!file.type.startsWith("image/")) {
+        setError("Please select only image files")
+        return false
       }
-    },
-    [imageFiles, imagePreviews, existingImageUrls],
-  )
+      if (file.size > 5 * 1024 * 1024) {
+        setError("Image size should be less than 5MB")
+        return false
+      }
+      return true
+    })
 
-  const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    if (validFiles.length === 0) return
 
-  const handleScheduleChange = (day: string, index: number, field: "start" | "end", value: string) => {
-    const currentSchedule = form.getValues("schedule")
-    const updatedDaySchedule = [...(currentSchedule[day] || [])]
-    if (updatedDaySchedule[index]) {
-      updatedDaySchedule[index] = { ...updatedDaySchedule[index], [field]: value }
+    // Check total image limit
+    const totalImages = existingImageUrls.length + newImageFiles.length + validFiles.length
+    if (totalImages > 10) {
+      setError("Maximum 10 images allowed")
+      return
     }
-    form.setValue("schedule", { ...currentSchedule, [day]: updatedDaySchedule })
+
+    setError("")
+    setNewImageFiles((prev) => [...prev, ...validFiles])
+
+    // Generate previews for new files
+    validFiles.forEach((file) => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setNewImagePreviews((prev) => [...prev, e.target?.result as string])
+      }
+      reader.readAsDataURL(file)
+    })
   }
 
-  const addTimeSlot = (day: string) => {
-    const currentSchedule = form.getValues("schedule")
-    const updatedDaySchedule = [...(currentSchedule[day] || []), { start: "09:00", end: "17:00" }]
-    form.setValue("schedule", { ...currentSchedule, [day]: updatedDaySchedule })
+  const removeExistingImage = (index: number) => {
+    setExistingImageUrls((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const removeTimeSlot = (day: string, index: number) => {
-    const currentSchedule = form.getValues("schedule")
-    const updatedDaySchedule = (currentSchedule[day] || []).filter((_, i) => i !== index)
-    form.setValue("schedule", { ...currentSchedule, [day]: updatedDaySchedule })
+  const removeNewImage = (index: number) => {
+    setNewImageFiles((prev) => prev.filter((_, i) => i !== index))
+    setNewImagePreviews((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const onSubmitHandler = async (values: ServiceFormValues) => {
-    await onSubmit(values, existingImageUrls, imageFiles)
-    // Clear new image files and previews after successful submission
-    setImageFiles([])
-    setImagePreviews([])
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+
+    // Validation
+    if (!formData.name.trim()) {
+      setError("Service name is required")
+      return
+    }
+
+    if (!formData.description.trim()) {
+      setError("Service description is required")
+      return
+    }
+
+    if (formData.price <= 0) {
+      setError("Price must be greater than 0")
+      return
+    }
+
+    // Check if at least one day is available
+    const hasAvailableDay = Object.values(formData.schedule).some((day) => day.available)
+    if (!hasAvailableDay) {
+      setError("Please select at least one available day")
+      return
+    }
+
+    try {
+      await onSubmit(formData, existingImageUrls, newImageFiles)
+    } catch (error: any) {
+      setError(error.message || "Failed to save service")
+    }
+  }
+
+  const getServiceTypeLabel = (type: string) => {
+    switch (type) {
+      case "roll_up":
+        return "Roll Up"
+      case "roll_down":
+        return "Roll Down"
+      case "delivery":
+        return "Delivery"
+      default:
+        return type
+    }
   }
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmitHandler)} className="space-y-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Service Details</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Service Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g. Online Coaching Session" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="price"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Price</FormLabel>
-                  <FormControl>
-                    <Input type="number" placeholder="0.00" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="category"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Category</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a category" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="Consulting">Consulting</SelectItem>
-                      <SelectItem value="Education">Education</SelectItem>
-                      <SelectItem value="Health & Wellness">Health & Wellness</SelectItem>
-                      <SelectItem value="Creative Services">Creative Services</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="service_type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Service Type</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select service type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="Online">Online</SelectItem>
-                      <SelectItem value="In-person">In-person</SelectItem>
-                      <SelectItem value="Hybrid">Hybrid</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="duration_minutes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Duration (minutes)</FormLabel>
-                  <FormControl>
-                    <Input type="number" placeholder="e.g. 60" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem className="col-span-full">
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Describe your service" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
-        </Card>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Service Images</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+      {/* Basic Information */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Basic Information</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="name">Service Name *</Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => handleInputChange("name", e.target.value)}
+              placeholder="Enter service name"
+              required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="description">Description *</Label>
+            <Textarea
+              id="description"
+              value={formData.description}
+              onChange={(e) => handleInputChange("description", e.target.value)}
+              placeholder="Describe your service"
+              rows={4}
+              required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="serviceType">Service Type *</Label>
+            <Select value={formData.serviceType} onValueChange={(value) => handleInputChange("serviceType", value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select service type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="roll_up">Roll Up</SelectItem>
+                <SelectItem value="roll_down">Roll Down</SelectItem>
+                <SelectItem value="delivery">Delivery</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="price">Price (PHP) *</Label>
+            <Input
+              id="price"
+              type="number"
+              min="0"
+              step="0.01"
+              value={formData.price}
+              onChange={(e) => handleInputChange("price", Number.parseFloat(e.target.value) || 0)}
+              placeholder="0.00"
+              required
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Service Images */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Service Images</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="images">Upload Images (Max 10)</Label>
+            <Input
+              id="images"
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleImageSelect}
+              className="cursor-pointer"
+            />
+            <p className="text-sm text-gray-500 mt-1">Select multiple images (JPG, PNG, GIF). Max 5MB each.</p>
+          </div>
+
+          {/* Image Previews */}
+          {(existingImageUrls.length > 0 || newImagePreviews.length > 0) && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {/* Existing Images */}
               {existingImageUrls.map((url, index) => (
-                <div
-                  key={`existing-${index}`}
-                  className="relative w-full aspect-square rounded-md overflow-hidden border"
-                >
-                  <Image
+                <div key={`existing-${index}`} className="relative group">
+                  <img
                     src={url || "/placeholder.svg"}
-                    alt={`Service Image ${index + 1}`}
-                    fill
-                    style={{ objectFit: "cover" }}
+                    alt={`Service image ${index + 1}`}
+                    className="w-full h-24 object-cover rounded-lg border"
                   />
                   <Button
                     type="button"
                     variant="destructive"
-                    size="icon"
-                    className="absolute top-1 right-1 h-6 w-6 rounded-full"
-                    onClick={() => removeImage(index, true)}
+                    size="sm"
+                    className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => removeExistingImage(index)}
                   >
-                    <X className="h-4 w-4" />
-                    <span className="sr-only">Remove image</span>
+                    <X className="h-3 w-3" />
                   </Button>
+                  <Badge variant="secondary" className="absolute bottom-1 left-1 text-xs">
+                    Saved
+                  </Badge>
                 </div>
               ))}
-              {imagePreviews.map((preview, index) => (
-                <div key={`new-${index}`} className="relative w-full aspect-square rounded-md overflow-hidden border">
-                  <Image
+
+              {/* New Image Previews */}
+              {newImagePreviews.map((preview, index) => (
+                <div key={`new-${index}`} className="relative group">
+                  <img
                     src={preview || "/placeholder.svg"}
-                    alt={`New Service Image ${index + 1}`}
-                    fill
-                    style={{ objectFit: "cover" }}
+                    alt={`New service image ${index + 1}`}
+                    className="w-full h-24 object-cover rounded-lg border"
                   />
                   <Button
                     type="button"
                     variant="destructive"
-                    size="icon"
-                    className="absolute top-1 right-1 h-6 w-6 rounded-full"
-                    onClick={() => removeImage(index, false)}
+                    size="sm"
+                    className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => removeNewImage(index)}
                   >
-                    <X className="h-4 w-4" />
-                    <span className="sr-only">Remove image</span>
+                    <X className="h-3 w-3" />
                   </Button>
+                  <Badge variant="outline" className="absolute bottom-1 left-1 text-xs">
+                    New
+                  </Badge>
                 </div>
               ))}
-              <div className="relative w-full aspect-square rounded-md border-2 border-dashed flex items-center justify-center">
-                <Label
-                  htmlFor="image-upload"
-                  className="cursor-pointer flex flex-col items-center justify-center w-full h-full"
-                >
-                  <Plus className="h-8 w-8 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground mt-2">Add Image(s)</span>
-                </Label>
-                <Input
-                  id="image-upload"
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                  onChange={handleImageSelect}
-                />
-              </div>
             </div>
-            <p className="text-sm text-muted-foreground mt-2">Upload up to 5 images. Max file size 5MB.</p>
-          </CardContent>
-        </Card>
+          )}
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Service Schedule</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {daysOfWeek.map((day) => (
-              <div key={day} className="border rounded-md p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <Label className="font-semibold">{day}</Label>
-                  <Button type="button" variant="outline" size="sm" onClick={() => addTimeSlot(day)}>
-                    Add Time Slot
-                  </Button>
-                </div>
-                <div className="space-y-2">
-                  {form.watch(`schedule.${day}`)?.map((slot, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <Input
-                        type="time"
-                        value={slot.start}
-                        onChange={(e) => handleScheduleChange(day, index, "start", e.target.value)}
-                        className="w-auto"
-                      />
-                      <span>-</span>
-                      <Input
-                        type="time"
-                        value={slot.end}
-                        onChange={(e) => handleScheduleChange(day, index, "end", e.target.value)}
-                        className="w-auto"
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        onClick={() => removeTimeSlot(day, index)}
-                      >
-                        <X className="h-4 w-4" />
-                        <span className="sr-only">Remove time slot</span>
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+      {/* Schedule */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="w-5 h-5" />
+            Service Schedule
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {DAYS_OF_WEEK.map(({ key, label }) => (
+            <div key={key} className="flex items-center space-x-4 p-3 border rounded-lg">
+              <div className="flex items-center space-x-2 min-w-[120px]">
+                <Checkbox
+                  id={`${key}-available`}
+                  checked={formData.schedule[key]?.available || false}
+                  onCheckedChange={(checked) => handleScheduleChange(key, "available", checked)}
+                />
+                <Label htmlFor={`${key}-available`} className="font-medium">
+                  {label}
+                </Label>
               </div>
-            ))}
-          </CardContent>
-        </Card>
 
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => router.back()} disabled={isLoading}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={isLoading}>
-            {isLoading ? "Saving..." : "Save Service"}
-          </Button>
-        </div>
-      </form>
-    </Form>
+              {formData.schedule[key]?.available && (
+                <div className="flex items-center space-x-2 flex-1">
+                  <Clock className="w-4 h-4 text-gray-500" />
+                  <Input
+                    type="time"
+                    value={formData.schedule[key]?.startTime || "09:00"}
+                    onChange={(e) => handleScheduleChange(key, "startTime", e.target.value)}
+                    className="w-auto"
+                  />
+                  <span className="text-gray-500">to</span>
+                  <Input
+                    type="time"
+                    value={formData.schedule[key]?.endTime || "17:00"}
+                    onChange={(e) => handleScheduleChange(key, "endTime", e.target.value)}
+                    className="w-auto"
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Submit Button */}
+      <div className="flex justify-end">
+        <Button type="submit" disabled={isLoading} className="bg-red-500 hover:bg-red-600 text-white">
+          {isLoading ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Upload className="w-4 h-4 mr-2" />
+              {submitButtonText}
+            </>
+          )}
+        </Button>
+      </div>
+    </form>
   )
 }

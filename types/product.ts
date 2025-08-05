@@ -17,30 +17,31 @@ export interface Product {
   price: number
   stock: number
   sales: number
-  status: "published" | "unpublished"
+  status: "published" | "unpublished" | "active" | "inactive" | "draft"
   views: number
   likes: number
-  type: string // e.g., "MERCHANDISE", "SERVICES"
+  type: string
   seller_id: string
   deleted: boolean
-  photo_urls?: string[] // Array of image URLs for products
-  created_at?: any // Firebase Timestamp
+  photo_urls?: string[]
+  created_at?: any
   description?: string
   category?: string
-  image_url?: string // Primary image URL (deprecated, use photo_urls)
+  image_url?: string
   rating?: number
   variations?: ProductVariation[]
-  active?: boolean // Added active field
-  // Service-specific fields (optional, for type "SERVICES")
-  service_type?: string // e.g., "Online", "In-person"
-  duration_minutes?: number
+  active?: boolean
+  // Service-specific fields
+  serviceType?: "roll_up" | "roll_down" | "delivery"
   schedule?: {
-    [day: string]: {
-      start: string
-      end: string
-    }[]
+    [key: string]: {
+      available: boolean
+      startTime: string
+      endTime: string
+    }
   }
   bookings?: number
+  imageUrls?: string[]
 }
 
 export interface CreateProductData {
@@ -55,13 +56,4 @@ export interface CreateProductData {
   seller_id: string
   photo_urls?: string[]
   variations?: ProductVariation[]
-  // Service-specific fields
-  service_type?: string
-  duration_minutes?: number
-  schedule?: {
-    [day: string]: {
-      start: string
-      end: string
-    }[]
-  }
 }

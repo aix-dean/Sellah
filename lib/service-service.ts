@@ -1,51 +1,114 @@
 import { db, storage } from "@/lib/firebase"
-import { collection, addDoc, doc, updateDoc, getDoc } from "firebase/firestore"
+import {
+  collection,
+  addDoc,
+  doc,
+  updateDoc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  limit,
+  startAfter,
+  serverTimestamp,
+  writeBatch,
+  type QueryDocumentSnapshot,
+} from "firebase/firestore"
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"
-import type { CreateServiceData, Service } from "@/types/service"
+import type { Service, CreateServiceData } from "@/types/service"
 import { toast } from "@/components/ui/use-toast"
 
-export const ServiceService = {
-  async createService(serviceData: CreateServiceData, imageFiles: File[]): Promise<Service | null> {
-    try {
-      const imageUrls: string[] = []
-      for (const file of imageFiles) {
-        const url = await ServiceService.uploadServiceImage(file)
-        if (url) {
-          imageUrls.push(url)
-        }
-      }
+export interface ServiceFilter {
+  serviceType?: string
+  status?: string
+  priceMin?: number
+  priceMax?: number
+  search?: string
+}
 
-      const docRef = await addDoc(collection(db, "products"), {
-        ...serviceData,
-        imageUrls: imageUrls, // Save all uploaded image URLs
-        type: "SERVICES", // Ensure type is SERVICES
-        createdAt: new Date(),
-        active: true,
-        deleted: false,
-        views: 0,
-        likes: 0,
-        bookings: 0,
-        status: "published",
+export interface ServicesResponse {
+  services: Service[]
+  total: number
+  hasMore: boolean
+  lastDoc?: QueryDocumentSnapshot
+}
+
+export const ServiceService = {
+  // Upload a single service image
+  async uploadServiceImage(file: File, userId: string, serviceId?: string): Promise<string> {
+    try {
+      const fileName = `${Date.now()}_${file.name}`
+      const path = serviceId ? `services/${userId}/${serviceId}/${fileName}` : `services/${userId}/temp/${fileName}`
+      const storageRef = ref(storage, path)
+
+      const snapshot = await uploadBytes(storageRef, file)
+      const downloadURL = await getDownloadURL(snapshot.ref)
+
+      return downloadURL
+    } catch (error) {
+      console.error("Error uploading service image:", error)
+      throw error
+    }
+  },
+
+  // Upload multiple service images
+  async uploadServiceImages(files: File[], userId: string, serviceId?: string): Promise<string[]> {
+    try {
+      const uploadPromises = files.map((file) => this.uploadServiceImage(file, userId, serviceId))
+      const imageUrls = await Promise.all(uploadPromises)
+      return imageUrls
+    } catch (error) {
+      console.error("Error uploading service images:", error)
+      throw error
+    }
+  },
+
+  // Delete service images from storage
+  async deleteServiceImages(imageUrls: string[]): Promise<void> {
+    try {
+      const deletePromises = imageUrls.map(async (url) => {
+        try {
+          const imageRef = ref(storage, url)
+          await deleteObject(imageRef)
+        } catch (error) {
+          console.error("Error deleting image:", url, error)
+        }
       })
 
-      const newService: Service = {
-        id: docRef.id,
+      await Promise.all(deletePromises)
+    } catch (error) {
+      console.error("Error deleting service images:", error)
+      throw error
+    }
+  },
+
+  // Create a new service
+  async createService(serviceData: Omit<CreateServiceData, "imageUrls">, imageFiles: File[] = []): Promise<string> {
+    try {
+      // Upload images first
+      const imageUrls = imageFiles.length > 0 ? await this.uploadServiceImages(imageFiles, serviceData.seller_id) : []
+
+      const service: Omit<Service, "id"> = {
         ...serviceData,
-        imageUrls: imageUrls,
+        imageUrls,
         type: "SERVICES",
-        createdAt: new Date(),
         active: true,
         deleted: false,
         views: 0,
-        likes: 0,
         bookings: 0,
-        status: "published",
+        rating: 5,
+        created_at: serverTimestamp(),
+        updated_at: serverTimestamp(),
       }
+
+      const docRef = await addDoc(collection(db, "products"), service)
+      console.log("Service created successfully:", docRef.id)
       toast({
         title: "Service created successfully!",
-        description: newService.name,
+        description: serviceData.name,
       })
-      return newService
+      return docRef.id
     } catch (error) {
       console.error("Error creating service:", error)
       toast({
@@ -53,69 +116,41 @@ export const ServiceService = {
         description: (error as Error).message,
         variant: "destructive",
       })
-      return null
+      throw error
     }
   },
 
-  async getServiceById(id: string): Promise<Service | null> {
-    try {
-      const docRef = doc(db, "products", id)
-      const docSnap = await getDoc(docRef)
-
-      if (docSnap.exists() && docSnap.data().type === "SERVICES") {
-        return { id: docSnap.id, ...docSnap.data() } as Service
-      } else {
-        return null
-      }
-    } catch (error) {
-      console.error("Error getting service by ID:", error)
-      return null
-    }
-  },
-
+  // Update an existing service
   async updateService(
-    id: string,
-    serviceData: Partial<CreateServiceData>,
-    newImageFiles: File[],
-    existingImageUrls: string[],
-  ): Promise<Service | null> {
+    serviceId: string,
+    updates: Partial<Service>,
+    newImageFiles: File[] = [],
+    existingImageUrls: string[] = [],
+  ): Promise<void> {
     try {
-      const serviceRef = doc(db, "products", id)
-      const currentServiceSnap = await getDoc(serviceRef)
-      if (!currentServiceSnap.exists()) {
-        throw new Error("Service not found.")
+      const serviceRef = doc(db, "products", serviceId)
+
+      // Upload new images if any
+      const newImageUrls =
+        newImageFiles.length > 0
+          ? await this.uploadServiceImages(newImageFiles, updates.seller_id || "", serviceId)
+          : []
+
+      // Combine existing and new image URLs
+      const allImageUrls = [...existingImageUrls, ...newImageUrls]
+
+      const updateData = {
+        ...updates,
+        imageUrls: allImageUrls,
+        updated_at: serverTimestamp(),
       }
-      const currentService = currentServiceSnap.data() as Service
 
-      // Upload new images
-      const uploadedNewImageUrls: string[] = []
-      for (const file of newImageFiles) {
-        const url = await ServiceService.uploadServiceImage(file)
-        if (url) {
-          uploadedNewImageUrls.push(url)
-        }
-      }
-
-      // Combine existing and newly uploaded image URLs
-      const finalImageUrls = [...existingImageUrls, ...uploadedNewImageUrls]
-
-      await updateDoc(serviceRef, {
-        ...serviceData,
-        imageUrls: finalImageUrls,
-        updatedAt: new Date(),
-      })
-
-      const updatedService: Service = {
-        ...currentService,
-        ...serviceData,
-        imageUrls: finalImageUrls,
-        id: id,
-      }
+      await updateDoc(serviceRef, updateData)
+      console.log("Service updated successfully:", serviceId)
       toast({
         title: "Service updated successfully!",
-        description: updatedService.name,
+        description: updates.name,
       })
-      return updatedService
     } catch (error) {
       console.error("Error updating service:", error)
       toast({
@@ -123,34 +158,39 @@ export const ServiceService = {
         description: (error as Error).message,
         variant: "destructive",
       })
-      return null
+      throw error
     }
   },
 
-  async deleteService(id: string): Promise<boolean> {
+  // Soft delete service
+  async deleteService(serviceId: string, userId: string): Promise<void> {
     try {
-      const serviceRef = doc(db, "products", id)
-      const serviceSnap = await getDoc(serviceRef)
-      if (serviceSnap.exists()) {
-        const serviceData = serviceSnap.data() as Service
-        // Mark as deleted instead of actual deletion
-        await updateDoc(serviceRef, {
-          deleted: true,
-          active: false,
-          updatedAt: new Date(),
-        })
+      const serviceRef = doc(db, "products", serviceId)
+      const serviceDoc = await getDoc(serviceRef)
 
-        // Optionally delete images from storage if truly deleting
-        // For now, we'll keep them as the document is only marked deleted
-        // await ServiceService.deleteServiceImages(serviceData.imageUrls);
-
-        toast({
-          title: "Service deleted successfully!",
-          description: serviceData.name,
-        })
-        return true
+      if (!serviceDoc.exists()) {
+        throw new Error("Service not found")
       }
-      return false
+
+      const serviceData = serviceDoc.data() as Service
+
+      // Verify ownership
+      if (serviceData.seller_id !== userId) {
+        throw new Error("Unauthorized: You can only delete your own services")
+      }
+
+      // Soft delete: set active=false and deleted=true
+      await updateDoc(serviceRef, {
+        active: false,
+        deleted: true,
+        updated_at: serverTimestamp(),
+      })
+
+      console.log("Service soft deleted successfully:", serviceId)
+      toast({
+        title: "Service deleted successfully!",
+        description: serviceData.name,
+      })
     } catch (error) {
       console.error("Error deleting service:", error)
       toast({
@@ -158,71 +198,192 @@ export const ServiceService = {
         description: (error as Error).message,
         variant: "destructive",
       })
-      return false
+      throw error
     }
   },
 
-  async uploadServiceImage(file: File): Promise<string | null> {
+  // Get a single service
+  async getService(serviceId: string): Promise<Service | null> {
     try {
-      const storageRef = ref(storage, `service_images/${file.name}_${Date.now()}`)
-      const snapshot = await uploadBytes(storageRef, file)
-      const downloadURL = await getDownloadURL(snapshot.ref)
-      return downloadURL
-    } catch (error) {
-      console.error("Error uploading service image:", error)
-      toast({
-        title: "Failed to upload image",
-        description: (error as Error).message,
-        variant: "destructive",
-      })
-      return null
-    }
-  },
+      const serviceDoc = await getDoc(doc(db, "products", serviceId))
 
-  async deleteServiceImage(imageUrl: string): Promise<boolean> {
-    try {
-      const imageRef = ref(storage, imageUrl)
-      await deleteObject(imageRef)
-      return true
-    } catch (error) {
-      console.error("Error deleting service image:", error)
-      toast({
-        title: "Failed to delete image",
-        description: (error as Error).message,
-        variant: "destructive",
-      })
-      return false
-    }
-  },
-
-  async deleteServiceImages(imageUrls: string[]): Promise<void> {
-    const deletePromises = imageUrls.map((url) => ServiceService.deleteServiceImage(url))
-    await Promise.all(deletePromises)
-  },
-
-  async bulkDeleteServices(serviceIds: string[]): Promise<boolean> {
-    try {
-      const deletePromises = serviceIds.map(async (id) => {
-        const serviceRef = doc(db, "products", id)
-        const serviceSnap = await getDoc(serviceRef)
-        if (serviceSnap.exists()) {
-          const serviceData = serviceSnap.data() as Service
-          // Mark as deleted
-          await updateDoc(serviceRef, {
-            deleted: true,
-            active: false,
-            updatedAt: new Date(),
-          })
-          // Optionally delete images from storage
-          // await ServiceService.deleteServiceImages(serviceData.imageUrls);
+      if (serviceDoc.exists()) {
+        const data = serviceDoc.data()
+        if (data.type === "SERVICES") {
+          return {
+            id: serviceDoc.id,
+            ...data,
+          } as Service
         }
+      }
+
+      return null
+    } catch (error) {
+      console.error("Error getting service:", error)
+      throw error
+    }
+  },
+
+  // Get services with filters
+  async getServices(
+    filters: ServiceFilter = {},
+    pageSize = 20,
+    lastDoc?: QueryDocumentSnapshot,
+  ): Promise<ServicesResponse> {
+    try {
+      let q = query(
+        collection(db, "products"),
+        where("type", "==", "SERVICES"),
+        where("active", "==", true),
+        where("deleted", "==", false),
+      )
+
+      // Apply filters
+      if (filters.serviceType) {
+        q = query(q, where("serviceType", "==", filters.serviceType))
+      }
+
+      if (filters.status) {
+        q = query(q, where("status", "==", filters.status))
+      }
+
+      // Add ordering
+      q = query(q, orderBy("created_at", "desc"))
+
+      // Add pagination
+      if (lastDoc) {
+        q = query(q, startAfter(lastDoc))
+      }
+
+      q = query(q, limit(pageSize + 1))
+
+      const querySnapshot = await getDocs(q)
+      const docs = querySnapshot.docs
+
+      const hasMore = docs.length > pageSize
+      const services = docs.slice(0, pageSize).map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Service[]
+
+      // Apply client-side filters
+      let filteredServices = services
+
+      if (filters.search) {
+        const searchTerm = filters.search.toLowerCase()
+        filteredServices = services.filter(
+          (service) =>
+            service.name.toLowerCase().includes(searchTerm) || service.description.toLowerCase().includes(searchTerm),
+        )
+      }
+
+      if (filters.priceMin !== undefined) {
+        filteredServices = filteredServices.filter((service) => service.price >= filters.priceMin!)
+      }
+
+      if (filters.priceMax !== undefined) {
+        filteredServices = filteredServices.filter((service) => service.price <= filters.priceMax!)
+      }
+
+      return {
+        services: filteredServices,
+        total: filteredServices.length,
+        hasMore,
+        lastDoc: hasMore ? docs[pageSize - 1] : undefined,
+      }
+    } catch (error) {
+      console.error("Error getting services:", error)
+      throw error
+    }
+  },
+
+  // Get user services
+  async getUserServices(
+    userId: string,
+    filters: ServiceFilter = {},
+    pageSize = 20,
+    lastDoc?: QueryDocumentSnapshot,
+  ): Promise<ServicesResponse> {
+    try {
+      let q = query(
+        collection(db, "products"),
+        where("seller_id", "==", userId),
+        where("type", "==", "SERVICES"),
+        where("active", "==", true),
+        where("deleted", "==", false),
+      )
+
+      // Apply additional filters
+      if (filters.status) {
+        q = query(q, where("status", "==", filters.status))
+      }
+
+      if (filters.serviceType) {
+        q = query(q, where("serviceType", "==", filters.serviceType))
+      }
+
+      // Add ordering
+      q = query(q, orderBy("created_at", "desc"))
+
+      // Add pagination
+      if (lastDoc) {
+        q = query(q, startAfter(lastDoc))
+      }
+
+      q = query(q, limit(pageSize + 1))
+
+      const querySnapshot = await getDocs(q)
+      const docs = querySnapshot.docs
+
+      const hasMore = docs.length > pageSize
+      const services = docs.slice(0, pageSize).map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Service[]
+
+      return {
+        services,
+        total: services.length,
+        hasMore,
+        lastDoc: hasMore ? docs[pageSize - 1] : undefined,
+      }
+    } catch (error) {
+      console.error("Error getting user services:", error)
+      throw error
+    }
+  },
+
+  // Bulk delete services
+  async bulkDeleteServices(serviceIds: string[], userId: string): Promise<void> {
+    try {
+      const batch = writeBatch(db)
+
+      // Get all services to delete their images
+      const services = await Promise.all(serviceIds.map((id) => this.getService(id)))
+
+      // Delete images
+      const allImages = services.filter((service) => service !== null).flatMap((service) => service!.imageUrls || [])
+
+      if (allImages.length > 0) {
+        await this.deleteServiceImages(allImages)
+      }
+
+      // Soft delete service documents
+      serviceIds.forEach((id) => {
+        const serviceRef = doc(db, "products", id)
+        batch.update(serviceRef, {
+          active: false,
+          deleted: true,
+          updated_at: serverTimestamp(),
+        })
       })
-      await Promise.all(deletePromises)
+
+      await batch.commit()
+      console.log("Bulk delete completed for", serviceIds.length, "services")
       toast({
         title: "Services deleted successfully!",
         description: `${serviceIds.length} services marked as deleted.`,
       })
-      return true
     } catch (error) {
       console.error("Error bulk deleting services:", error)
       toast({
@@ -230,7 +391,7 @@ export const ServiceService = {
         description: (error as Error).message,
         variant: "destructive",
       })
-      return false
+      throw error
     }
   },
 }
