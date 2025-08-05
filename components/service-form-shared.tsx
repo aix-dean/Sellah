@@ -60,13 +60,13 @@ export default function ServiceFormShared({
     price: initialData?.price || 0,
     status: initialData?.status || "active",
     schedule: initialData?.schedule || {
-      monday: { available: false, startTime: "09:00", endTime: "17:00" },
-      tuesday: { available: false, startTime: "09:00", endTime: "17:00" },
-      wednesday: { available: false, startTime: "09:00", endTime: "17:00" },
-      thursday: { available: false, startTime: "09:00", endTime: "17:00" },
-      friday: { available: false, startTime: "09:00", endTime: "17:00" },
-      saturday: { available: false, startTime: "09:00", endTime: "17:00" },
-      sunday: { available: false, startTime: "09:00", endTime: "17:00" },
+      monday: { available: false, startTime: "00:00", endTime: "23:59" },
+      tuesday: { available: false, startTime: "00:00", endTime: "23:59" },
+      wednesday: { available: false, startTime: "00:00", endTime: "23:59" },
+      thursday: { available: false, startTime: "00:00", endTime: "23:59" },
+      friday: { available: false, startTime: "00:00", endTime: "23:59" },
+      saturday: { available: false, startTime: "00:00", endTime: "23:59" },
+      sunday: { available: false, startTime: "00:00", endTime: "23:59" },
     },
   })
 
@@ -387,7 +387,7 @@ export default function ServiceFormShared({
                   <Clock className="w-4 h-4 text-gray-500" />
                   <Input
                     type="time"
-                    value={formData.schedule[key]?.startTime || "09:00"}
+                    value={formData.schedule[key]?.startTime || "12:00"}
                     onChange={(e) => handleScheduleChange(key, "startTime", e.target.value)}
                     className="w-auto"
                     disabled={isLoading}
@@ -395,7 +395,7 @@ export default function ServiceFormShared({
                   <span className="text-gray-500">to</span>
                   <Input
                     type="time"
-                    value={formData.schedule[key]?.endTime || "17:00"}
+                    value={formData.schedule[key]?.endTime || "23:59"}
                     onChange={(e) => handleScheduleChange(key, "endTime", e.target.value)}
                     className="w-auto"
                     disabled={isLoading}
