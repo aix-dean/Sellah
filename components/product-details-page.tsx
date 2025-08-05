@@ -22,7 +22,7 @@ import {
   Star,
   Users,
   Wrench,
-  DollarSign,
+  PhilippinePeso,
 } from "lucide-react"
 import { doc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
@@ -436,7 +436,7 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
           </div>
           <div className="text-right">
             <div className="text-3xl font-bold text-red-500 flex items-center justify-end">
-              <DollarSign className="w-6 h-6 mr-1" />
+              <PhilippinePeso className="w-6 h-6 mr-1" />
               {product.price.toLocaleString()}
             </div>
             {!isService && (
