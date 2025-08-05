@@ -27,7 +27,7 @@ export function useRealTimeProducts() {
 
     const q = query(
       collection(db, "products"),
-      where("userId", "==", user.uid),
+      where("seller_id", "==", user.uid),
       where("active", "==", true),
       where("deleted", "==", false),
       where("type", "in", ["MERCHANDISE", "Merchandise", "SERVICES"]), // Include SERVICES
