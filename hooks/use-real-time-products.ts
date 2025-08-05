@@ -64,7 +64,7 @@ export function useRealTimeProducts(userId: string | null) {
       const q = query(
         productsRef,
         where("seller_id", "==", userId),
-        where("type", "in", ["MERCHANDISE", "Merchandise"]),
+        where("type", "in", ["MERCHANDISE", "Merchandise", "SERVICES"]), // Include services
         where("active", "==", true), // Only get active products
         where("deleted", "==", false), // Only get non-deleted products
       )
