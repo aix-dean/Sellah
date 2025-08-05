@@ -33,7 +33,7 @@ export default function AddServicePage() {
     try {
       const serviceData: Omit<Service, "id" | "createdAt" | "updatedAt" | "imageUrl"> = {
         ...formData,
-        userId: user.uid,
+        seller_id: user.uid,
         type: "SERVICES", // Changed from "SERVICE" to "SERVICES"
         status: "active",
         views: 0,
