@@ -18,6 +18,7 @@ export function EditServicePage({ serviceId }: EditServicePageProps) {
   const router = useRouter()
   const { toast } = useToast()
   const { user } = useAuth()
+  const [isLoading, setIsLoading] = useState(false)
   const [isLoadingService, setIsLoadingService] = useState(true)
   const [service, setService] = useState<Service | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -53,16 +54,44 @@ export function EditServicePage({ serviceId }: EditServicePageProps) {
     fetchService()
   }, [serviceId, user])
 
-  const handleSuccess = () => {
-    toast({
-      title: "Success",
-      description: "Service updated successfully!",
-    })
-    router.push(`/dashboard/products/${serviceId}`)
-  }
+  const handleSubmit = async (serviceData: any, existingImageUrls: string[], newImageFiles: File[]) => {
+    if (!user || !service) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to edit a service",
+        variant: "destructive",
+      })
+      return
+    }
 
-  const handleCancel = () => {
-    router.back()
+    setIsLoading(true)
+
+    try {
+      const updateData = {
+        ...serviceData,
+        seller_id: user.uid,
+        type: "SERVICES" as const,
+        status: serviceData.status || "published",
+      }
+
+      await ServiceService.updateService(serviceId, updateData, newImageFiles, existingImageUrls)
+
+      toast({
+        title: "Success",
+        description: "Service updated successfully!",
+      })
+
+      router.push(`/dashboard/products/${serviceId}`)
+    } catch (error: any) {
+      console.error("Error updating service:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update service. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   if (isLoadingService) {
@@ -133,9 +162,10 @@ export function EditServicePage({ serviceId }: EditServicePageProps) {
 
         {/* Form */}
         <ServiceFormShared
-          service={service}
-          onSuccess={handleSuccess}
-          onCancel={handleCancel}
+          initialData={service}
+          onSubmit={handleSubmit}
+          isLoading={isLoading}
+          submitButtonText="Update Service"
         />
       </div>
     </div>

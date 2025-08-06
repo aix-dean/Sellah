@@ -9,11 +9,11 @@ export interface Service {
   images: string[]
   seller_id: string
   type: "SERVICES"
-  status: "published" | "draft" | "archived"
+  status: "active" | "inactive" | "published" | "draft" | "archived"
   scope: "nationwide" | "regional"
   regions: string[]
-  created_at: Date
-  updated_at: Date
+  created_at: any
+  updated_at: any
 }
 
 export interface CreateServiceData {
@@ -23,13 +23,13 @@ export interface CreateServiceData {
   price: number
   duration?: string
   availability: "available" | "unavailable"
-  images: string[]
+  images: (string | File)[]
   scope: "nationwide" | "regional"
   regions: string[]
 }
 
 export interface UpdateServiceData extends Partial<CreateServiceData> {
-  id: string
+  updated_at?: any
 }
 
 export interface ServiceFilters {
@@ -46,8 +46,9 @@ export interface ServiceFilters {
 
 export interface ServiceStats {
   total: number
-  available: number
-  unavailable: number
-  byCategory: Record<string, number>
-  byRegion: Record<string, number>
+  active: number
+  inactive: number
+  draft: number
+  nationwide: number
+  regional: number
 }

@@ -22,8 +22,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
 import { useCategories } from "@/hooks/use-categories"
-import { Upload, X, Loader2, AlertCircle, MapPin, Globe, CheckCircle, Info } from 'lucide-react'
-import type { Service, CreateServiceData } from "@/types/service"
+import { Upload, X, Plus, Loader2, AlertCircle, MapPin, Globe, CheckCircle, Info } from 'lucide-react'
+import type { Service } from "@/types/service"
 
 // Philippine regions data
 const PHILIPPINE_REGIONS = [
@@ -47,53 +47,51 @@ const PHILIPPINE_REGIONS = [
 ]
 
 interface ServiceFormSharedProps {
-  service?: Service
-  onSuccess?: () => void
-  onCancel?: () => void
+  initialData?: Service
+  onSubmit: (serviceData: any, existingImageUrls: string[], newImageFiles: File[]) => Promise<void>
+  isLoading: boolean
+  submitButtonText: string
 }
 
-export default function ServiceFormShared({ service, onSuccess, onCancel }: ServiceFormSharedProps) {
+export default function ServiceFormShared({ initialData, onSubmit, isLoading, submitButtonText }: ServiceFormSharedProps) {
   const { user } = useAuth()
   const { toast } = useToast()
   const { categories = [], loading: categoriesLoading } = useCategories()
 
   // Form state
-  const [formData, setFormData] = useState<CreateServiceData>({
+  const [formData, setFormData] = useState({
     name: "",
     description: "",
     category: "",
     price: 0,
     duration: "",
-    availability: "available",
-    images: [],
-    scope: "nationwide",
-    regions: []
+    availability: "available" as "available" | "unavailable",
+    scope: "nationwide" as "nationwide" | "regional",
+    regions: [] as string[]
   })
 
   const [images, setImages] = useState<File[]>([])
   const [imageUrls, setImageUrls] = useState<string[]>([])
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
 
   // Initialize form data for editing
   useEffect(() => {
-    if (service) {
+    if (initialData) {
       setFormData({
-        name: service.name || "",
-        description: service.description || "",
-        category: service.category || "",
-        price: service.price || 0,
-        duration: service.duration || "",
-        availability: service.availability || "available",
-        images: service.images || [],
-        scope: service.scope || "nationwide",
-        regions: service.regions || []
+        name: initialData.name || "",
+        description: initialData.description || "",
+        category: initialData.category || "",
+        price: initialData.price || 0,
+        duration: initialData.duration || "",
+        availability: initialData.availability || "available",
+        scope: initialData.scope || "nationwide",
+        regions: initialData.regions || []
       })
-      setImageUrls(service.images || [])
+      setImageUrls(initialData.images || [])
     }
-  }, [service])
+  }, [initialData])
 
-  const handleInputChange = (field: keyof CreateServiceData, value: any) => {
+  const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -168,12 +166,6 @@ export default function ServiceFormShared({ service, onSuccess, onCancel }: Serv
     }
     
     setImageUrls(newUrls)
-
-    // Update form data
-    setFormData(prev => ({
-      ...prev,
-      images: newUrls.filter(url => !url.startsWith('blob:'))
-    }))
   }
 
   const handleScopeChange = (scope: "nationwide" | "regional") => {
@@ -254,43 +246,10 @@ export default function ServiceFormShared({ service, onSuccess, onCancel }: Serv
     
     if (!validateForm() || !user) return
 
-    setIsSubmitting(true)
+    const existingImageUrls = imageUrls.filter(url => !url.startsWith('blob:'))
+    const newImageFiles = images
 
-    try {
-      // Simulate service creation/update - replace with actual service logic
-      const serviceData = {
-        ...formData,
-        seller_id: user.uid,
-        type: "SERVICES" as const,
-        status: "published" as const,
-        created_at: service?.created_at || new Date(),
-        updated_at: new Date()
-      }
-
-      // Here you would call your service creation/update API
-      console.log("Service data:", serviceData)
-      console.log("New images:", images)
-      console.log("Existing image URLs:", imageUrls.filter(url => !url.startsWith('blob:')))
-
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000))
-
-      toast({
-        title: "Success",
-        description: service ? "Service updated successfully" : "Service created successfully"
-      })
-
-      onSuccess?.()
-    } catch (error) {
-      console.error("Error saving service:", error)
-      toast({
-        title: "Error",
-        description: "Failed to save service. Please try again.",
-        variant: "destructive"
-      })
-    } finally {
-      setIsSubmitting(false)
-    }
+    await onSubmit(formData, existingImageUrls, newImageFiles)
   }
 
   const getSelectedRegionNames = () => {
@@ -302,26 +261,11 @@ export default function ServiceFormShared({ service, onSuccess, onCancel }: Serv
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {service ? "Edit Service" : "Add New Service"}
-          </h1>
-          <p className="text-gray-600 mt-1">
-            {service ? "Update your service details" : "Create a new service offering"}
-          </p>
-        </div>
-        <div className="flex space-x-2">
-          <Button variant="outline" onClick={() => setShowPreview(true)}>
-            Preview
-          </Button>
-          {onCancel && (
-            <Button variant="outline" onClick={onCancel}>
-              Cancel
-            </Button>
-          )}
-        </div>
+        <Button variant="outline" onClick={() => setShowPreview(true)}>
+          Preview
+        </Button>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -619,18 +563,18 @@ export default function ServiceFormShared({ service, onSuccess, onCancel }: Serv
         <div className="flex justify-end space-x-4">
           <Button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isLoading}
             className="min-w-[120px]"
           >
-            {isSubmitting ? (
+            {isLoading ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                {service ? "Updating..." : "Creating..."}
+                {submitButtonText.includes("Update") ? "Updating..." : "Creating..."}
               </>
             ) : (
               <>
                 <CheckCircle className="w-4 h-4 mr-2" />
-                {service ? "Update Service" : "Create Service"}
+                {submitButtonText}
               </>
             )}
           </Button>
