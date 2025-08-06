@@ -84,13 +84,13 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
 
   // Schedule state
   const [schedule, setSchedule] = useState<ServiceSchedule>({
-    monday: { enabled: true, startTime: "00:00", endTime: "23:59" }, // Changed to 24-hour format for input type="time"
-    tuesday: { enabled: true, startTime: "00:00", endTime: "23:59" },
-    wednesday: { enabled: true, startTime: "00:00", endTime: "23:59" },
-    thursday: { enabled: true, startTime: "00:00", endTime: "23:59" },
-    friday: { enabled: true, startTime: "00:00", endTime: "23:59" },
-    saturday: { enabled: false, startTime: "00:00", endTime: "23:59" },
-    sunday: { enabled: false, startTime: "00:00", endTime: "23:59" }
+    monday: { available: true, startTime: "09:00", endTime: "17:00" }, // Changed to 'available' and default times
+    tuesday: { available: true, startTime: "09:00", endTime: "17:00" },
+    wednesday: { available: true, startTime: "09:00", endTime: "17:00" },
+    thursday: { available: true, startTime: "09:00", endTime: "17:00" },
+    friday: { available: true, startTime: "09:00", endTime: "17:00" },
+    saturday: { available: false, startTime: "09:00", endTime: "17:00" }, // Default to false for weekends
+    sunday: { available: false, startTime: "09:00", endTime: "17:00" }
   })
 
   const [images, setImages] = useState<File[]>([])
@@ -112,9 +112,20 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
       })
       setImageUrls(initialData.imageUrls || []) // Corrected to imageUrls
       
-      // Initialize schedule if available
+      // Initialize schedule if available, otherwise use default
       if (initialData.schedule) {
         setSchedule(initialData.schedule)
+      } else {
+        // If no schedule data, ensure default values are applied
+        setSchedule({
+          monday: { available: true, startTime: "09:00", endTime: "17:00" },
+          tuesday: { available: true, startTime: "09:00", endTime: "17:00" },
+          wednesday: { available: true, startTime: "09:00", endTime: "17:00" },
+          thursday: { available: true, startTime: "09:00", endTime: "17:00" },
+          friday: { available: true, startTime: "09:00", endTime: "17:00" },
+          saturday: { available: false, startTime: "09:00", endTime: "17:00" },
+          sunday: { available: false, startTime: "09:00", endTime: "17:00" }
+        })
       }
     }
   }, [initialData])
@@ -126,7 +137,7 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
     }))
   }
 
-  const handleScheduleChange = (day: string, field: 'enabled' | 'startTime' | 'endTime', value: any) => {
+  const handleScheduleChange = (day: string, field: 'available' | 'startTime' | 'endTime', value: any) => { // Changed 'enabled' to 'available'
     setSchedule(prev => ({
       ...prev,
       [day]: {
@@ -481,9 +492,9 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
                 <div className="flex items-center space-x-2 min-w-[120px]">
                   <Checkbox
                     id={day.key}
-                    checked={schedule[day.key as keyof typeof schedule].enabled}
+                    checked={schedule[day.key as keyof typeof schedule].available} // Changed 'enabled' to 'available'
                     onCheckedChange={(checked) => 
-                      handleScheduleChange(day.key, 'enabled', checked)
+                      handleScheduleChange(day.key, 'available', checked) // Changed 'enabled' to 'available'
                     }
                   />
                   <Label htmlFor={day.key} className="cursor-pointer">
@@ -491,7 +502,7 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
                   </Label>
                 </div>
 
-                {schedule[day.key as keyof typeof schedule].enabled && (
+                {schedule[day.key as keyof typeof schedule].available && ( // Changed 'enabled' to 'available'
                   <div className="flex items-center space-x-2 flex-1">
                     <Input
                       type="time"
@@ -717,11 +728,11 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
                   const daySchedule = schedule[day.key as keyof typeof schedule]
                   return (
                     <div key={day.key} className="flex items-center justify-between text-sm">
-                      <span className={daySchedule.enabled ? "text-gray-900" : "text-gray-400"}>
+                      <span className={daySchedule.available ? "text-gray-900" : "text-gray-400"}>
                         {day.label}
                       </span>
-                      <span className={daySchedule.enabled ? "text-gray-700" : "text-gray-400"}>
-                        {daySchedule.enabled 
+                      <span className={daySchedule.available ? "text-gray-700" : "text-gray-400"}>
+                        {daySchedule.available 
                           ? `${formatTimeForDisplay(daySchedule.startTime)} - ${formatTimeForDisplay(daySchedule.endTime)}`
                           : "Closed"
                         }

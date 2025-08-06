@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { Button } from "@/components/ui/button"
@@ -15,11 +16,11 @@ export function AddServicePage() {
   const { user } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = async (serviceData: CreateServiceData, existingImageUrls: string[], newImageFiles: File[]) => {
+  const handleSubmit = async (serviceData: any, existingImageUrls: string[], newImageFiles: File[]) => {
     if (!user) {
       toast({
         title: "Error",
-        description: "You must be logged in to add a service",
+        description: "You must be logged in to create a service",
         variant: "destructive",
       })
       return
@@ -28,20 +29,22 @@ export function AddServicePage() {
     setIsLoading(true)
 
     try {
-      const dataToCreate: Omit<CreateServiceData, "imageUrls"> = {
+      const serviceToCreate: Omit<CreateServiceData, "imageUrls"> = {
         ...serviceData,
         seller_id: user.uid,
         type: "SERVICES",
+        // Map availability to status for Firestore
+        status: serviceData.availability === "available" ? "published" : "draft",
       }
 
-      const serviceId = await ServiceService.createService(dataToCreate, newImageFiles)
+      await ServiceService.createService(serviceToCreate, newImageFiles)
 
       toast({
         title: "Success",
         description: "Service created successfully!",
       })
 
-      router.push(`/dashboard/products/${serviceId}`)
+      router.push("/dashboard/products") // Redirect to products list after creation
     } catch (error: any) {
       console.error("Error creating service:", error)
       toast({

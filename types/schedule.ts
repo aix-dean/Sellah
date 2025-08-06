@@ -1,5 +1,5 @@
 export interface DaySchedule {
-  enabled: boolean;
+  available: boolean; // Changed from 'enabled' to 'available'
   startTime: string; // e.g., "09:00" (24-hour format)
   endTime: string;   // e.g., "17:00" (24-hour format)
 }
