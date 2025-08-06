@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import { deleteDoc, doc } from "firebase/firestore"
+import { db } from "@/lib/firebase"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -11,16 +13,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, Trash2, AlertTriangle } from 'lucide-react'
-import { useToast } from "@/hooks/use-toast"
-import { deleteProduct } from "@/lib/product-service"
+import { Trash2, AlertTriangle } from 'lucide-react'
 import type { Product } from "@/types/product"
 
 interface DeleteProductDialogProps {
-  product: Product | null
+  product: Product
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSuccess?: () => void
+  onSuccess: () => void
 }
 
 export function DeleteProductDialog({
@@ -30,27 +30,21 @@ export function DeleteProductDialog({
   onSuccess
 }: DeleteProductDialogProps) {
   const [isDeleting, setIsDeleting] = useState(false)
-  const { toast } = useToast()
+  const [error, setError] = useState<string | null>(null)
 
   const handleDelete = async () => {
-    if (!product) return
+    if (!product?.id) return
 
     setIsDeleting(true)
+    setError(null)
+
     try {
-      await deleteProduct(product.id)
-      toast({
-        title: "Success",
-        description: "Product deleted successfully"
-      })
-      onSuccess?.()
+      await deleteDoc(doc(db, "products", product.id))
+      onSuccess()
       onOpenChange(false)
-    } catch (error) {
-      console.error("Error deleting product:", error)
-      toast({
-        title: "Error",
-        description: "Failed to delete product. Please try again.",
-        variant: "destructive"
-      })
+    } catch (err) {
+      console.error("Error deleting product:", err)
+      setError("Failed to delete product. Please try again.")
     } finally {
       setIsDeleting(false)
     }
@@ -58,27 +52,25 @@ export function DeleteProductDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-red-500" />
             Delete Product
           </DialogTitle>
           <DialogDescription>
-            This action cannot be undone. This will permanently delete the product
-            and remove all associated data.
+            Are you sure you want to delete "{product?.name}"? This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
 
-        {product && (
-          <Alert>
-            <AlertDescription>
-              <strong>Product to delete:</strong> {product.name}
-            </AlertDescription>
+        {error && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
 
-        <DialogFooter>
+        <DialogFooter className="flex gap-2">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
@@ -93,13 +85,13 @@ export function DeleteProductDialog({
           >
             {isDeleting ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                 Deleting...
               </>
             ) : (
               <>
                 <Trash2 className="mr-2 h-4 w-4" />
-                Delete Product
+                Delete
               </>
             )}
           </Button>
