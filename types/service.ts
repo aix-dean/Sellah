@@ -25,3 +25,28 @@ export interface CreateServiceData {
   scope: "nationwide" | "regional"
   regions: string[]
 }
+
+export interface UpdateServiceData extends Partial<CreateServiceData> {
+  updated_at?: any
+}
+
+export interface ServiceFilters {
+  category?: string
+  priceRange?: {
+    min: number
+    max: number
+  }
+  availability?: "available" | "unavailable"
+  scope?: "nationwide" | "regional"
+  regions?: string[]
+  search?: string
+}
+
+export interface ServiceStats {
+  total: number
+  active: number
+  inactive: number
+  draft: number
+  nationwide: number
+  regional: number
+}

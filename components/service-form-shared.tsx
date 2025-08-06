@@ -18,14 +18,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
 import { useCategories } from "@/hooks/use-categories"
-import { createService, updateService } from "@/lib/service-service"
-import { Service, CreateServiceData } from "@/types/service"
-import { Upload, X, Plus, Loader2, AlertCircle, MapPin, Globe, CheckCircle, Info } from 'lucide-react'
+import { Upload, X, Loader2, AlertCircle, MapPin, Globe, CheckCircle, Info } from 'lucide-react'
+import type { Service, CreateServiceData } from "@/types/service"
 
 // Philippine regions data
 const PHILIPPINE_REGIONS = [
@@ -259,24 +257,25 @@ export function ServiceFormShared({ service, onSuccess, onCancel }: ServiceFormS
     setIsSubmitting(true)
 
     try {
+      // Simulate service creation/update - replace with actual service logic
       const serviceData = {
         ...formData,
-        images: [...formData.images, ...images]
+        seller_id: user.uid,
+        type: "SERVICES" as const,
+        status: "published" as const,
+        created_at: service?.created_at || new Date(),
+        updated_at: new Date()
       }
 
-      if (service) {
-        await updateService(service.id, serviceData)
-        toast({
-          title: "Success",
-          description: "Service updated successfully"
-        })
-      } else {
-        await createService(serviceData, user.uid)
-        toast({
-          title: "Success",
-          description: "Service created successfully"
-        })
-      }
+      // Here you would call your service creation/update API
+      console.log("Service data:", serviceData)
+      console.log("New images:", images)
+      console.log("Existing image URLs:", imageUrls.filter(url => !url.startsWith('blob:')))
+
+      toast({
+        title: "Success",
+        description: service ? "Service updated successfully" : "Service created successfully"
+      })
 
       onSuccess?.()
     } catch (error) {

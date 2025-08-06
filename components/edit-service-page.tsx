@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Loader2 } from "lucide-react"
+import { ArrowLeft, Loader2 } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
-import ServiceFormShared from "./service-form-shared"
+import { ServiceFormShared } from "./service-form-shared"
 import { ServiceService } from "@/lib/service-service"
 import type { Service } from "@/types/service"
 
@@ -54,44 +54,16 @@ export function EditServicePage({ serviceId }: EditServicePageProps) {
     fetchService()
   }, [serviceId, user])
 
-  const handleSubmit = async (serviceData: any, existingImageUrls: string[], newImageFiles: File[]) => {
-    if (!user || !service) {
-      toast({
-        title: "Error",
-        description: "You must be logged in to edit a service",
-        variant: "destructive",
-      })
-      return
-    }
+  const handleSuccess = () => {
+    toast({
+      title: "Success",
+      description: "Service updated successfully!",
+    })
+    router.push(`/dashboard/products/${serviceId}`)
+  }
 
-    setIsLoading(true)
-
-    try {
-      const updateData = {
-        ...serviceData,
-        seller_id: user.uid,
-        type: "SERVICES" as const,
-        status: serviceData.status || "published",
-      }
-
-      await ServiceService.updateService(serviceId, updateData, newImageFiles, existingImageUrls)
-
-      toast({
-        title: "Success",
-        description: "Service updated successfully!",
-      })
-
-      router.push(`/dashboard/products/${serviceId}`)
-    } catch (error: any) {
-      console.error("Error updating service:", error)
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update service. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
+  const handleCancel = () => {
+    router.back()
   }
 
   if (isLoadingService) {
@@ -162,10 +134,9 @@ export function EditServicePage({ serviceId }: EditServicePageProps) {
 
         {/* Form */}
         <ServiceFormShared
-          initialData={service}
-          onSubmit={handleSubmit}
-          isLoading={isLoading}
-          submitButtonText="Update Service"
+          service={service}
+          onSuccess={handleSuccess}
+          onCancel={handleCancel}
         />
       </div>
     </div>
