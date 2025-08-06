@@ -7,11 +7,13 @@ export interface Service {
   duration?: string
   availability: "available" | "unavailable"
   images: string[]
+  seller_id: string
+  type: "SERVICES"
+  status: "published" | "draft" | "archived"
   scope: "nationwide" | "regional"
   regions: string[]
-  seller_id: string
-  created_at: any
-  updated_at: any
+  created_at: Date
+  updated_at: Date
 }
 
 export interface CreateServiceData {
@@ -21,13 +23,13 @@ export interface CreateServiceData {
   price: number
   duration?: string
   availability: "available" | "unavailable"
-  images: (string | File)[]
+  images: string[]
   scope: "nationwide" | "regional"
   regions: string[]
 }
 
 export interface UpdateServiceData extends Partial<CreateServiceData> {
-  updated_at?: any
+  id: string
 }
 
 export interface ServiceFilters {
@@ -44,9 +46,8 @@ export interface ServiceFilters {
 
 export interface ServiceStats {
   total: number
-  active: number
-  inactive: number
-  draft: number
-  nationwide: number
-  regional: number
+  available: number
+  unavailable: number
+  byCategory: Record<string, number>
+  byRegion: Record<string, number>
 }

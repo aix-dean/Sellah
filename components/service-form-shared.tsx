@@ -52,7 +52,7 @@ interface ServiceFormSharedProps {
   onCancel?: () => void
 }
 
-export function ServiceFormShared({ service, onSuccess, onCancel }: ServiceFormSharedProps) {
+export default function ServiceFormShared({ service, onSuccess, onCancel }: ServiceFormSharedProps) {
   const { user } = useAuth()
   const { toast } = useToast()
   const { categories = [], loading: categoriesLoading } = useCategories()

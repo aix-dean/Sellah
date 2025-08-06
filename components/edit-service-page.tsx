@@ -6,7 +6,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
-import { ServiceFormShared } from "./service-form-shared"
+import ServiceFormShared from "./service-form-shared"
 import { ServiceService } from "@/lib/service-service"
 import type { Service } from "@/types/service"
 
@@ -18,7 +18,6 @@ export function EditServicePage({ serviceId }: EditServicePageProps) {
   const router = useRouter()
   const { toast } = useToast()
   const { user } = useAuth()
-  const [isLoading, setIsLoading] = useState(false)
   const [isLoadingService, setIsLoadingService] = useState(true)
   const [service, setService] = useState<Service | null>(null)
   const [error, setError] = useState<string | null>(null)
