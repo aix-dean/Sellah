@@ -92,7 +92,7 @@ export const ServiceService = {
       const imageUrls = imageFiles.length > 0 ? await this.uploadServiceImages(imageFiles, serviceData.seller_id) : []
 
       const service: Omit<Service, "id"> = {
-        ...serviceData, // This should now correctly include the schedule
+        ...serviceData,
         imageUrls,
         type: "SERVICES",
         active: true,
@@ -103,6 +103,8 @@ export const ServiceService = {
         created_at: serverTimestamp(),
         updated_at: serverTimestamp(),
       }
+
+      console.log("Data being sent to Firestore for creation:", service); // Debug log
 
       const docRef = await addDoc(collection(db, "products"), service)
       console.log("Service created successfully:", docRef.id)
@@ -116,7 +118,7 @@ export const ServiceService = {
   // Update an existing service
   async updateService(
     serviceId: string,
-    updates: Partial<Service>, // This 'updates' object should now correctly contain the schedule
+    updates: Partial<Service>,
     newImageFiles: File[] = [],
     existingImageUrls: string[] = [],
   ): Promise<void> {
@@ -133,10 +135,12 @@ export const ServiceService = {
       const allImageUrls = [...existingImageUrls, ...newImageUrls]
 
       const updateData = {
-        ...updates, // This should now correctly include the schedule
+        ...updates,
         imageUrls: allImageUrls,
         updated_at: serverTimestamp(),
       }
+
+      console.log("Data being sent to Firestore for update:", updateData); // Debug log
 
       await updateDoc(serviceRef, updateData)
       console.log("Service updated successfully:", serviceId)

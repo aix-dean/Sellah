@@ -37,14 +37,14 @@ export function AddServicePage() {
         status: serviceData.availability === "available" ? "published" : "draft",
       }
 
-      await ServiceService.createService(serviceToCreate, newImageFiles)
+      const serviceId = await ServiceService.createService(serviceToCreate, newImageFiles)
 
       toast({
         title: "Success",
         description: "Service created successfully!",
       })
 
-      router.push("/dashboard/products") // Redirect to products list after creation
+      router.push(`/dashboard/products/${serviceId}`) // Redirect to product details page after creation
     } catch (error: any) {
       console.error("Error creating service:", error)
       toast({

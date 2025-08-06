@@ -84,12 +84,12 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
 
   // Schedule state
   const [schedule, setSchedule] = useState<ServiceSchedule>({
-    monday: { available: true, startTime: "09:00", endTime: "17:00" }, // Changed to 'available' and default times
+    monday: { available: true, startTime: "09:00", endTime: "17:00" },
     tuesday: { available: true, startTime: "09:00", endTime: "17:00" },
     wednesday: { available: true, startTime: "09:00", endTime: "17:00" },
     thursday: { available: true, startTime: "09:00", endTime: "17:00" },
     friday: { available: true, startTime: "09:00", endTime: "17:00" },
-    saturday: { available: false, startTime: "09:00", endTime: "17:00" }, // Default to false for weekends
+    saturday: { available: false, startTime: "09:00", endTime: "17:00" },
     sunday: { available: false, startTime: "09:00", endTime: "17:00" }
   })
 
@@ -110,7 +110,7 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
         scope: initialData.scope || "nationwide",
         regions: initialData.regions || []
       })
-      setImageUrls(initialData.imageUrls || []) // Corrected to imageUrls
+      setImageUrls(initialData.imageUrls || [])
       
       // Initialize schedule if available, otherwise use default
       if (initialData.schedule) {
@@ -137,7 +137,7 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
     }))
   }
 
-  const handleScheduleChange = (day: string, field: 'available' | 'startTime' | 'endTime', value: any) => { // Changed 'enabled' to 'available'
+  const handleScheduleChange = (day: string, field: 'available' | 'startTime' | 'endTime', value: any) => {
     setSchedule(prev => ({
       ...prev,
       [day]: {
@@ -152,7 +152,7 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
     const hour = parseInt(hours)
     const ampm = hour >= 12 ? 'PM' : 'AM'
     const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
-    return `${displayHour.toString().padStart(2, '0')}:${minutes} ${ampm}` // Added padStart for displayHour
+    return `${displayHour.toString().padStart(2, '0')}:${minutes} ${ampm}`
   }
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -492,9 +492,9 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
                 <div className="flex items-center space-x-2 min-w-[120px]">
                   <Checkbox
                     id={day.key}
-                    checked={schedule[day.key as keyof typeof schedule].available} // Changed 'enabled' to 'available'
+                    checked={schedule[day.key as keyof typeof schedule].available}
                     onCheckedChange={(checked) => 
-                      handleScheduleChange(day.key, 'available', checked) // Changed 'enabled' to 'available'
+                      handleScheduleChange(day.key, 'available', checked)
                     }
                   />
                   <Label htmlFor={day.key} className="cursor-pointer">
@@ -502,7 +502,7 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
                   </Label>
                 </div>
 
-                {schedule[day.key as keyof typeof schedule].available && ( // Changed 'enabled' to 'available'
+                {schedule[day.key as keyof typeof schedule].available && (
                   <div className="flex items-center space-x-2 flex-1">
                     <Input
                       type="time"
