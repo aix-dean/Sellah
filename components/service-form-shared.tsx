@@ -303,8 +303,18 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
     e.preventDefault()
     console.log("ServiceFormShared: handleSubmit triggered"); // Debug log
 
-    if (!validateForm() || !user) {
-      console.log("ServiceFormShared: Validation failed or user not logged in."); // Debug log
+    if (!validateForm()) {
+      console.log("ServiceFormShared: Validation failed."); // Debug log
+      return
+    }
+
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "You must be logged in to perform this action.",
+        variant: "destructive"
+      })
+      console.log("ServiceFormShared: User not logged in."); // Debug log
       return
     }
 

@@ -1,15 +1,9 @@
-export interface DaySchedule {
-  available: boolean;
-  endTime: string;
-  startTime: string;
-}
-
 export interface ServiceSchedule {
-  monday: DaySchedule;
-  tuesday: DaySchedule;
-  wednesday: DaySchedule;
-  thursday: DaySchedule;
-  friday: DaySchedule;
-  saturday: DaySchedule;
-  sunday: DaySchedule;
+  monday: { available: boolean; startTime: string; endTime: string };
+  tuesday: { available: boolean; startTime: string; endTime: string };
+  wednesday: { available: boolean; startTime: string; endTime: string };
+  thursday: { available: boolean; startTime: string; endTime: string };
+  friday: { available: boolean; startTime: string; endTime: string };
+  saturday: { available: boolean; startTime: string; endTime: string };
+  sunday: { available: boolean; startTime: string; endTime: string };
 }
