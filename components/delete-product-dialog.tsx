@@ -1,4 +1,7 @@
 "use client"
+
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -7,84 +10,95 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { AlertTriangle, Loader2, Package } from "lucide-react"
-
-interface ProductToDelete {
-  id: string
-  name: string
-  sku: string
-}
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Loader2, Trash2, AlertTriangle } from 'lucide-react'
+import { useToast } from "@/hooks/use-toast"
+import { deleteProduct } from "@/lib/product-service"
+import type { Product } from "@/types/product"
 
 interface DeleteProductDialogProps {
-  product: ProductToDelete | null
-  isOpen: boolean
-  isDeleting: boolean
-  onConfirm: () => void
-  onCancel: () => void
+  product: Product | null
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSuccess?: () => void
 }
 
-export function DeleteProductDialog({ product, isOpen, isDeleting, onConfirm, onCancel }: DeleteProductDialogProps) {
-  if (!product) return null
+export function DeleteProductDialog({
+  product,
+  open,
+  onOpenChange,
+  onSuccess
+}: DeleteProductDialogProps) {
+  const [isDeleting, setIsDeleting] = useState(false)
+  const { toast } = useToast()
+
+  const handleDelete = async () => {
+    if (!product) return
+
+    setIsDeleting(true)
+    try {
+      await deleteProduct(product.id)
+      toast({
+        title: "Success",
+        description: "Product deleted successfully"
+      })
+      onSuccess?.()
+      onOpenChange(false)
+    } catch (error) {
+      console.error("Error deleting product:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete product. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && !isDeleting && onCancel()}>
-      <DialogContent className="sm:max-w-md">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <div className="flex items-center space-x-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-              <AlertTriangle className="h-5 w-5 text-red-600" />
-            </div>
-            <div>
-              <DialogTitle className="text-lg font-semibold text-gray-900">Delete Product</DialogTitle>
-              <DialogDescription className="text-sm text-gray-500 mt-1">
-                This will mark the product as deleted and remove it from your active inventory.
-              </DialogDescription>
-            </div>
-          </div>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-red-500" />
+            Delete Product
+          </DialogTitle>
+          <DialogDescription>
+            This action cannot be undone. This will permanently delete the product
+            and remove all associated data.
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4">
-          <div className="bg-gray-50 rounded-lg p-4 border">
-            <div className="flex items-start space-x-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white border">
-                <Package className="h-5 w-5 text-gray-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
-                <p className="text-sm text-gray-500">SKU: {product.sku}</p>
-              </div>
-            </div>
-          </div>
+        {product && (
+          <Alert>
+            <AlertDescription>
+              <strong>Product to delete:</strong> {product.name}
+            </AlertDescription>
+          </Alert>
+        )}
 
-          <div className="mt-4">
-            <p className="text-sm text-gray-600">
-              Are you sure you want to delete this product? This will remove it from your active inventory and it will
-              no longer be visible to customers. The product data will be preserved in the database for record-keeping
-              purposes.
-            </p>
-          </div>
-        </div>
-
-        <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0">
-          <Button type="button" variant="outline" onClick={onCancel} disabled={isDeleting} className="w-full sm:w-auto">
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isDeleting}
+          >
             Cancel
           </Button>
           <Button
-            type="button"
             variant="destructive"
-            onClick={onConfirm}
+            onClick={handleDelete}
             disabled={isDeleting}
-            className="w-full sm:w-auto"
           >
             {isDeleting ? (
               <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Deleting...
               </>
             ) : (
               <>
-                <AlertTriangle className="w-4 h-4 mr-2" />
+                <Trash2 className="mr-2 h-4 w-4" />
                 Delete Product
               </>
             )}
