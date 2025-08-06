@@ -1,25 +1,25 @@
 "use client"
 
-import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Loader2 } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
 import ServiceFormShared from "./service-form-shared"
 import { ServiceService } from "@/lib/service-service"
+import type { CreateServiceData } from "@/types/service"
 
-export default function AddServicePage() {
+export function AddServicePage() {
   const router = useRouter()
   const { toast } = useToast()
   const { user } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = async (serviceData: any, existingImageUrls: string[], newImageFiles: File[]) => {
+  const handleSubmit = async (serviceData: CreateServiceData, existingImageUrls: string[], newImageFiles: File[]) => {
     if (!user) {
       toast({
         title: "Error",
-        description: "You must be logged in to create a service",
+        description: "You must be logged in to add a service",
         variant: "destructive",
       })
       return
@@ -28,14 +28,13 @@ export default function AddServicePage() {
     setIsLoading(true)
 
     try {
-      const createData = {
+      const dataToCreate: Omit<CreateServiceData, "imageUrls"> = {
         ...serviceData,
         seller_id: user.uid,
-        type: "SERVICES" as const,
-        status: serviceData.status || "active",
+        type: "SERVICES",
       }
 
-      const serviceId = await ServiceService.createService(createData, newImageFiles)
+      const serviceId = await ServiceService.createService(dataToCreate, newImageFiles)
 
       toast({
         title: "Success",
@@ -71,7 +70,11 @@ export default function AddServicePage() {
         </div>
 
         {/* Form */}
-        <ServiceFormShared onSubmit={handleSubmit} isLoading={isLoading} submitButtonText="Create Service" />
+        <ServiceFormShared
+          onSubmit={handleSubmit}
+          isLoading={isLoading}
+          submitButtonText="Create Service"
+        />
       </div>
     </div>
   )

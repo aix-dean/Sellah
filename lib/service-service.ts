@@ -16,7 +16,7 @@ import {
   type QueryDocumentSnapshot,
 } from "firebase/firestore"
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"
-import type { Service, CreateServiceData } from "@/types/service"
+import type { Service, CreateServiceData } from "@/types/service" // Updated import to include schedule type
 
 export interface ServiceFilter {
   serviceType?: string

@@ -71,7 +71,7 @@ export function EditServicePage({ serviceId }: EditServicePageProps) {
         ...serviceData,
         seller_id: user.uid,
         type: "SERVICES" as const,
-        status: serviceData.status || "published",
+        status: serviceData.availability === "available" ? "published" : "unpublished", // Map availability to status
       }
 
       await ServiceService.updateService(serviceId, updateData, newImageFiles, existingImageUrls)

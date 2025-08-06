@@ -1,3 +1,6 @@
+import type { Timestamp } from "firebase/firestore"
+import type { ServiceSchedule } from "./schedule"
+
 export interface Service {
   id: string
   name: string
@@ -5,15 +8,20 @@ export interface Service {
   category: string
   price: number
   duration?: string
-  availability: "available" | "unavailable"
-  images: string[]
+  imageUrls?: string[]
   seller_id: string
-  type: "SERVICES"
-  status: "active" | "inactive" | "published" | "draft" | "archived"
+  type: "SERVICES" // Discriminator for services in 'products' collection
+  active: boolean
+  deleted: boolean
+  views: number
+  bookings: number
+  rating: number
+  availability: "available" | "unavailable"
   scope: "nationwide" | "regional"
-  regions: string[]
-  created_at: Date
-  updated_at: Date
+  regions?: string[] // Array of region codes if scope is regional
+  schedule?: ServiceSchedule // Added schedule property
+  created_at: Timestamp
+  updated_at: Timestamp
 }
 
 export interface CreateServiceData {
@@ -22,33 +30,10 @@ export interface CreateServiceData {
   category: string
   price: number
   duration?: string
+  imageUrls?: string[]
+  seller_id: string
   availability: "available" | "unavailable"
-  images: (string | File)[]
   scope: "nationwide" | "regional"
-  regions: string[]
-}
-
-export interface UpdateServiceData extends Partial<CreateServiceData> {
-  id: string
-}
-
-export interface ServiceFilters {
-  category?: string
-  priceRange?: {
-    min: number
-    max: number
-  }
-  availability?: "available" | "unavailable"
-  scope?: "nationwide" | "regional"
   regions?: string[]
-  search?: string
-}
-
-export interface ServiceStats {
-  total: number
-  active: number
-  inactive: number
-  draft: number
-  nationwide: number
-  regional: number
+  schedule?: ServiceSchedule // Added schedule property
 }
