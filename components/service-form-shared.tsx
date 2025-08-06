@@ -361,8 +361,6 @@ return (
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Roll Up" />
-                  <SelectValue placeholder="Roll Down" />
-                  <SelectValue placeholder="Delivery" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Roll Up">Roll Up</SelectItem>
