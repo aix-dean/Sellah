@@ -22,8 +22,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
 import { useCategories } from "@/hooks/use-categories"
-import { Upload, X, Loader2, AlertCircle, MapPin, Globe, CheckCircle, Info, Calendar } from 'lucide-react'
-import type { Service, CreateServiceData } from "@/types/service"
+import { Upload, X, Loader2, AlertCircle, MapPin, Globe, CheckCircle, Info } from 'lucide-react'
+import type { Service } from "@/types/service"
 
 // Philippine regions data
 const PHILIPPINE_REGIONS = [
@@ -66,7 +66,6 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
     price: 0,
     duration: "",
     availability: "available" as "available" | "unavailable",
-    images: [],
     scope: "nationwide" as "nationwide" | "regional",
     regions: [] as string[]
   })
@@ -167,12 +166,6 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
     }
     
     setImageUrls(newUrls)
-
-    // Update form data
-    setFormData(prev => ({
-      ...prev,
-      images: newUrls.filter(url => !url.startsWith('blob:'))
-    }))
   }
 
   const handleScopeChange = (scope: "nationwide" | "regional") => {
@@ -269,15 +262,22 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Basic Information</CardTitle>
-          <CardDescription>
-            Provide the essential details about your service
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="flex items-center justify-between">
+        <Button variant="outline" onClick={() => setShowPreview(true)}>
+          Preview
+        </Button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Basic Information */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Basic Information</CardTitle>
+            <CardDescription>
+              Provide the essential details about your service
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Service Name *</Label>
               <Input
@@ -290,20 +290,33 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="category">Category *</Label>
-              <Select
-                value={formData.category}
-                onValueChange={(value) => handleInputChange("category", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categoriesLoading ? (
-                    <SelectItem value="loading" disabled>
-                      Loading categories...
-                    </SelectItem>
-                  ) : categories && categories.length > 0 ? (
+              <Label htmlFor="description">Description *</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => handleInputChange("description", e.target.value)}
+                placeholder="Describe your service"
+                rows={4}
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="category">Service Type *</Label>
+                <Select
+                  value={formData.category}
+                  onValueChange={(value) => handleInputChange("category", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Hair Up" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categoriesLoading ? (
+                      <SelectItem value="loading" disabled>
+                        Loading categories...
+                      </SelectItem>
+                    ) : categories && categories.length > 0 ? (
                       categories.map((category) => (
                         <SelectItem key={category.id || category.name} value={category.name}>
                           {category.name}
@@ -317,62 +330,38 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="availability">Status</Label>
+                <Select
+                  value={formData.availability}
+                  onValueChange={(value: "available" | "unavailable") => 
+                    handleInputChange("availability", value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Active" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="available">Active</SelectItem>
+                    <SelectItem value="unavailable">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description *</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => handleInputChange("description", e.target.value)}
-                placeholder="Describe your service in detail"
-                rows={4}
+              <Label htmlFor="price">Price (PHP) *</Label>
+              <Input
+                id="price"
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.price}
+                onChange={(e) => handleInputChange("price", parseFloat(e.target.value) || 0)}
+                placeholder="0"
                 required
               />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="price">Price (₱) *</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={formData.price}
-                  onChange={(e) => handleInputChange("price", parseFloat(e.target.value) || 0)}
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="duration">Duration</Label>
-                <Input
-                  id="duration"
-                  value={formData.duration}
-                  onChange={(e) => handleInputChange("duration", e.target.value)}
-                  placeholder="e.g., 2 hours, 1 day, 1 week"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="availability">Availability</Label>
-              <Select
-                value={formData.availability}
-                onValueChange={(value: "available" | "unavailable") => 
-                  handleInputChange("availability", value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="available">Available</SelectItem>
-                  <SelectItem value="unavailable">Unavailable</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </CardContent>
         </Card>
@@ -382,7 +371,7 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
           <CardHeader>
             <CardTitle>Service Images</CardTitle>
             <CardDescription>
-              Upload images to showcase your service (Maximum 5 images, 5MB each)
+              Upload Images (Max 5) - Select multiple images (JPG, PNG, GIF). Max 5MB each.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -394,9 +383,9 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
                   <Upload className="w-8 h-8 mb-4 text-gray-500" />
                   <p className="mb-2 text-sm text-gray-500">
-                    <span className="font-semibold">Click to upload</span> or drag and drop
+                    <span className="font-semibold">Choose Files</span> No file chosen
                   </p>
-                  <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                  <p className="text-xs text-gray-500">Select multiple images (JPG, PNG, GIF). Max 5MB each.</p>
                 </div>
                 <input
                   id="images"
@@ -558,12 +547,15 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
           </CardContent>
         </Card>
 
-        {/* Submit Button */}
+        {/* Submit Buttons */}
         <div className="flex justify-end space-x-4">
+          <Button type="button" variant="outline">
+            Cancel
+          </Button>
           <Button
             type="submit"
             disabled={isLoading}
-            className="min-w-[120px]"
+            className="min-w-[120px] bg-red-500 hover:bg-red-600"
           >
             {isLoading ? (
               <>
@@ -571,10 +563,7 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
                 {submitButtonText.includes("Update") ? "Updating..." : "Creating..."}
               </>
             ) : (
-              <>
-                <CheckCircle className="w-4 h-4 mr-2" />
-                {submitButtonText}
-              </>
+              submitButtonText
             )}
           </Button>
         </div>
