@@ -360,7 +360,9 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
                   onValueChange={(value) => handleInputChange("category", value)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Hair Up" />
+                    <SelectValue placeholder="Roll Up" />
+                    <SelectValue placeholder="Roll Down" />
+                    <SelectValue placeholder="Delivery" />
                   </SelectTrigger>
                   <SelectContent>
                     {categoriesLoading ? (
