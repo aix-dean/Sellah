@@ -200,10 +200,7 @@ export default function DashboardLayout({ children, activeItem, userName = "" }:
       <header className="bg-red-500 text-white px-4 py-3 flex items-center justify-between h-16 fixed top-0 left-0 right-0 z-50 shadow-md">
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-white rounded flex items-center justify-center">
-              <span className="text-red-500 font-bold text-lg">S</span>
-            </div>
-            <span className="font-bold text-xl">SELLAH</span>
+             <img src="/logo.svg" alt="Logo" className="h-8 w-auto" />
           </div>
 
           {/* Status Badge - Only show when not loading and userData exists */}

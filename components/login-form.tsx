@@ -1,19 +1,24 @@
 "use client"
 
-import type React from "react"
-import { useEffect } from "react"
-import { useState } from "react"
+import React, { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { signInWithEmail } from "@/lib/auth"
+import Link from "next/link"
+import {
+  Loader2,
+  Eye,
+  EyeOff,
+  Users,
+  Phone,
+  Mail
+} from "lucide-react"
+import { ExclamationTriangleIcon } from "@radix-ui/react-icons"
+
+import { signInWithEmail, wasLoggedOut, wasSessionExpired, getLogoutReason, clearLogoutFlags } from "@/lib/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Eye, EyeOff } from "lucide-react"
-import Link from "next/link"
-import { wasLoggedOut, wasSessionExpired, getLogoutReason, clearLogoutFlags } from "@/lib/auth"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { ExclamationTriangleIcon } from "@radix-ui/react-icons"
 
 export default function LoginForm() {
   const [email, setEmail] = useState("")
@@ -21,13 +26,13 @@ export default function LoginForm() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+
   const router = useRouter()
 
   const logoutReason = getLogoutReason()
   const loggedOut = wasLoggedOut()
   const sessionExpired = wasSessionExpired()
 
-  // Clear flags after displaying message
   useEffect(() => {
     if (loggedOut || sessionExpired) {
       clearLogoutFlags()
@@ -56,13 +61,23 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 px-4 py-12 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-3xl font-bold">Login to SELLAH</CardTitle>
-          <CardDescription>Enter your email and password to access your dashboard.</CardDescription>
-        </CardHeader>
-        <CardContent>
+    <div className="flex min-h-screen">
+      {/* Left side – Form */}
+      <div className="w-full md:w-1/2 flex items-center justify-center bg-white px-8 py-12">
+        <div className="w-full max-w-md">
+          <button className="mb-4">
+            <span className="inline-block border border-black rounded-md p-1">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </span>
+          </button>
+
+          <div className="mb-4">
+            <span className="inline-block bg-orange-100 text-orange-600 text-xs font-semibold px-2 py-1 rounded-md">Text</span>
+            <h1 className="text-3xl font-bold mt-2">Login to your Account</h1>
+          </div>
+
           {loggedOut && logoutReason && (
             <Alert variant="default" className="mb-4 bg-blue-50 border-blue-200 text-blue-800">
               <ExclamationTriangleIcon className="h-4 w-4" />
@@ -84,28 +99,29 @@ export default function LoginForm() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+            <div>
+              <Label htmlFor="email">Email:</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="m@example.com"
-                required
+                placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={loading}
+                required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+
+            <div>
+              <Label htmlFor="password">Password:</Label>
               <div className="relative">
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading}
+                  required
                 />
                 <Button
                   type="button"
@@ -120,7 +136,14 @@ export default function LoginForm() {
                 </Button>
               </div>
             </div>
-            <Button type="submit" className="w-full bg-red-500" disabled={loading}>
+
+            <div className="text-right text-sm">
+              <Link href="/forgot-password" className="text-gray-600 hover:underline">
+                Forgot Password?
+              </Link>
+            </div>
+
+            <Button type="submit" className="w-full bg-red-600 hover:bg-red-700" disabled={loading}>
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -131,19 +154,39 @@ export default function LoginForm() {
               )}
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm">
+
+          {/* Social login (icons are placeholders) */}
+          <div className="flex items-center justify-center space-x-4 mt-6">
+            <Button variant="outline" className="rounded-full p-3">
+              <Users className="h-5 w-5" />
+            </Button>
+            <Button variant="outline" className="rounded-full p-3">
+              <Phone className="h-5 w-5" />
+            </Button>
+            <Button variant="outline" className="rounded-full p-3">
+              <svg className="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                {/* Google Icon */}
+                <path d="M21.35 11.1H12v2.8h5.4c-.3 1.6-1.9 4.7-5.4 4.7a6.3 6.3 0 1 1 0-12.6c1.8 0 3 .8 3.7 1.5l2.5-2.4C16.7 3.6 14.5 2.7 12 2.7a9.3 9.3 0 0 0 0 18.6c5.4 0 9-3.8 9-9 0-.6-.1-1.2-.2-1.8z" />
+              </svg>
+            </Button>
+          </div>
+
+          <div className="mt-6 text-center text-sm">
             Don&apos;t have an account?{" "}
-            <Link href="/register" className="underline" prefetch={false}>
-              Sign up
+            <Link href="/register" className="text-red-600 font-semibold hover:underline">
+              Sign in
             </Link>
           </div>
-          <div className="mt-2 text-center text-sm">
-            <Link href="/forgot-password" className="underline" prefetch={false}>
-              Forgot password?
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
+
+      {/* Right side – Logo/Visual */}
+      <div className="hidden md:flex w-1/2 bg-orange-500 items-center justify-center relative overflow-hidden">
+        <div className="absolute inset-0 bg-[url('/pattern.svg')] bg-cover opacity-10" />
+        <div className="z-10 text-center text-white">
+          <img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Login-Q1uRkQ6tX8FmAEN0XCpOshfCn9X6qw.png" alt="Sellah Logo" className="w-full min-h-screen object-cover" />
+        </div>
+      </div>
     </div>
   )
 }

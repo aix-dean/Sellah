@@ -245,18 +245,21 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
   }, [selectedVariationIndex])
 
   const getCurrentImages = () => {
-    if (
-      !isService &&
-      product?.variations &&
-      product.variations.length > 0 &&
-      product.variations[selectedVariationIndex]
-    ) {
+    if (isService) {
+      // For services, always use imageUrls
+      return product?.imageUrls || []
+    }
+
+    // For merchandise, check variations first
+    if (product?.variations && product.variations.length > 0 && product.variations[selectedVariationIndex]) {
       const selectedVariation = product.variations[selectedVariationIndex]
       if (selectedVariation.images && selectedVariation.images.length > 0) {
         return selectedVariation.images
       }
     }
-    return product?.imageUrls || product?.photo_url || []
+
+    // Fallback to main product images for merchandise
+    return product?.photo_url || []
   }
 
   const nextImage = () => {
@@ -509,7 +512,7 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white rounded-full"
+                          className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white rounded-full shadow-md"
                           onClick={prevImage}
                         >
                           <ChevronLeft className="w-5 h-5" />
@@ -517,7 +520,7 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white rounded-full"
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white rounded-full shadow-md"
                           onClick={nextImage}
                         >
                           <ChevronRight className="w-5 h-5" />
