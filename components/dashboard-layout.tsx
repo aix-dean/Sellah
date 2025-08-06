@@ -72,6 +72,9 @@ export default function DashboardLayout({ children, activeItem, userName = "" }:
     }
   }
 
+  const handleChat = () => {
+    router.push('/dashboard/chat')
+  }
   // Get status badge configuration
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -218,7 +221,7 @@ export default function DashboardLayout({ children, activeItem, userName = "" }:
           <Button variant="ghost" size="sm" className="text-white hover:bg-red-600">
             <Bell className="w-5 h-5" />
           </Button>
-          <Button variant="ghost" size="sm" className="text-white hover:bg-red-600">
+          <Button variant="ghost" size="sm" className="text-white hover:bg-red-600" onClick={handleChat}>
             <MessageSquare className="w-5 h-5" />
           </Button>
 

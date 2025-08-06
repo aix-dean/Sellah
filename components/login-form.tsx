@@ -65,16 +65,7 @@ export default function LoginForm() {
       {/* Left side – Form */}
       <div className="w-full md:w-1/2 flex items-center justify-center bg-white px-8 py-12">
         <div className="w-full max-w-md">
-          <button className="mb-4">
-            <span className="inline-block border border-black rounded-md p-1">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </span>
-          </button>
-
           <div className="mb-4">
-            <span className="inline-block bg-orange-100 text-orange-600 text-xs font-semibold px-2 py-1 rounded-md">Text</span>
             <h1 className="text-3xl font-bold mt-2">Login to your Account</h1>
           </div>
 
@@ -156,6 +147,7 @@ export default function LoginForm() {
           </form>
 
           {/* Social login (icons are placeholders) */}
+          {/*
           <div className="flex items-center justify-center space-x-4 mt-6">
             <Button variant="outline" className="rounded-full p-3">
               <Users className="h-5 w-5" />
@@ -165,12 +157,11 @@ export default function LoginForm() {
             </Button>
             <Button variant="outline" className="rounded-full p-3">
               <svg className="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 24 24">
-                {/* Google Icon */}
                 <path d="M21.35 11.1H12v2.8h5.4c-.3 1.6-1.9 4.7-5.4 4.7a6.3 6.3 0 1 1 0-12.6c1.8 0 3 .8 3.7 1.5l2.5-2.4C16.7 3.6 14.5 2.7 12 2.7a9.3 9.3 0 0 0 0 18.6c5.4 0 9-3.8 9-9 0-.6-.1-1.2-.2-1.8z" />
               </svg>
             </Button>
           </div>
-
+          */}
           <div className="mt-6 text-center text-sm">
             Don&apos;t have an account?{" "}
             <Link href="/register" className="text-red-600 font-semibold hover:underline">

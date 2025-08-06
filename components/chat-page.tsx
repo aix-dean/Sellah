@@ -6,16 +6,15 @@ import { doc, getDoc } from "firebase/firestore"
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage"
 import { db } from "@/lib/firebase"
 import { useAuth } from "@/hooks/use-auth"
-import { AnalyticsService } from "@/services/analytics-service"
 import { ChatSidebar } from "@/components/chat/chat-sidebar"
 import { ChatWindow } from "@/components/chat/chat-window"
 import type { ChatThread, ChatMessage } from "@/types/chat"
 import { ChatService } from "@/lib/chat-service"
-import { AlertCircle, ArrowLeft } from "lucide-react"
+import { AlertCircle, ArrowLeft } from 'lucide-react'
 import Link from "next/link"
-import Button from "@/components/ui/button" // Assuming Button component is imported from here
+import { Button } from "@/components/ui/button"
 
-// Define UploadProgress type (assuming it's defined elsewhere or inline)
+// Define UploadProgress type
 interface UploadProgress {
   progress: number
   error?: string
@@ -23,7 +22,7 @@ interface UploadProgress {
 }
 
 // Ensure page starts at the top when first loaded
-const useScrollToTop = (params: { id?: string }) => {
+const useScrollToTop = (params?: { id?: string }) => {
   useEffect(() => {
     // Scroll to top when component first mounts or thread changes
     if (typeof window !== "undefined") {
@@ -37,10 +36,10 @@ const useScrollToTop = (params: { id?: string }) => {
         }
       }, 100)
     }
-  }, [params.id])
+  }, [params?.id])
 }
 
-export default function ChatPage({ params }: { params?: { id: string } }) {
+export default function ChatPage({ params }: { params?: { id?: string } }) {
   useScrollToTop(params)
 
   const threadId = params?.id
@@ -66,199 +65,6 @@ export default function ChatPage({ params }: { params?: { id: string } }) {
   const pageStartTime = useRef(Date.now())
   const exitAnalyticsSent = useRef(false)
   const isNavigatingInternally = useRef(false)
-
-  // Track page view analytics - ONLY ONCE when component mounts
-  useEffect(() => {
-    // Prevent multiple analytics calls
-    if (analyticsTracked.current || !currentUser || !threadId) return
-
-    // Reset page start time
-    pageStartTime.current = Date.now()
-
-    // Reset exit analytics flag
-    exitAnalyticsSent.current = false
-
-    // Check if this page has already been tracked in this session
-    const sessionKey = `analytics_tracked_messages_${threadId}`
-    if (typeof window !== "undefined" && sessionStorage.getItem(sessionKey)) {
-      console.log("⛔ Messages analytics already tracked in this session")
-      analyticsTracked.current = true
-      return
-    }
-
-    const trackPageView = async () => {
-      try {
-        // Mark as tracked immediately to prevent duplicates
-        analyticsTracked.current = true
-
-        // Mark in session storage to prevent duplicates across component remounts
-        if (typeof window !== "undefined") {
-          sessionStorage.setItem(sessionKey, "true")
-        }
-
-        const platform = AnalyticsService.getPlatformFromURL()
-
-        await AnalyticsService.trackPageView(
-          "Messages", // Fixed page name, not dynamic route
-          {
-            thread_id: threadId,
-            platform: platform,
-            section: "chat",
-          },
-          platform,
-          undefined, // session_id
-          currentUser.uid,
-        )
-
-        console.log("✅ Messages page_view analytics tracked successfully")
-      } catch (error) {
-        console.error("❌ Error tracking messages page view:", error)
-        // Reset flags if tracking failed so it can be retried
-        analyticsTracked.current = false
-        if (typeof window !== "undefined") {
-          sessionStorage.removeItem(sessionKey)
-        }
-      }
-    }
-
-    trackPageView()
-  }, [currentUser, threadId]) // Minimal dependencies to prevent re-firing
-
-  // Track internal navigation to prevent exit analytics when navigating within the app
-  useEffect(() => {
-    if (typeof window === "undefined") return
-
-    // Function to handle internal navigation
-    const handleInternalNavigation = () => {
-      isNavigatingInternally.current = true
-      console.log("Internal navigation detected")
-    }
-
-    // Add event listeners for internal navigation
-    const links = document.querySelectorAll('a[href^="/"]')
-    links.forEach((link) => {
-      link.addEventListener("click", handleInternalNavigation)
-    })
-
-    // Clean up event listeners
-    return () => {
-      links.forEach((link) => {
-        link.removeEventListener("click", handleInternalNavigation)
-      })
-    }
-  }, [messages.length, threads.length]) // Re-attach when content changes
-
-  // Track page exit analytics - ONLY when truly exiting the page
-  useEffect(() => {
-    // Only set up exit tracking if we've tracked the page view
-    if (!currentUser || !analyticsTracked.current) return
-
-    // Function to send exit analytics
-    const sendExitAnalytics = async (exitType: string) => {
-      // Prevent duplicate exit analytics
-      if (exitAnalyticsSent.current) {
-        console.log("⛔ Exit analytics already sent, skipping")
-        return
-      }
-
-      try {
-        const duration = Math.round((Date.now() - pageStartTime.current) / 1000) // Duration in seconds
-        const platform = AnalyticsService.getPlatformFromURL()
-
-        // Mark as sent immediately to prevent duplicates
-        exitAnalyticsSent.current = true
-
-        await AnalyticsService.trackPageExit(
-          "Messages", // Fixed page name
-          duration,
-          platform,
-          undefined, // session_id
-          currentUser.uid,
-          {
-            thread_id: threadId,
-            platform: platform,
-            section: "chat",
-            exit_type: exitType,
-          },
-        )
-
-        console.log(`✅ Messages page_exit analytics tracked: ${duration}s (${exitType})`)
-      } catch (error) {
-        console.error("❌ Error tracking messages page exit:", error)
-        // Reset flag if tracking failed
-        exitAnalyticsSent.current = false
-      }
-    }
-
-    // Handle beforeunload (browser close/refresh)
-    const handleBeforeUnload = () => {
-      // Skip if we're navigating internally
-      if (isNavigatingInternally.current) {
-        console.log("Skipping exit analytics - internal navigation")
-        return
-      }
-
-      // Use sendBeacon for reliable tracking on page unload
-      if (!exitAnalyticsSent.current && navigator.sendBeacon) {
-        const duration = Math.round((Date.now() - pageStartTime.current) / 1000)
-        const platform = AnalyticsService.getPlatformFromURL()
-
-        // Mark as sent
-        exitAnalyticsSent.current = true
-
-        const analyticsData = {
-          created: new Date().toISOString(),
-          ip_address: "127.0.0.1", // Placeholder
-          platform: platform,
-          action: "page_exit",
-          page: "Messages",
-          duration: duration,
-          tags: {
-            page: "Messages",
-            action: "page_exit",
-            platform: platform,
-            duration: duration,
-            thread_id: threadId,
-            section: "chat",
-            exit_type: "browser_close",
-            user_id: currentUser.uid,
-          },
-        }
-
-        navigator.sendBeacon("/api/analytics", JSON.stringify(analyticsData))
-        console.log("✅ Exit analytics sent via sendBeacon")
-      }
-    }
-
-    // Add event listener for beforeunload
-    window.addEventListener("beforeunload", handleBeforeUnload)
-
-    // Cleanup function - this is where we track the exit if component unmounts
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload)
-
-      // Only send exit analytics if:
-      // 1. We're not navigating internally within the app
-      // 2. We haven't already sent exit analytics
-      // 3. We're actually leaving the messages page
-      if (!isNavigatingInternally.current && !exitAnalyticsSent.current) {
-        // Check if we're navigating away from messages
-        const isLeavingMessages = pathname && pathname.startsWith("/dashboard/chat")
-
-        if (isLeavingMessages) {
-          console.log("Component unmounting - sending exit analytics")
-          sendExitAnalytics("navigation")
-        } else {
-          console.log("Not leaving messages page, skipping exit analytics")
-        }
-      } else {
-        console.log("Skipping exit analytics:", {
-          isNavigatingInternally: isNavigatingInternally.current,
-          exitAnalyticsSent: exitAnalyticsSent.current,
-        })
-      }
-    }
-  }, [currentUser, threadId, pathname])
 
   // Fetch threads from Firestore
   useEffect(() => {
@@ -378,7 +184,7 @@ export default function ChatPage({ params }: { params?: { id: string } }) {
     }
 
     fetchAndSubscribeToThread()
-  }, [threadId, currentUser, threads, router]) // Added threads to dependencies to react to new threads being loaded
+  }, [threadId, currentUser, threads, router])
 
   // Redirect to first thread if current thread not found and we have threads
   useEffect(() => {
@@ -575,6 +381,16 @@ export default function ChatPage({ params }: { params?: { id: string } }) {
                         )}
                       </div>
                     </div>
+                  </div>
+                </div>
+              ) : !threadId ? (
+                <div className="flex-grow flex items-center justify-center p-4">
+                  <div className="text-center">
+                    <AlertCircle className="h-12 w-12 text-blue-500 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium mb-2">Select a conversation</h3>
+                    <p className="text-gray-600 mb-4">
+                      Choose a conversation from the sidebar to start messaging.
+                    </p>
                   </div>
                 </div>
               ) : (
