@@ -1,9 +1,4 @@
 "use client"
-
-import { useState } from "react"
-import { deleteDoc, doc } from "firebase/firestore"
-import { db } from "@/lib/firebase"
-import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -12,86 +7,85 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Trash2, AlertTriangle } from 'lucide-react'
-import type { Product } from "@/types/product"
+import { Button } from "@/components/ui/button"
+import { AlertTriangle, Loader2, Package } from "lucide-react"
 
-interface DeleteProductDialogProps {
-  product: Product
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onSuccess: () => void
+interface ProductToDelete {
+  id: string
+  name: string
+  sku: string
 }
 
-export function DeleteProductDialog({
-  product,
-  open,
-  onOpenChange,
-  onSuccess
-}: DeleteProductDialogProps) {
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+interface DeleteProductDialogProps {
+  product: ProductToDelete | null
+  isOpen: boolean
+  isDeleting: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}
 
-  const handleDelete = async () => {
-    if (!product?.id) return
-
-    setIsDeleting(true)
-    setError(null)
-
-    try {
-      await deleteDoc(doc(db, "products", product.id))
-      onSuccess()
-      onOpenChange(false)
-    } catch (err) {
-      console.error("Error deleting product:", err)
-      setError("Failed to delete product. Please try again.")
-    } finally {
-      setIsDeleting(false)
-    }
-  }
+export function DeleteProductDialog({ product, isOpen, isDeleting, onConfirm, onCancel }: DeleteProductDialogProps) {
+  if (!product) return null
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && !isDeleting && onCancel()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-red-500" />
-            Delete Product
-          </DialogTitle>
-          <DialogDescription>
-            Are you sure you want to delete "{product?.name}"? This action cannot be undone.
-          </DialogDescription>
+          <div className="flex items-center space-x-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+            </div>
+            <div>
+              <DialogTitle className="text-lg font-semibold text-gray-900">Delete Product</DialogTitle>
+              <DialogDescription className="text-sm text-gray-500 mt-1">
+                This will mark the product as deleted and remove it from your active inventory.
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
-        {error && (
-          <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+        <div className="py-4">
+          <div className="bg-gray-50 rounded-lg p-4 border">
+            <div className="flex items-start space-x-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white border">
+                <Package className="h-5 w-5 text-gray-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
+                <p className="text-sm text-gray-500">SKU: {product.sku}</p>
+              </div>
+            </div>
+          </div>
 
-        <DialogFooter className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isDeleting}
-          >
+          <div className="mt-4">
+            <p className="text-sm text-gray-600">
+              Are you sure you want to delete this product? This will remove it from your active inventory and it will
+              no longer be visible to customers. The product data will be preserved in the database for record-keeping
+              purposes.
+            </p>
+          </div>
+        </div>
+
+        <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0">
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isDeleting} className="w-full sm:w-auto">
             Cancel
           </Button>
           <Button
+            type="button"
             variant="destructive"
-            onClick={handleDelete}
+            onClick={onConfirm}
             disabled={isDeleting}
+            className="w-full sm:w-auto"
           >
             {isDeleting ? (
               <>
-                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 Deleting...
               </>
             ) : (
               <>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
+                <AlertTriangle className="w-4 h-4 mr-2" />
+                Delete Product
               </>
             )}
           </Button>

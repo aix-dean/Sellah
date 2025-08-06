@@ -347,27 +347,6 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
                 )}
               </div>
 
-              {/* Service Scope */}
-              {service.scope && (
-                <div>
-                  <h4 className="font-medium mb-2">Service Coverage</h4>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge variant={service.scope === "nationwide" ? "default" : "secondary"}>
-                      {service.scope === "nationwide" ? "Nationwide" : "Regional"}
-                    </Badge>
-                  </div>
-                  {service.scope === "regional" && service.regions && service.regions.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {service.regions.map((region, index) => (
-                        <Badge key={index} variant="outline" className="text-xs">
-                          {region}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
               {service.requirements && service.requirements.length > 0 && (
                 <div>
                   <h4 className="font-medium mb-2">Requirements</h4>
