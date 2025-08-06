@@ -2,50 +2,26 @@ export interface Service {
   id: string
   name: string
   description: string
-  serviceType: "roll_up" | "roll_down" | "delivery"
+  category: string
   price: number
-  serviceScope: "nationwide" | "regional"
-  serviceRegions: string[]
-  schedule: {
-    [key: string]: {
-      available: boolean
-      startTime: string
-      endTime: string
-    }
-  }
+  duration?: string
+  availability: "available" | "unavailable"
+  images: string[]
+  scope: "nationwide" | "regional"
+  regions: string[]
   seller_id: string
-  type: "SERVICES"
-  status: "active" | "inactive" | "draft"
-  views: number
-  likes: number
-  bookings: number
-  rating: number
-  imageUrls: string[]
-  active: boolean
-  deleted: boolean
-  created_at?: any
-  updated_at?: any
+  created_at: any
+  updated_at: any
 }
 
 export interface CreateServiceData {
   name: string
   description: string
-  serviceType: "roll_up" | "roll_down" | "delivery"
+  category: string
   price: number
-  serviceScope: "nationwide" | "regional"
-  serviceRegions: string[]
-  schedule: {
-    [key: string]: {
-      available: boolean
-      startTime: string
-      endTime: string
-    }
-  }
-  seller_id: string
-  type: "SERVICES"
-  status: "active" | "inactive" | "draft"
-  views: number
-  bookings: number
-  rating: number
-  imageUrls: string[]
+  duration?: string
+  availability: "available" | "unavailable"
+  images: (string | File)[]
+  scope: "nationwide" | "regional"
+  regions: string[]
 }

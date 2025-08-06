@@ -1,146 +1,127 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, Upload, X, Clock, Calendar, MapPin } from 'lucide-react'
 import { Checkbox } from "@/components/ui/checkbox"
-import type { Service } from "@/types/service"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/hooks/use-auth"
+import { useCategories } from "@/hooks/use-categories"
+import { createService, updateService } from "@/lib/service-service"
+import { Service, CreateServiceData } from "@/types/service"
+import { Upload, X, Plus, Loader2, AlertCircle, MapPin, Globe, CheckCircle, Info } from 'lucide-react'
 
-// Add location fields to ServiceFormValues interface
-interface ServiceFormValues {
-  name: string
-  description: string
-  serviceType: "roll_up" | "roll_down" | "delivery"
-  price: number
-  status: "active" | "inactive" | "draft"
-  serviceScope: "nationwide" | "regional"
-  serviceRegions: string[]
-  schedule: {
-    [key: string]: {
-      available: boolean
-      startTime: string
-      endTime: string
-    }
-  }
-}
+// Philippine regions data
+const PHILIPPINE_REGIONS = [
+  { code: "NCR", name: "National Capital Region (NCR)" },
+  { code: "CAR", name: "Cordillera Administrative Region (CAR)" },
+  { code: "I", name: "Region I - Ilocos Region" },
+  { code: "II", name: "Region II - Cagayan Valley" },
+  { code: "III", name: "Region III - Central Luzon" },
+  { code: "IV-A", name: "Region IV-A - CALABARZON" },
+  { code: "IV-B", name: "Region IV-B - MIMAROPA" },
+  { code: "V", name: "Region V - Bicol Region" },
+  { code: "VI", name: "Region VI - Western Visayas" },
+  { code: "VII", name: "Region VII - Central Visayas" },
+  { code: "VIII", name: "Region VIII - Eastern Visayas" },
+  { code: "IX", name: "Region IX - Zamboanga Peninsula" },
+  { code: "X", name: "Region X - Northern Mindanao" },
+  { code: "XI", name: "Region XI - Davao Region" },
+  { code: "XII", name: "Region XII - SOCCSKSARGEN" },
+  { code: "XIII", name: "Region XIII - Caraga" },
+  { code: "BARMM", name: "Bangsamoro Autonomous Region in Muslim Mindanao (BARMM)" }
+]
 
 interface ServiceFormSharedProps {
-  initialData?: Partial<Service>
-  onSubmit: (data: ServiceFormValues, imageUrls: string[], newImageFiles: File[]) => Promise<void>
-  isLoading?: boolean
-  submitButtonText?: string
+  service?: Service
+  onSuccess?: () => void
+  onCancel?: () => void
 }
 
-const DAYS_OF_WEEK = [
-  { key: "monday", label: "Monday" },
-  { key: "tuesday", label: "Tuesday" },
-  { key: "wednesday", label: "Wednesday" },
-  { key: "thursday", label: "Thursday" },
-  { key: "friday", label: "Friday" },
-  { key: "saturday", label: "Saturday" },
-  { key: "sunday", label: "Sunday" },
-]
+export function ServiceFormShared({ service, onSuccess, onCancel }: ServiceFormSharedProps) {
+  const { user } = useAuth()
+  const { toast } = useToast()
+  const { categories, loading: categoriesLoading } = useCategories()
 
-const PHILIPPINE_REGIONS = [
-  "National Capital Region (NCR)",
-  "Cordillera Administrative Region (CAR)",
-  "Region I - Ilocos Region",
-  "Region II - Cagayan Valley",
-  "Region III - Central Luzon",
-  "Region IV-A - CALABARZON",
-  "Region IV-B - MIMAROPA",
-  "Region V - Bicol Region",
-  "Region VI - Western Visayas",
-  "Region VII - Central Visayas",
-  "Region VIII - Eastern Visayas",
-  "Region IX - Zamboanga Peninsula",
-  "Region X - Northern Mindanao",
-  "Region XI - Davao Region",
-  "Region XII - SOCCSKSARGEN",
-  "Region XIII - Caraga",
-  "Bangsamoro Autonomous Region in Muslim Mindanao (BARMM)"
-]
-
-export default function ServiceFormShared({
-  initialData,
-  onSubmit,
-  isLoading = false,
-  submitButtonText = "Create Service",
-}: ServiceFormSharedProps) {
-  const [formData, setFormData] = useState<ServiceFormValues>({
-    name: initialData?.name || "",
-    description: initialData?.description || "",
-    serviceType: initialData?.serviceType || "roll_up",
-    price: initialData?.price || 0,
-    status: initialData?.status || "active",
-    serviceScope: initialData?.serviceScope || "nationwide",
-    serviceRegions: initialData?.serviceRegions || [],
-    schedule: initialData?.schedule || {
-      monday: { available: false, startTime: "00:00", endTime: "23:59" },
-      tuesday: { available: false, startTime: "00:00", endTime: "23:59" },
-      wednesday: { available: false, startTime: "00:00", endTime: "23:59" },
-      thursday: { available: false, startTime: "00:00", endTime: "23:59" },
-      friday: { available: false, startTime: "00:00", endTime: "23:59" },
-      saturday: { available: false, startTime: "00:00", endTime: "23:59" },
-      sunday: { available: false, startTime: "00:00", endTime: "23:59" },
-    },
+  // Form state
+  const [formData, setFormData] = useState<CreateServiceData>({
+    name: "",
+    description: "",
+    category: "",
+    price: 0,
+    duration: "",
+    availability: "available",
+    images: [],
+    scope: "nationwide",
+    regions: []
   })
 
-  const [existingImageUrls, setExistingImageUrls] = useState<string[]>(initialData?.imageUrls || [])
-  const [newImageFiles, setNewImageFiles] = useState<File[]>([])
-  const [newImagePreviews, setNewImagePreviews] = useState<string[]>([])
-  const [error, setError] = useState("")
+  const [images, setImages] = useState<File[]>([])
+  const [imageUrls, setImageUrls] = useState<string[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
 
-  const handleInputChange = (field: keyof ServiceFormValues, value: any) => {
-    setFormData((prev) => ({
+  // Initialize form data for editing
+  useEffect(() => {
+    if (service) {
+      setFormData({
+        name: service.name,
+        description: service.description,
+        category: service.category,
+        price: service.price,
+        duration: service.duration || "",
+        availability: service.availability,
+        images: service.images || [],
+        scope: service.scope || "nationwide",
+        regions: service.regions || []
+      })
+      setImageUrls(service.images || [])
+    }
+  }, [service])
+
+  const handleInputChange = (field: keyof CreateServiceData, value: any) => {
+    setFormData(prev => ({
       ...prev,
-      [field]: value,
+      [field]: value
     }))
   }
 
-  const handleScheduleChange = (day: string, field: "available" | "startTime" | "endTime", value: any) => {
-    setFormData((prev) => ({
-      ...prev,
-      schedule: {
-        ...prev.schedule,
-        [day]: {
-          ...prev.schedule[day],
-          [field]: value,
-        },
-      },
-    }))
-  }
-
-  const handleRegionToggle = (region: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      serviceRegions: prev.serviceRegions.includes(region)
-        ? prev.serviceRegions.filter((r) => r !== region)
-        : [...prev.serviceRegions, region],
-    }))
-  }
-
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
 
-    // Validate file types
-    const validFiles = files.filter((file) => {
-      if (!file.type.startsWith("image/")) {
-        setError("Please select only image files")
+    // Validate file types and sizes
+    const validFiles = files.filter(file => {
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Invalid file type",
+          description: `${file.name} is not an image file`,
+          variant: "destructive"
+        })
         return false
       }
-      if (file.size > 5 * 1024 * 1024) {
-        setError("Image size should be less than 5MB")
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+          title: "File too large",
+          description: `${file.name} is larger than 5MB`,
+          variant: "destructive"
+        })
         return false
       }
       return true
@@ -149,411 +130,584 @@ export default function ServiceFormShared({
     if (validFiles.length === 0) return
 
     // Check total image limit
-    const totalImages = existingImageUrls.length + newImageFiles.length + validFiles.length
-    if (totalImages > 10) {
-      setError("Maximum 10 images allowed")
+    const totalImages = images.length + imageUrls.length + validFiles.length
+    if (totalImages > 5) {
+      toast({
+        title: "Too many images",
+        description: "Maximum 5 images allowed per service",
+        variant: "destructive"
+      })
       return
     }
 
-    setError("")
-    setNewImageFiles((prev) => [...prev, ...validFiles])
+    setImages(prev => [...prev, ...validFiles])
 
-    // Generate previews for new files
-    validFiles.forEach((file) => {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setNewImagePreviews((prev) => [...prev, e.target?.result as string])
-      }
-      reader.readAsDataURL(file)
+    // Create preview URLs
+    validFiles.forEach(file => {
+      const url = URL.createObjectURL(file)
+      setImageUrls(prev => [...prev, url])
     })
   }
 
-  const removeExistingImage = (index: number) => {
-    setExistingImageUrls((prev) => prev.filter((_, i) => i !== index))
+  const removeImage = (index: number) => {
+    const isNewImage = index >= (imageUrls.length - images.length)
+    
+    if (isNewImage) {
+      // Remove from new images
+      const newImageIndex = index - (imageUrls.length - images.length)
+      const newImages = [...images]
+      newImages.splice(newImageIndex, 1)
+      setImages(newImages)
+    }
+
+    // Remove from URLs
+    const newUrls = [...imageUrls]
+    const removedUrl = newUrls.splice(index, 1)[0]
+    
+    // Revoke object URL if it's a blob URL
+    if (removedUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(removedUrl)
+    }
+    
+    setImageUrls(newUrls)
+
+    // Update form data
+    setFormData(prev => ({
+      ...prev,
+      images: newUrls.filter(url => !url.startsWith('blob:'))
+    }))
   }
 
-  const removeNewImage = (index: number) => {
-    setNewImageFiles((prev) => prev.filter((_, i) => i !== index))
-    setNewImagePreviews((prev) => prev.filter((_, i) => i !== index))
+  const handleScopeChange = (scope: "nationwide" | "regional") => {
+    setFormData(prev => ({
+      ...prev,
+      scope,
+      regions: scope === "nationwide" ? [] : prev.regions
+    }))
+  }
+
+  const handleRegionToggle = (regionCode: string) => {
+    setFormData(prev => ({
+      ...prev,
+      regions: prev.regions.includes(regionCode)
+        ? prev.regions.filter(r => r !== regionCode)
+        : [...prev.regions, regionCode]
+    }))
+  }
+
+  const removeRegion = (regionCode: string) => {
+    setFormData(prev => ({
+      ...prev,
+      regions: prev.regions.filter(r => r !== regionCode)
+    }))
+  }
+
+  const validateForm = (): boolean => {
+    if (!formData.name.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Service name is required",
+        variant: "destructive"
+      })
+      return false
+    }
+
+    if (!formData.description.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Service description is required",
+        variant: "destructive"
+      })
+      return false
+    }
+
+    if (!formData.category) {
+      toast({
+        title: "Validation Error",
+        description: "Please select a category",
+        variant: "destructive"
+      })
+      return false
+    }
+
+    if (formData.price <= 0) {
+      toast({
+        title: "Validation Error",
+        description: "Price must be greater than 0",
+        variant: "destructive"
+      })
+      return false
+    }
+
+    if (formData.scope === "regional" && formData.regions.length === 0) {
+      toast({
+        title: "Validation Error",
+        description: "Please select at least one region for regional services",
+        variant: "destructive"
+      })
+      return false
+    }
+
+    return true
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
+    
+    if (!validateForm() || !user) return
 
-    // Validation
-    if (!formData.name.trim()) {
-      setError("Service name is required")
-      return
-    }
-
-    if (!formData.description.trim()) {
-      setError("Service description is required")
-      return
-    }
-
-    if (formData.price <= 0) {
-      setError("Price must be greater than 0")
-      return
-    }
-
-    if (formData.serviceScope === "regional" && formData.serviceRegions.length === 0) {
-      setError("Please select at least one region for regional service")
-      return
-    }
-
-    // Check if at least one day is available
-    const hasAvailableDay = Object.values(formData.schedule).some((day) => day.available)
-    if (!hasAvailableDay) {
-      setError("Please select at least one available day")
-      return
-    }
+    setIsSubmitting(true)
 
     try {
-      await onSubmit(formData, existingImageUrls, newImageFiles)
-    } catch (error: any) {
-      setError(error.message || "Failed to save service")
+      const serviceData = {
+        ...formData,
+        images: [...formData.images, ...images]
+      }
+
+      if (service) {
+        await updateService(service.id, serviceData)
+        toast({
+          title: "Success",
+          description: "Service updated successfully"
+        })
+      } else {
+        await createService(serviceData, user.uid)
+        toast({
+          title: "Success",
+          description: "Service created successfully"
+        })
+      }
+
+      onSuccess?.()
+    } catch (error) {
+      console.error("Error saving service:", error)
+      toast({
+        title: "Error",
+        description: "Failed to save service. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
-  const getServiceTypeLabel = (type: string) => {
-    switch (type) {
-      case "roll_up":
-        return "Roll Up"
-      case "roll_down":
-        return "Roll Down"
-      case "delivery":
-        return "Delivery"
-      default:
-        return type
-    }
+  const getSelectedRegionNames = () => {
+    return formData.regions.map(code => 
+      PHILIPPINE_REGIONS.find(region => region.code === code)?.name || code
+    )
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+    <div className="max-w-4xl mx-auto p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {service ? "Edit Service" : "Add New Service"}
+          </h1>
+          <p className="text-gray-600 mt-1">
+            {service ? "Update your service details" : "Create a new service offering"}
+          </p>
+        </div>
+        <div className="flex space-x-2">
+          <Button variant="outline" onClick={() => setShowPreview(true)}>
+            Preview
+          </Button>
+          {onCancel && (
+            <Button variant="outline" onClick={onCancel}>
+              Cancel
+            </Button>
+          )}
+        </div>
+      </div>
 
-      {/* Basic Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Basic Information</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="name">Service Name *</Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => handleInputChange("name", e.target.value)}
-              placeholder="Enter service name"
-              required
-              disabled={isLoading}
-            />
-          </div>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Basic Information */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Basic Information</CardTitle>
+            <CardDescription>
+              Provide the essential details about your service
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Service Name *</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => handleInputChange("name", e.target.value)}
+                  placeholder="Enter service name"
+                  required
+                />
+              </div>
 
-          <div>
-            <Label htmlFor="description">Description *</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => handleInputChange("description", e.target.value)}
-              placeholder="Describe your service"
-              rows={4}
-              required
-              disabled={isLoading}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="serviceType">Service Type *</Label>
-              <Select
-                value={formData.serviceType}
-                onValueChange={(value) => handleInputChange("serviceType", value)}
-                disabled={isLoading}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select service type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="roll_up">Roll Up</SelectItem>
-                  <SelectItem value="roll_down">Roll Down</SelectItem>
-                  <SelectItem value="delivery">Delivery</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Label htmlFor="category">Category *</Label>
+                <Select
+                  value={formData.category}
+                  onValueChange={(value) => handleInputChange("category", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categoriesLoading ? (
+                      <SelectItem value="loading" disabled>
+                        Loading categories...
+                      </SelectItem>
+                    ) : (
+                      categories.map((category) => (
+                        <SelectItem key={category.id} value={category.name}>
+                          {category.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div>
-              <Label htmlFor="status">Status</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) => handleInputChange("status", value)}
-                disabled={isLoading}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                  <SelectItem value="draft">Draft</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description *</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => handleInputChange("description", e.target.value)}
+                placeholder="Describe your service in detail"
+                rows={4}
+                required
+              />
             </div>
-          </div>
 
-          <div>
-            <Label htmlFor="price">Price (PHP) *</Label>
-            <Input
-              id="price"
-              type="number"
-              min="0"
-              step="0.01"
-              value={formData.price}
-              onChange={(e) => handleInputChange("price", Number.parseFloat(e.target.value) || 0)}
-              placeholder="0.00"
-              required
-              disabled={isLoading}
-            />
-          </div>
-        </CardContent>
-      </Card>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="price">Price (₱) *</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.price}
+                  onChange={(e) => handleInputChange("price", parseFloat(e.target.value) || 0)}
+                  placeholder="0.00"
+                  required
+                />
+              </div>
 
-      {/* Service Location */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MapPin className="w-5 h-5" />
-            Service Location & Scope
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label>Service Scope *</Label>
-            <Select
-              value={formData.serviceScope}
-              onValueChange={(value) => {
-                handleInputChange("serviceScope", value)
-                if (value === "nationwide") {
-                  handleInputChange("serviceRegions", [])
+              <div className="space-y-2">
+                <Label htmlFor="duration">Duration</Label>
+                <Input
+                  id="duration"
+                  value={formData.duration}
+                  onChange={(e) => handleInputChange("duration", e.target.value)}
+                  placeholder="e.g., 2 hours, 1 day, 1 week"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="availability">Availability</Label>
+              <Select
+                value={formData.availability}
+                onValueChange={(value: "available" | "unavailable") => 
+                  handleInputChange("availability", value)
                 }
-              }}
-              disabled={isLoading}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select service scope" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="nationwide">Nationwide (All Philippines)</SelectItem>
-                <SelectItem value="regional">Specific Regions Only</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="available">Available</SelectItem>
+                  <SelectItem value="unavailable">Unavailable</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
 
-          {formData.serviceScope === "regional" && (
-            <div>
-              <Label>Select Regions *</Label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2 max-h-60 overflow-y-auto border rounded-lg p-3">
-                {PHILIPPINE_REGIONS.map((region) => (
-                  <div key={region} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`region-${region}`}
-                      checked={formData.serviceRegions.includes(region)}
-                      onCheckedChange={() => handleRegionToggle(region)}
-                      disabled={isLoading}
+        {/* Service Location/Scope */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <MapPin className="w-5 h-5" />
+              <span>Service Coverage Area</span>
+            </CardTitle>
+            <CardDescription>
+              Specify where your service is available within the Philippines
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Scope Selection */}
+            <div className="space-y-3">
+              <Label>Service Scope *</Label>
+              <div className="flex space-x-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="nationwide"
+                    checked={formData.scope === "nationwide"}
+                    onCheckedChange={() => handleScopeChange("nationwide")}
+                  />
+                  <Label htmlFor="nationwide" className="flex items-center space-x-2 cursor-pointer">
+                    <Globe className="w-4 h-4" />
+                    <span>Nationwide</span>
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="regional"
+                    checked={formData.scope === "regional"}
+                    onCheckedChange={() => handleScopeChange("regional")}
+                  />
+                  <Label htmlFor="regional" className="flex items-center space-x-2 cursor-pointer">
+                    <MapPin className="w-4 h-4" />
+                    <span>Specific Regions Only</span>
+                  </Label>
+                </div>
+              </div>
+            </div>
+
+            {/* Nationwide Info */}
+            {formData.scope === "nationwide" && (
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  Your service will be available to customers across all regions in the Philippines.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Regional Selection */}
+            {formData.scope === "regional" && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Select Regions *</Label>
+                  <p className="text-sm text-gray-600">
+                    Choose the specific regions where your service is available
+                  </p>
+                </div>
+
+                {/* Selected Regions Display */}
+                {formData.regions.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">
+                        Selected Regions ({formData.regions.length})
+                      </Label>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {getSelectedRegionNames().map((regionName, index) => (
+                        <Badge
+                          key={formData.regions[index]}
+                          variant="secondary"
+                          className="flex items-center space-x-1"
+                        >
+                          <span>{regionName}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeRegion(formData.regions[index])}
+                            className="ml-1 hover:bg-gray-200 rounded-full p-0.5"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Region Selection Grid */}
+                <div className="border rounded-lg p-4">
+                  <ScrollArea className="h-64">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {PHILIPPINE_REGIONS.map((region) => (
+                        <div key={region.code} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={region.code}
+                            checked={formData.regions.includes(region.code)}
+                            onCheckedChange={() => handleRegionToggle(region.code)}
+                          />
+                          <Label
+                            htmlFor={region.code}
+                            className="text-sm cursor-pointer flex-1"
+                          >
+                            {region.name}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+
+                {formData.regions.length === 0 && (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Please select at least one region where your service is available.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Images */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Service Images</CardTitle>
+            <CardDescription>
+              Upload images to showcase your service (Maximum 5 images, 5MB each)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-center w-full">
+              <label
+                htmlFor="images"
+                className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
+              >
+                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                  <Upload className="w-8 h-8 mb-4 text-gray-500" />
+                  <p className="mb-2 text-sm text-gray-500">
+                    <span className="font-semibold">Click to upload</span> or drag and drop
+                  </p>
+                  <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                </div>
+                <input
+                  id="images"
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            {imageUrls.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                {imageUrls.map((url, index) => (
+                  <div key={index} className="relative group">
+                    <img
+                      src={url || "/placeholder.svg"}
+                      alt={`Service image ${index + 1}`}
+                      className="w-full h-24 object-cover rounded-lg border"
                     />
-                    <Label
-                      htmlFor={`region-${region}`}
-                      className="text-sm font-normal cursor-pointer"
+                    <button
+                      type="button"
+                      onClick={() => removeImage(index)}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                     >
-                      {region}
-                    </Label>
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
                 ))}
               </div>
-              {formData.serviceRegions.length > 0 && (
-                <div className="mt-2">
-                  <p className="text-sm text-gray-600 mb-2">
-                    Selected regions ({formData.serviceRegions.length}):
-                  </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Submit Button */}
+        <div className="flex justify-end space-x-4">
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            className="min-w-[120px]"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                {service ? "Updating..." : "Creating..."}
+              </>
+            ) : (
+              <>
+                <CheckCircle className="w-4 h-4 mr-2" />
+                {service ? "Update Service" : "Create Service"}
+              </>
+            )}
+          </Button>
+        </div>
+      </form>
+
+      {/* Preview Dialog */}
+      <Dialog open={showPreview} onOpenChange={setShowPreview}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Service Preview</DialogTitle>
+            <DialogDescription>
+              This is how your service will appear to customers
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {imageUrls.length > 0 && (
+              <div className="grid grid-cols-2 gap-2">
+                {imageUrls.slice(0, 4).map((url, index) => (
+                  <img
+                    key={index}
+                    src={url || "/placeholder.svg"}
+                    alt={`Service preview ${index + 1}`}
+                    className="w-full h-32 object-cover rounded-lg"
+                  />
+                ))}
+              </div>
+            )}
+
+            <div>
+              <h3 className="text-xl font-semibold">{formData.name || "Service Name"}</h3>
+              <p className="text-2xl font-bold text-green-600 mt-1">
+                ₱{formData.price.toFixed(2)}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="secondary">{formData.category || "Category"}</Badge>
+              <Badge variant="outline">
+                {formData.availability === "available" ? "Available" : "Unavailable"}
+              </Badge>
+              {formData.duration && (
+                <Badge variant="outline">{formData.duration}</Badge>
+              )}
+            </div>
+
+            {/* Location/Scope Display */}
+            <div className="space-y-2">
+              <h4 className="font-medium flex items-center space-x-2">
+                <MapPin className="w-4 h-4" />
+                <span>Service Coverage</span>
+              </h4>
+              {formData.scope === "nationwide" ? (
+                <Badge className="bg-green-100 text-green-800">
+                  <Globe className="w-3 h-3 mr-1" />
+                  Nationwide
+                </Badge>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600">Available in selected regions:</p>
                   <div className="flex flex-wrap gap-1">
-                    {formData.serviceRegions.map((region) => (
-                      <Badge key={region} variant="secondary" className="text-xs">
-                        {region}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-auto p-0 ml-1 hover:bg-transparent"
-                          onClick={() => handleRegionToggle(region)}
-                          disabled={isLoading}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
+                    {getSelectedRegionNames().map((regionName, index) => (
+                      <Badge key={index} variant="outline" className="text-xs">
+                        {regionName}
                       </Badge>
                     ))}
                   </div>
                 </div>
               )}
             </div>
-          )}
 
-          {formData.serviceScope === "nationwide" && (
-            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-sm text-green-800">
-                <strong>Nationwide Service:</strong> Your service will be available across all regions in the Philippines.
+            <div>
+              <h4 className="font-medium mb-2">Description</h4>
+              <p className="text-gray-700 whitespace-pre-wrap">
+                {formData.description || "Service description will appear here..."}
               </p>
             </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Service Images */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Service Images</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="images">Upload Images (Max 10)</Label>
-            <Input
-              id="images"
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleImageSelect}
-              className="cursor-pointer"
-              disabled={isLoading}
-            />
-            <p className="text-sm text-gray-500 mt-1">Select multiple images (JPG, PNG, GIF). Max 5MB each.</p>
           </div>
 
-          {/* Image Previews */}
-          {(existingImageUrls.length > 0 || newImagePreviews.length > 0) && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              {/* Existing Images */}
-              {existingImageUrls.map((url, index) => (
-                <div key={`existing-${index}`} className="relative group">
-                  <img
-                    src={url || "/placeholder.svg"}
-                    alt={`Service image ${index + 1}`}
-                    className="w-full h-24 object-cover rounded-lg border"
-                  />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => removeExistingImage(index)}
-                    disabled={isLoading}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                  <Badge variant="secondary" className="absolute bottom-1 left-1 text-xs">
-                    Saved
-                  </Badge>
-                </div>
-              ))}
-
-              {/* New Image Previews */}
-              {newImagePreviews.map((preview, index) => (
-                <div key={`new-${index}`} className="relative group">
-                  <img
-                    src={preview || "/placeholder.svg"}
-                    alt={`New service image ${index + 1}`}
-                    className="w-full h-24 object-cover rounded-lg border"
-                  />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => removeNewImage(index)}
-                    disabled={isLoading}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                  <Badge variant="outline" className="absolute bottom-1 left-1 text-xs">
-                    New
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Schedule */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="w-5 h-5" />
-            Service Schedule
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {DAYS_OF_WEEK.map(({ key, label }) => (
-            <div key={key} className="flex items-center space-x-4 p-3 border rounded-lg">
-              <div className="flex items-center space-x-2 min-w-[120px]">
-                <Checkbox
-                  id={`${key}-available`}
-                  checked={formData.schedule[key]?.available || false}
-                  onCheckedChange={(checked) => handleScheduleChange(key, "available", checked)}
-                  disabled={isLoading}
-                />
-                <Label htmlFor={`${key}-available`} className="font-medium">
-                  {label}
-                </Label>
-              </div>
-
-              {formData.schedule[key]?.available && (
-                <div className="flex items-center space-x-2 flex-1">
-                  <Clock className="w-4 h-4 text-gray-500" />
-                  <Input
-                    type="time"
-                    value={formData.schedule[key]?.startTime || "12:00"}
-                    onChange={(e) => handleScheduleChange(key, "startTime", e.target.value)}
-                    className="w-auto"
-                    disabled={isLoading}
-                  />
-                  <span className="text-gray-500">to</span>
-                  <Input
-                    type="time"
-                    value={formData.schedule[key]?.endTime || "23:59"}
-                    onChange={(e) => handleScheduleChange(key, "endTime", e.target.value)}
-                    className="w-auto"
-                    disabled={isLoading}
-                  />
-                </div>
-              )}
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      {/* Submit Button */}
-      <div className="flex justify-end space-x-4">
-        <Button type="button" variant="outline" disabled={isLoading} onClick={() => window.history.back()}>
-          Cancel
-        </Button>
-        <Button type="submit" disabled={isLoading} className="bg-red-500 hover:bg-red-600 text-white">
-          {isLoading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Saving...
-            </>
-          ) : (
-            <>
-              <Upload className="w-4 h-4 mr-2" />
-              {submitButtonText}
-            </>
-          )}
-        </Button>
-      </div>
-    </form>
+          <DialogFooter>
+            <Button onClick={() => setShowPreview(false)}>Close Preview</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   )
 }
