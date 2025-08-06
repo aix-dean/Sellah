@@ -92,7 +92,7 @@ export const ServiceService = {
       const imageUrls = imageFiles.length > 0 ? await this.uploadServiceImages(imageFiles, serviceData.seller_id) : []
 
       const service: Omit<Service, "id"> = {
-        ...serviceData,
+        ...serviceData, // This should now correctly include the schedule
         imageUrls,
         type: "SERVICES",
         active: true,
@@ -116,7 +116,7 @@ export const ServiceService = {
   // Update an existing service
   async updateService(
     serviceId: string,
-    updates: Partial<Service>,
+    updates: Partial<Service>, // This 'updates' object should now correctly contain the schedule
     newImageFiles: File[] = [],
     existingImageUrls: string[] = [],
   ): Promise<void> {
@@ -133,7 +133,7 @@ export const ServiceService = {
       const allImageUrls = [...existingImageUrls, ...newImageUrls]
 
       const updateData = {
-        ...updates,
+        ...updates, // This should now correctly include the schedule
         imageUrls: allImageUrls,
         updated_at: serverTimestamp(),
       }

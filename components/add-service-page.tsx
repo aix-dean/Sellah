@@ -16,7 +16,7 @@ export function AddServicePage() {
   const { user } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = async (serviceData: any, existingImageUrls: string[], newImageFiles: File[]) => {
+  const handleSubmit = async (serviceData: CreateServiceData, existingImageUrls: string[], newImageFiles: File[]) => {
     if (!user) {
       toast({
         title: "Error",

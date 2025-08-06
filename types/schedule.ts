@@ -1,7 +1,7 @@
 export interface DaySchedule {
-  available: boolean; // Changed from 'enabled' to 'available'
-  startTime: string; // e.g., "09:00" (24-hour format)
-  endTime: string;   // e.g., "17:00" (24-hour format)
+  available: boolean;
+  endTime: string;
+  startTime: string;
 }
 
 export interface ServiceSchedule {
