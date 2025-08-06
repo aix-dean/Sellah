@@ -22,8 +22,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
 import { useCategories } from "@/hooks/use-categories"
-import { Upload, X, Plus, Loader2, AlertCircle, MapPin, Globe, CheckCircle, Info } from 'lucide-react'
-import type { Service } from "@/types/service"
+import { Upload, X, Loader2, AlertCircle, MapPin, Globe, CheckCircle, Info, Calendar } from 'lucide-react'
+import type { Service, CreateServiceData } from "@/types/service"
 
 // Philippine regions data
 const PHILIPPINE_REGIONS = [
@@ -66,6 +66,7 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
     price: 0,
     duration: "",
     availability: "available" as "available" | "unavailable",
+    images: [],
     scope: "nationwide" as "nationwide" | "regional",
     regions: [] as string[]
   })
@@ -166,6 +167,12 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
     }
     
     setImageUrls(newUrls)
+
+    // Update form data
+    setFormData(prev => ({
+      ...prev,
+      images: newUrls.filter(url => !url.startsWith('blob:'))
+    }))
   }
 
   const handleScopeChange = (scope: "nationwide" | "regional") => {
@@ -262,49 +269,41 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <Button variant="outline" onClick={() => setShowPreview(true)}>
-          Preview
-        </Button>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Basic Information</CardTitle>
+          <CardDescription>
+            Provide the essential details about your service
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Service Name *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => handleInputChange("name", e.target.value)}
+                placeholder="Enter service name"
+                required
+              />
+            </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Basic Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Basic Information</CardTitle>
-            <CardDescription>
-              Provide the essential details about your service
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Service Name *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange("name", e.target.value)}
-                  placeholder="Enter service name"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="category">Category *</Label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value) => handleInputChange("category", value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categoriesLoading ? (
-                      <SelectItem value="loading" disabled>
-                        Loading categories...
-                      </SelectItem>
-                    ) : categories && categories.length > 0 ? (
+            <div className="space-y-2">
+              <Label htmlFor="category">Category *</Label>
+              <Select
+                value={formData.category}
+                onValueChange={(value) => handleInputChange("category", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categoriesLoading ? (
+                    <SelectItem value="loading" disabled>
+                      Loading categories...
+                    </SelectItem>
+                  ) : categories && categories.length > 0 ? (
                       categories.map((category) => (
                         <SelectItem key={category.id || category.name} value={category.name}>
                           {category.name}
@@ -378,7 +377,62 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
           </CardContent>
         </Card>
 
-        {/* Service Location/Scope */}
+        {/* Service Images */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Service Images</CardTitle>
+            <CardDescription>
+              Upload images to showcase your service (Maximum 5 images, 5MB each)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-center w-full">
+              <label
+                htmlFor="images"
+                className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
+              >
+                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                  <Upload className="w-8 h-8 mb-4 text-gray-500" />
+                  <p className="mb-2 text-sm text-gray-500">
+                    <span className="font-semibold">Click to upload</span> or drag and drop
+                  </p>
+                  <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                </div>
+                <input
+                  id="images"
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            {imageUrls && imageUrls.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                {imageUrls.map((url, index) => (
+                  <div key={index} className="relative group">
+                    <img
+                      src={url || "/placeholder.svg"}
+                      alt={`Service image ${index + 1}`}
+                      className="w-full h-24 object-cover rounded-lg border"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(index)}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Service Coverage Area */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
@@ -499,61 +553,6 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
                     </AlertDescription>
                   </Alert>
                 )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Images */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Service Images</CardTitle>
-            <CardDescription>
-              Upload images to showcase your service (Maximum 5 images, 5MB each)
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-center w-full">
-              <label
-                htmlFor="images"
-                className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
-              >
-                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                  <Upload className="w-8 h-8 mb-4 text-gray-500" />
-                  <p className="mb-2 text-sm text-gray-500">
-                    <span className="font-semibold">Click to upload</span> or drag and drop
-                  </p>
-                  <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
-                </div>
-                <input
-                  id="images"
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-              </label>
-            </div>
-
-            {imageUrls && imageUrls.length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                {imageUrls.map((url, index) => (
-                  <div key={index} className="relative group">
-                    <img
-                      src={url || "/placeholder.svg"}
-                      alt={`Service image ${index + 1}`}
-                      className="w-full h-24 object-cover rounded-lg border"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeImage(index)}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
               </div>
             )}
           </CardContent>

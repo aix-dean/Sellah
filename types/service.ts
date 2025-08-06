@@ -12,8 +12,8 @@ export interface Service {
   status: "active" | "inactive" | "published" | "draft" | "archived"
   scope: "nationwide" | "regional"
   regions: string[]
-  created_at: any
-  updated_at: any
+  created_at: Date
+  updated_at: Date
 }
 
 export interface CreateServiceData {
@@ -29,7 +29,7 @@ export interface CreateServiceData {
 }
 
 export interface UpdateServiceData extends Partial<CreateServiceData> {
-  updated_at?: any
+  id: string
 }
 
 export interface ServiceFilters {
