@@ -24,7 +24,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { useCategories } from "@/hooks/use-categories"
 import { Upload, X, Loader2, AlertCircle, MapPin, Globe, CheckCircle, Info, Calendar } from 'lucide-react'
 import type { Service } from "@/types/service"
-import type { ServiceSchedule } from "@/types/schedule" // Import the new schedule type
+import type { ServiceSchedule } from "@/types/schedule"
 
 // Philippine regions data
 const PHILIPPINE_REGIONS = [

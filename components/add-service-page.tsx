@@ -16,7 +16,7 @@ export function AddServicePage() {
   const { user } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = async (serviceData: CreateServiceData, existingImageUrls: string[], newImageFiles: File[]) => {
+  const handleSubmit = async (serviceData: any, existingImageUrls: string[], newImageFiles: File[]) => {
     if (!user) {
       toast({
         title: "Error",
@@ -29,22 +29,21 @@ export function AddServicePage() {
     setIsLoading(true)
 
     try {
-      const serviceToCreate: Omit<CreateServiceData, "imageUrls"> = {
+      const dataToCreate: Omit<CreateServiceData, "imageUrls"> = {
         ...serviceData,
         seller_id: user.uid,
-        type: "SERVICES",
-        // Map availability to status for Firestore
-        status: serviceData.availability === "available" ? "published" : "draft",
+        // The 'type' field is set in ServiceService.createService
+        // The 'status' field is derived from availability in ServiceService.createService
       }
 
-      const serviceId = await ServiceService.createService(serviceToCreate, newImageFiles)
+      const serviceId = await ServiceService.createService(dataToCreate, newImageFiles)
 
       toast({
         title: "Success",
         description: "Service created successfully!",
       })
 
-      router.push(`/dashboard/products/${serviceId}`) // Redirect to product details page after creation
+      router.push(`/dashboard/products/${serviceId}`)
     } catch (error: any) {
       console.error("Error creating service:", error)
       toast({
@@ -68,7 +67,7 @@ export function AddServicePage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Add New Service</h1>
-            <p className="text-gray-600">Create a new service listing</p>
+            <p className="text-gray-600">Create a new service listing for your customers</p>
           </div>
         </div>
 

@@ -70,7 +70,7 @@ export function EditServicePage({ serviceId }: EditServicePageProps) {
       const updateData = {
         ...serviceData,
         seller_id: user.uid,
-        type: "SERVICES" as const,
+        type: "SERVICES" as const, // Ensure type is explicitly set for consistency, though it shouldn't change on update
         status: serviceData.availability === "available" ? "published" : "unpublished", // Map availability to status
       }
 

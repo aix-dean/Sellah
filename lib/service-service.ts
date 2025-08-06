@@ -16,7 +16,7 @@ import {
   type QueryDocumentSnapshot,
 } from "firebase/firestore"
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"
-import type { Service, CreateServiceData } from "@/types/service" // Updated import to include schedule type
+import type { Service, CreateServiceData } from "@/types/service"
 
 export interface ServiceFilter {
   serviceType?: string
@@ -134,7 +134,8 @@ export const ServiceService = {
       // Combine existing and new image URLs
       const allImageUrls = [...existingImageUrls, ...newImageUrls]
 
-      const updateData = {
+      // Construct the update data, ensuring schedule is included if present in updates
+      const updateData: Partial<Service> = {
         ...updates,
         imageUrls: allImageUrls,
         updated_at: serverTimestamp(),
