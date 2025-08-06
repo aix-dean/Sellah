@@ -301,8 +301,12 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!validateForm() || !user) return
+    console.log("ServiceFormShared: handleSubmit triggered"); // Debug log
+
+    if (!validateForm() || !user) {
+      console.log("ServiceFormShared: Validation failed or user not logged in."); // Debug log
+      return
+    }
 
     const existingImageUrls = imageUrls.filter(url => !url.startsWith('blob:'))
     const newImageFiles = images
@@ -313,6 +317,7 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
       schedule
     }
 
+    console.log("ServiceFormShared: Calling onSubmit with data:", serviceData); // Debug log
     await onSubmit(serviceData, existingImageUrls, newImageFiles)
   }
 

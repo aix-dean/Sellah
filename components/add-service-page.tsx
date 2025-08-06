@@ -20,7 +20,7 @@ export function AddServicePage() {
     if (!user) {
       toast({
         title: "Error",
-        description: "You must be logged in to create a service",
+        description: "You must be logged in to add a service",
         variant: "destructive",
       })
       return
@@ -29,14 +29,13 @@ export function AddServicePage() {
     setIsLoading(true)
 
     try {
-      const dataToCreate: Omit<CreateServiceData, "imageUrls"> = {
+      const createData: Omit<CreateServiceData, "imageUrls"> = {
         ...serviceData,
         seller_id: user.uid,
-        // The 'type' field is set in ServiceService.createService
-        // The 'status' field is derived from availability in ServiceService.createService
+        // availability and scope are already in serviceData
       }
 
-      const serviceId = await ServiceService.createService(dataToCreate, newImageFiles)
+      const serviceId = await ServiceService.createService(createData, newImageFiles)
 
       toast({
         title: "Success",
