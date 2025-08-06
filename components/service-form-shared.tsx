@@ -55,7 +55,7 @@ interface ServiceFormSharedProps {
 export function ServiceFormShared({ service, onSuccess, onCancel }: ServiceFormSharedProps) {
   const { user } = useAuth()
   const { toast } = useToast()
-  const { categories, loading: categoriesLoading } = useCategories()
+  const { categories = [], loading: categoriesLoading } = useCategories()
 
   // Form state
   const [formData, setFormData] = useState<CreateServiceData>({
@@ -79,12 +79,12 @@ export function ServiceFormShared({ service, onSuccess, onCancel }: ServiceFormS
   useEffect(() => {
     if (service) {
       setFormData({
-        name: service.name,
-        description: service.description,
-        category: service.category,
-        price: service.price,
+        name: service.name || "",
+        description: service.description || "",
+        category: service.category || "",
+        price: service.price || 0,
         duration: service.duration || "",
-        availability: service.availability,
+        availability: service.availability || "available",
         images: service.images || [],
         scope: service.scope || "nationwide",
         regions: service.regions || []
@@ -163,7 +163,7 @@ export function ServiceFormShared({ service, onSuccess, onCancel }: ServiceFormS
     const removedUrl = newUrls.splice(index, 1)[0]
     
     // Revoke object URL if it's a blob URL
-    if (removedUrl.startsWith('blob:')) {
+    if (removedUrl && removedUrl.startsWith('blob:')) {
       URL.revokeObjectURL(removedUrl)
     }
     
@@ -272,6 +272,9 @@ export function ServiceFormShared({ service, onSuccess, onCancel }: ServiceFormS
       console.log("New images:", images)
       console.log("Existing image URLs:", imageUrls.filter(url => !url.startsWith('blob:')))
 
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
       toast({
         title: "Success",
         description: service ? "Service updated successfully" : "Service created successfully"
@@ -291,6 +294,8 @@ export function ServiceFormShared({ service, onSuccess, onCancel }: ServiceFormS
   }
 
   const getSelectedRegionNames = () => {
+    if (!formData.regions || formData.regions.length === 0) return []
+    
     return formData.regions.map(code => 
       PHILIPPINE_REGIONS.find(region => region.code === code)?.name || code
     )
@@ -355,12 +360,16 @@ export function ServiceFormShared({ service, onSuccess, onCancel }: ServiceFormS
                       <SelectItem value="loading" disabled>
                         Loading categories...
                       </SelectItem>
-                    ) : (
+                    ) : categories && categories.length > 0 ? (
                       categories.map((category) => (
-                        <SelectItem key={category.id} value={category.name}>
+                        <SelectItem key={category.id || category.name} value={category.name}>
                           {category.name}
                         </SelectItem>
                       ))
+                    ) : (
+                      <SelectItem value="no-categories" disabled>
+                        No categories available
+                      </SelectItem>
                     )}
                   </SelectContent>
                 </Select>
@@ -487,7 +496,7 @@ export function ServiceFormShared({ service, onSuccess, onCancel }: ServiceFormS
                 </div>
 
                 {/* Selected Regions Display */}
-                {formData.regions.length > 0 && (
+                {formData.regions && formData.regions.length > 0 && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label className="text-sm font-medium">
@@ -523,7 +532,7 @@ export function ServiceFormShared({ service, onSuccess, onCancel }: ServiceFormS
                         <div key={region.code} className="flex items-center space-x-2">
                           <Checkbox
                             id={region.code}
-                            checked={formData.regions.includes(region.code)}
+                            checked={formData.regions && formData.regions.includes(region.code)}
                             onCheckedChange={() => handleRegionToggle(region.code)}
                           />
                           <Label
@@ -538,7 +547,7 @@ export function ServiceFormShared({ service, onSuccess, onCancel }: ServiceFormS
                   </ScrollArea>
                 </div>
 
-                {formData.regions.length === 0 && (
+                {(!formData.regions || formData.regions.length === 0) && (
                   <Alert>
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
@@ -583,7 +592,7 @@ export function ServiceFormShared({ service, onSuccess, onCancel }: ServiceFormS
               </label>
             </div>
 
-            {imageUrls.length > 0 && (
+            {imageUrls && imageUrls.length > 0 && (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 {imageUrls.map((url, index) => (
                   <div key={index} className="relative group">
@@ -639,7 +648,7 @@ export function ServiceFormShared({ service, onSuccess, onCancel }: ServiceFormS
           </DialogHeader>
 
           <div className="space-y-4">
-            {imageUrls.length > 0 && (
+            {imageUrls && imageUrls.length > 0 && (
               <div className="grid grid-cols-2 gap-2">
                 {imageUrls.slice(0, 4).map((url, index) => (
                   <img
