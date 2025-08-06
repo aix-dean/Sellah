@@ -11,16 +11,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, Upload, X, Clock, Calendar } from "lucide-react"
+import { Loader2, Upload, X, Clock, Calendar, MapPin } from 'lucide-react'
 import { Checkbox } from "@/components/ui/checkbox"
 import type { Service } from "@/types/service"
 
+// Add location fields to ServiceFormValues interface
 interface ServiceFormValues {
   name: string
   description: string
   serviceType: "roll_up" | "roll_down" | "delivery"
   price: number
   status: "active" | "inactive" | "draft"
+  serviceScope: "nationwide" | "regional"
+  serviceRegions: string[]
   schedule: {
     [key: string]: {
       available: boolean
@@ -47,6 +50,26 @@ const DAYS_OF_WEEK = [
   { key: "sunday", label: "Sunday" },
 ]
 
+const PHILIPPINE_REGIONS = [
+  "National Capital Region (NCR)",
+  "Cordillera Administrative Region (CAR)",
+  "Region I - Ilocos Region",
+  "Region II - Cagayan Valley",
+  "Region III - Central Luzon",
+  "Region IV-A - CALABARZON",
+  "Region IV-B - MIMAROPA",
+  "Region V - Bicol Region",
+  "Region VI - Western Visayas",
+  "Region VII - Central Visayas",
+  "Region VIII - Eastern Visayas",
+  "Region IX - Zamboanga Peninsula",
+  "Region X - Northern Mindanao",
+  "Region XI - Davao Region",
+  "Region XII - SOCCSKSARGEN",
+  "Region XIII - Caraga",
+  "Bangsamoro Autonomous Region in Muslim Mindanao (BARMM)"
+]
+
 export default function ServiceFormShared({
   initialData,
   onSubmit,
@@ -59,6 +82,8 @@ export default function ServiceFormShared({
     serviceType: initialData?.serviceType || "roll_up",
     price: initialData?.price || 0,
     status: initialData?.status || "active",
+    serviceScope: initialData?.serviceScope || "nationwide",
+    serviceRegions: initialData?.serviceRegions || [],
     schedule: initialData?.schedule || {
       monday: { available: false, startTime: "00:00", endTime: "23:59" },
       tuesday: { available: false, startTime: "00:00", endTime: "23:59" },
@@ -92,6 +117,15 @@ export default function ServiceFormShared({
           [field]: value,
         },
       },
+    }))
+  }
+
+  const handleRegionToggle = (region: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      serviceRegions: prev.serviceRegions.includes(region)
+        ? prev.serviceRegions.filter((r) => r !== region)
+        : [...prev.serviceRegions, region],
     }))
   }
 
@@ -160,6 +194,11 @@ export default function ServiceFormShared({
 
     if (formData.price <= 0) {
       setError("Price must be greater than 0")
+      return
+    }
+
+    if (formData.serviceScope === "regional" && formData.serviceRegions.length === 0) {
+      setError("Please select at least one region for regional service")
       return
     }
 
@@ -281,6 +320,95 @@ export default function ServiceFormShared({
               disabled={isLoading}
             />
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Service Location */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MapPin className="w-5 h-5" />
+            Service Location & Scope
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label>Service Scope *</Label>
+            <Select
+              value={formData.serviceScope}
+              onValueChange={(value) => {
+                handleInputChange("serviceScope", value)
+                if (value === "nationwide") {
+                  handleInputChange("serviceRegions", [])
+                }
+              }}
+              disabled={isLoading}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select service scope" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nationwide">Nationwide (All Philippines)</SelectItem>
+                <SelectItem value="regional">Specific Regions Only</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {formData.serviceScope === "regional" && (
+            <div>
+              <Label>Select Regions *</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2 max-h-60 overflow-y-auto border rounded-lg p-3">
+                {PHILIPPINE_REGIONS.map((region) => (
+                  <div key={region} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`region-${region}`}
+                      checked={formData.serviceRegions.includes(region)}
+                      onCheckedChange={() => handleRegionToggle(region)}
+                      disabled={isLoading}
+                    />
+                    <Label
+                      htmlFor={`region-${region}`}
+                      className="text-sm font-normal cursor-pointer"
+                    >
+                      {region}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+              {formData.serviceRegions.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-sm text-gray-600 mb-2">
+                    Selected regions ({formData.serviceRegions.length}):
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {formData.serviceRegions.map((region) => (
+                      <Badge key={region} variant="secondary" className="text-xs">
+                        {region}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto p-0 ml-1 hover:bg-transparent"
+                          onClick={() => handleRegionToggle(region)}
+                          disabled={isLoading}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {formData.serviceScope === "nationwide" && (
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-sm text-green-800">
+                <strong>Nationwide Service:</strong> Your service will be available across all regions in the Philippines.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 

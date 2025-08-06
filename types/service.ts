@@ -4,6 +4,8 @@ export interface Service {
   description: string
   serviceType: "roll_up" | "roll_down" | "delivery"
   price: number
+  serviceScope: "nationwide" | "regional"
+  serviceRegions: string[]
   schedule: {
     [key: string]: {
       available: boolean
@@ -30,6 +32,8 @@ export interface CreateServiceData {
   description: string
   serviceType: "roll_up" | "roll_down" | "delivery"
   price: number
+  serviceScope: "nationwide" | "regional"
+  serviceRegions: string[]
   schedule: {
     [key: string]: {
       available: boolean
