@@ -22,7 +22,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
 import { useCategories } from "@/hooks/use-categories"
-import { Upload, X, Loader2, AlertCircle, MapPin, Globe, CheckCircle, Info } from 'lucide-react'
+import { Upload, X, Loader2, AlertCircle, MapPin, Globe, CheckCircle, Info, Calendar } from 'lucide-react'
 import type { Service } from "@/types/service"
 
 // Philippine regions data
@@ -44,6 +44,17 @@ const PHILIPPINE_REGIONS = [
   { code: "XII", name: "Region XII - SOCCSKSARGEN" },
   { code: "XIII", name: "Region XIII - Caraga" },
   { code: "BARMM", name: "Bangsamoro Autonomous Region in Muslim Mindanao (BARMM)" }
+]
+
+// Days of the week
+const DAYS_OF_WEEK = [
+  { key: 'monday', label: 'Monday' },
+  { key: 'tuesday', label: 'Tuesday' },
+  { key: 'wednesday', label: 'Wednesday' },
+  { key: 'thursday', label: 'Thursday' },
+  { key: 'friday', label: 'Friday' },
+  { key: 'saturday', label: 'Saturday' },
+  { key: 'sunday', label: 'Sunday' }
 ]
 
 interface ServiceFormSharedProps {
@@ -70,6 +81,17 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
     regions: [] as string[]
   })
 
+  // Schedule state
+  const [schedule, setSchedule] = useState({
+    monday: { enabled: true, startTime: "12:00", endTime: "23:59" },
+    tuesday: { enabled: true, startTime: "12:00", endTime: "23:59" },
+    wednesday: { enabled: true, startTime: "12:00", endTime: "23:59" },
+    thursday: { enabled: true, startTime: "12:00", endTime: "23:59" },
+    friday: { enabled: true, startTime: "12:00", endTime: "23:59" },
+    saturday: { enabled: false, startTime: "12:00", endTime: "23:59" },
+    sunday: { enabled: false, startTime: "12:00", endTime: "23:59" }
+  })
+
   const [images, setImages] = useState<File[]>([])
   const [imageUrls, setImageUrls] = useState<string[]>([])
   const [showPreview, setShowPreview] = useState(false)
@@ -88,6 +110,11 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
         regions: initialData.regions || []
       })
       setImageUrls(initialData.images || [])
+      
+      // Initialize schedule if available
+      if (initialData.schedule) {
+        setSchedule(initialData.schedule)
+      }
     }
   }, [initialData])
 
@@ -96,6 +123,24 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
       ...prev,
       [field]: value
     }))
+  }
+
+  const handleScheduleChange = (day: string, field: 'enabled' | 'startTime' | 'endTime', value: any) => {
+    setSchedule(prev => ({
+      ...prev,
+      [day]: {
+        ...prev[day as keyof typeof prev],
+        [field]: value
+      }
+    }))
+  }
+
+  const formatTimeForDisplay = (time: string) => {
+    const [hours, minutes] = time.split(':')
+    const hour = parseInt(hours)
+    const ampm = hour >= 12 ? 'PM' : 'AM'
+    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
+    return `${displayHour}:${minutes} ${ampm}`
   }
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -249,7 +294,13 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
     const existingImageUrls = imageUrls.filter(url => !url.startsWith('blob:'))
     const newImageFiles = images
 
-    await onSubmit(formData, existingImageUrls, newImageFiles)
+    // Include schedule in form data
+    const serviceData = {
+      ...formData,
+      schedule
+    }
+
+    await onSubmit(serviceData, existingImageUrls, newImageFiles)
   }
 
   const getSelectedRegionNames = () => {
@@ -418,6 +469,59 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Service Schedule */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Calendar className="w-5 h-5" />
+              <span>Service Schedule</span>
+            </CardTitle>
+            <CardDescription>
+              Set your availability for each day of the week
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {DAYS_OF_WEEK.map((day) => (
+              <div key={day.key} className="flex items-center space-x-4 p-3 border rounded-lg">
+                <div className="flex items-center space-x-2 min-w-[120px]">
+                  <Checkbox
+                    id={day.key}
+                    checked={schedule[day.key as keyof typeof schedule].enabled}
+                    onCheckedChange={(checked) => 
+                      handleScheduleChange(day.key, 'enabled', checked)
+                    }
+                  />
+                  <Label htmlFor={day.key} className="cursor-pointer">
+                    {day.label}
+                  </Label>
+                </div>
+
+                {schedule[day.key as keyof typeof schedule].enabled && (
+                  <div className="flex items-center space-x-2 flex-1">
+                    <Input
+                      type="time"
+                      value={schedule[day.key as keyof typeof schedule].startTime}
+                      onChange={(e) => 
+                        handleScheduleChange(day.key, 'startTime', e.target.value)
+                      }
+                      className="w-32"
+                    />
+                    <span className="text-sm text-gray-500">to</span>
+                    <Input
+                      type="time"
+                      value={schedule[day.key as keyof typeof schedule].endTime}
+                      onChange={(e) => 
+                        handleScheduleChange(day.key, 'endTime', e.target.value)
+                      }
+                      className="w-32"
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
           </CardContent>
         </Card>
 
@@ -608,6 +712,32 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
               {formData.duration && (
                 <Badge variant="outline">{formData.duration}</Badge>
               )}
+            </div>
+
+            {/* Schedule Display */}
+            <div className="space-y-2">
+              <h4 className="font-medium flex items-center space-x-2">
+                <Calendar className="w-4 h-4" />
+                <span>Schedule</span>
+              </h4>
+              <div className="space-y-1">
+                {DAYS_OF_WEEK.map((day) => {
+                  const daySchedule = schedule[day.key as keyof typeof schedule]
+                  return (
+                    <div key={day.key} className="flex items-center justify-between text-sm">
+                      <span className={daySchedule.enabled ? "text-gray-900" : "text-gray-400"}>
+                        {day.label}
+                      </span>
+                      <span className={daySchedule.enabled ? "text-gray-700" : "text-gray-400"}>
+                        {daySchedule.enabled 
+                          ? `${formatTimeForDisplay(daySchedule.startTime)} - ${formatTimeForDisplay(daySchedule.endTime)}`
+                          : "Closed"
+                        }
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
 
             {/* Location/Scope Display */}
