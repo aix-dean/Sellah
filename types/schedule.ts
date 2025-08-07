@@ -1,39 +1,17 @@
 import type { Timestamp } from "firebase/firestore"
 
+export interface DaySchedule {
+  available: boolean
+  startTime: string // e.g., "09:00"
+  endTime: string // e.g., "17:00"
+}
+
 export interface ServiceSchedule {
-  monday?: {
-    enabled: boolean
-    startTime?: string
-    endTime?: string
-  }
-  tuesday?: {
-    enabled: boolean
-    startTime?: string
-    endTime?: string
-  }
-  wednesday?: {
-    enabled: boolean
-    startTime?: string
-    endTime?: string
-  }
-  thursday?: {
-    enabled: boolean
-    startTime?: string
-    endTime?: string
-  }
-  friday?: {
-    enabled: boolean
-    startTime?: string
-    endTime?: string
-  }
-  saturday?: {
-    enabled: boolean
-    startTime?: string
-    endTime?: string
-  }
-  sunday?: {
-    enabled: boolean
-    startTime?: string
-    endTime?: string
-  }
+  monday?: DaySchedule
+  tuesday?: DaySchedule
+  wednesday?: DaySchedule
+  thursday?: DaySchedule
+  friday?: DaySchedule
+  saturday?: DaySchedule
+  sunday?: DaySchedule
 }
