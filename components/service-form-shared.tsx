@@ -437,7 +437,6 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
                 id="price"
                 type="number"
                 min="0"
-                step="0.01"
                 value={formData.price}
                 onChange={(e) => handleInputChange("price", parseFloat(e.target.value) || 0)}
                 placeholder="0"
