@@ -14,7 +14,7 @@ import {
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import type { Service, CreateServiceData } from "@/types/service";
 
-const SERVICES_COLLECTION = "services";
+const SERVICES_COLLECTION = "products";
 
 export const ServiceService = {
   /**
