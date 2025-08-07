@@ -4,26 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import {
-  ArrowLeft,
-  Package,
-  Tag,
-  Truck,
-  Calendar,
-  Eye,
-  Heart,
-  ShoppingCart,
-  Edit,
-  Trash2,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  Star,
-  Users,
-  Wrench,
-  PhilippinePeso,
-} from "lucide-react"
+import { ArrowLeft, Package, Tag, Truck, Calendar, Eye, Heart, ShoppingCart, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, Clock, Star, Users, Wrench, PoundSterlingIcon as PhilippinePeso, MapPin } from 'lucide-react'
 import { doc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { loggedGetDoc } from "@/lib/firestore-logger"
@@ -105,6 +86,10 @@ interface Product {
       startTime: string
       endTime: string
     }
+  }
+  coverageArea?: {
+    scope: 'local' | 'regional' | 'nationwide'
+    regions?: string[]
   }
   bookings?: number
   rating?: number
@@ -775,6 +760,29 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
                   <div className="font-medium">{formatDate(product.updated)}</div>
                 </div>
               </div>
+              {isService && product.coverageArea && (
+                <div className="flex items-start">
+                  <MapPin className="w-5 h-5 text-gray-400 mr-3 mt-0.5" />
+                  <div>
+                    <div className="text-sm text-gray-500">Coverage Area</div>
+                    <div className="font-medium">
+                      {product.coverageArea.scope === 'nationwide' ? (
+                        'Nationwide'
+                      ) : product.coverageArea.scope === 'regional' ? (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {product.coverageArea.regions?.map((region) => (
+                            <Badge key={region} variant="secondary" className="text-xs">
+                              {region}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        'Local'
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
               {!isService && product.sku && (
                 <div className="flex items-center">
                   <Tag className="w-5 h-5 text-gray-400 mr-3" />
