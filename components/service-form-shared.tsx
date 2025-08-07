@@ -350,7 +350,7 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
       PHILIPPINE_REGIONS.find(region => region.code === code)?.name || code
     )
   }
-
+  console.log(JSON.stringify(formData))
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
