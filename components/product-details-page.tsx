@@ -746,20 +746,6 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
               {isService ? "Service Coverage" : "Product Info"}
             </h2>
             <div className="space-y-4">
-              <div className="flex items-center">
-                <Calendar className="w-5 h-5 text-gray-400 mr-3" />
-                <div>
-                  <div className="text-sm text-gray-500">Created At</div>
-                  <div className="font-medium">{formatDate(product.created_at)}</div>
-                </div>
-              </div>
-              <div className="flex items-center">
-                <Calendar className="w-5 h-5 text-gray-400 mr-3" />
-                <div>
-                  <div className="text-sm text-gray-500">Last Updated</div>
-                  <div className="font-medium">{formatDate(product.updated)}</div>
-                </div>
-              </div>
               {isService &&  (
                 <div className="flex items-start">
                   <MapPin className="w-5 h-5 text-gray-400 mr-3 mt-0.5" />
@@ -770,7 +756,7 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
                         'Nationwide'
                       ) : product.scope === 'regional' ? (
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {product.coverageArea.regions?.map((region) => (
+                          {product.regions?.map((region) => (
                             <Badge key={region} variant="secondary" className="text-xs">
                               {region}
                             </Badge>
