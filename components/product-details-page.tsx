@@ -191,6 +191,8 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
           bookings: productData.bookings || 0,
           rating: productData.rating || 5,
           stock: productData.stock || 0,
+          scope: productData.scope || "",
+          regions: productDate.regins || []
         })
 
         // Fetch category names if categories exist
