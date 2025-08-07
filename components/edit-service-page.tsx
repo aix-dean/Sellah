@@ -34,7 +34,7 @@ export function EditServicePage({ serviceId }: EditServicePageProps) {
             description: "The service you are trying to edit does not exist.",
             variant: "destructive",
           })
-          router.push("/dashboard/services") // Redirect if service not found
+          // Don't redirect, just show error
         }
       } catch (error) {
         console.error("Failed to fetch service:", error)
@@ -43,7 +43,7 @@ export function EditServicePage({ serviceId }: EditServicePageProps) {
           description: "Failed to load service data. Please try again.",
           variant: "destructive",
         })
-        router.push("/dashboard/services")
+        // Don't redirect, just show error
       } finally {
         setIsFetching(false)
       }
@@ -52,10 +52,10 @@ export function EditServicePage({ serviceId }: EditServicePageProps) {
     if (serviceId) {
       fetchService()
     }
-  }, [serviceId, router, toast])
+  }, [serviceId, toast])
 
   const handleSubmit = async (
-    serviceData: CreateServiceData, // This type is used for the form data structure
+    serviceData: CreateServiceData,
     existingImageUrls: string[],
     newImageFiles: File[],
   ) => {
@@ -81,7 +81,8 @@ export function EditServicePage({ serviceId }: EditServicePageProps) {
         title: "Service Updated",
         description: "Your service has been successfully updated.",
       })
-      router.push("/dashboard/services") // Redirect to services list
+      // Only redirect on successful update
+      router.push("/dashboard/services")
     } catch (error) {
       console.error("Failed to update service:", error)
       toast({
@@ -89,6 +90,7 @@ export function EditServicePage({ serviceId }: EditServicePageProps) {
         description: "Failed to update service. Please try again.",
         variant: "destructive",
       })
+      // Don't redirect on error, just show the error message
     } finally {
       setIsLoading(false)
     }
@@ -105,8 +107,12 @@ export function EditServicePage({ serviceId }: EditServicePageProps) {
 
   if (!service) {
     return (
-      <div className="container mx-auto py-8 text-center text-gray-500">
-        Service not found or an error occurred.
+      <div className="container mx-auto py-8">
+        <h1 className="text-3xl font-bold mb-6">Edit Service</h1>
+        <div className="text-center text-gray-500 py-12">
+          <p className="text-lg mb-4">Service not found or failed to load.</p>
+          <p className="text-sm">Please check the service ID and try again.</p>
+        </div>
       </div>
     )
   }
