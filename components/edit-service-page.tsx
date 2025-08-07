@@ -38,7 +38,7 @@ export function EditServicePage({ serviceId }: EditServicePageProps) {
             description: "The service you are trying to edit does not exist.",
             variant: "destructive",
           })
-          router.push("/dashboard/services") // Redirect if service not found
+          router.push("/dashboard/products") // Redirect if service not found
         }
       } catch (error) {
         console.error("Error fetching service:", error)
@@ -47,7 +47,7 @@ export function EditServicePage({ serviceId }: EditServicePageProps) {
           description: "Failed to load service data. Please try again.",
           variant: "destructive",
         })
-        router.push("/dashboard/services") // Redirect on error
+        router.push("/dashboard/products") // Redirect on error
       } finally {
         setDataLoading(false)
       }
