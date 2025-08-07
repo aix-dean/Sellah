@@ -758,7 +758,7 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
                         <div className="flex flex-wrap gap-1 mt-1">
                           {product.regions?.map((region) => (
                             <Badge key={region} variant="secondary" className="text-xs">
-                              {region == "NCR" : region ? `Region ${region}`}
+                              {region == "NCR" ? region : `Region ${region}`}
                             </Badge>
                           ))}
                         </div>
