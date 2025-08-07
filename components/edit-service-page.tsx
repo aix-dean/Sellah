@@ -70,15 +70,10 @@ export function EditServicePage({ serviceId }: EditServicePageProps) {
 
     setIsLoading(true)
     try {
-      // Ensure seller_id is included in updates if it's part of the Service type
-      const updates: Partial<Service> = {
-        ...serviceData,
-        seller_id: user.uid, // Ensure seller_id is passed for image uploads if needed
-      };
-
+      // Use the correct parameter order for updateService
       await ServiceService.updateService(
         service.id,
-        updates,
+        { ...serviceData, seller_id: user.uid },
         newImageFiles,
         existingImageUrls,
       )

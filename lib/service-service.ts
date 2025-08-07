@@ -19,14 +19,12 @@ const SERVICES_COLLECTION = "services";
 export const ServiceService = {
   /**
    * Creates a new service in Firestore.
-   * @param userId The ID of the user creating the service.
    * @param serviceData The service data to create.
    * @param imageFiles An array of image files to upload.
    * @returns The ID of the newly created service.
    */
   async createService(
-    userId: string,
-    serviceData: ServiceFormData,
+    serviceData: CreateServiceData,
     imageFiles: File[],
   ): Promise<string> {
     try {
@@ -34,7 +32,7 @@ export const ServiceService = {
       for (const file of imageFiles) {
         const storageRef = ref(
           storage,
-          `service_images/${userId}/${Date.now()}_${file.name}`,
+          `service_images/${serviceData.seller_id}/${Date.now()}_${file.name}`,
         );
         await uploadBytes(storageRef, file);
         const url = await getDownloadURL(storageRef);
@@ -43,10 +41,15 @@ export const ServiceService = {
 
       const docRef = await addDoc(collection(db, SERVICES_COLLECTION), {
         ...serviceData,
-        userId,
         imageUrls,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+        type: "SERVICES",
+        active: true,
+        deleted: false,
+        views: 0,
+        bookings: 0,
+        rating: 0,
+        created_at: serverTimestamp(),
+        updated_at: serverTimestamp(),
       });
       return docRef.id;
     } catch (error) {
@@ -69,19 +72,25 @@ export const ServiceService = {
         const data = docSnap.data();
         return {
           id: docSnap.id,
-          userId: data.userId,
           name: data.name,
           description: data.description,
           category: data.category,
           price: data.price,
           duration: data.duration,
+          imageUrls: data.imageUrls || [],
+          seller_id: data.seller_id,
+          type: data.type || "SERVICES",
+          active: data.active || true,
+          deleted: data.deleted || false,
+          views: data.views || 0,
+          bookings: data.bookings || 0,
+          rating: data.rating || 0,
           availability: data.availability,
           scope: data.scope,
           regions: data.regions || [],
-          imageUrls: data.imageUrls || [],
-          createdAt: data.createdAt?.toDate().toISOString() || "",
-          updatedAt: data.updatedAt?.toDate().toISOString() || "",
           schedule: data.schedule || {},
+          created_at: data.created_at,
+          updated_at: data.updated_at,
         };
       } else {
         return null;
@@ -101,9 +110,9 @@ export const ServiceService = {
    */
   async updateService(
     serviceId: string,
-    serviceData: Partial<ServiceFormData>,
-    existingImageUrls: string[],
+    serviceData: Partial<CreateServiceData>,
     newImageFiles: File[],
+    existingImageUrls: string[],
   ): Promise<void> {
     try {
       const serviceRef = doc(db, SERVICES_COLLECTION, serviceId);
@@ -113,7 +122,8 @@ export const ServiceService = {
         throw new Error("Service not found.");
       }
 
-      const currentImageUrls: string[] = currentServiceSnap.data().imageUrls || [];
+      const currentData = currentServiceSnap.data();
+      const currentImageUrls: string[] = currentData.imageUrls || [];
       const imagesToDelete = currentImageUrls.filter(
         (url) => !existingImageUrls.includes(url),
       );
@@ -134,7 +144,7 @@ export const ServiceService = {
       for (const file of newImageFiles) {
         const storageRef = ref(
           storage,
-          `service_images/${currentServiceSnap.data().userId}/${Date.now()}_${file.name}`,
+          `service_images/${currentData.seller_id}/${Date.now()}_${file.name}`,
         );
         await uploadBytes(storageRef, file);
         const url = await getDownloadURL(storageRef);
@@ -143,16 +153,10 @@ export const ServiceService = {
 
       const finalImageUrls = [...existingImageUrls, ...uploadedNewImageUrls];
 
-      console.log("Data being sent to Firestore for update:", {
-        ...serviceData,
-        imageUrls: finalImageUrls,
-        updatedAt: serverTimestamp(),
-      }); // Debug log
-
       await updateDoc(serviceRef, {
         ...serviceData,
         imageUrls: finalImageUrls,
-        updatedAt: serverTimestamp(),
+        updated_at: serverTimestamp(),
       });
     } catch (error) {
       console.error("Error updating service:", error);
@@ -202,7 +206,7 @@ export const ServiceService = {
     try {
       const q = query(
         collection(db, SERVICES_COLLECTION),
-        where("userId", "==", userId),
+        where("seller_id", "==", userId),
       );
       const querySnapshot = await getDocs(q);
       const services: Service[] = [];
@@ -210,19 +214,25 @@ export const ServiceService = {
         const data = doc.data();
         services.push({
           id: doc.id,
-          userId: data.userId,
           name: data.name,
           description: data.description,
           category: data.category,
           price: data.price,
           duration: data.duration,
+          imageUrls: data.imageUrls || [],
+          seller_id: data.seller_id,
+          type: data.type || "SERVICES",
+          active: data.active || true,
+          deleted: data.deleted || false,
+          views: data.views || 0,
+          bookings: data.bookings || 0,
+          rating: data.rating || 0,
           availability: data.availability,
           scope: data.scope,
           regions: data.regions || [],
-          imageUrls: data.imageUrls || [],
-          createdAt: data.createdAt?.toDate().toISOString() || "",
-          updatedAt: data.updatedAt?.toDate().toISOString() || "",
           schedule: data.schedule || {},
+          created_at: data.created_at,
+          updated_at: data.updated_at,
         });
       });
       return services;
@@ -231,4 +241,9 @@ export const ServiceService = {
       throw new Error("Failed to fetch services.");
     }
   },
+
+  // Alias for getServiceById for compatibility
+  async getService(serviceId: string): Promise<Service | null> {
+    return this.getServiceById(serviceId);
+  }
 };

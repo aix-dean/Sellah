@@ -28,7 +28,7 @@ export function AddServicePage() {
 
     setIsLoading(true)
     try {
-      // For creation, existingImageUrls will be empty, so we only pass newImageFiles
+      // For creation, pass the service data with seller_id and the image files
       await ServiceService.createService(
         { ...serviceData, seller_id: user.uid },
         newImageFiles,
