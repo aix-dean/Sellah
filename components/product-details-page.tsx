@@ -192,7 +192,7 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
           rating: productData.rating || 5,
           stock: productData.stock || 0,
           scope: productData.scope || "",
-          regions: productDate.regins || []
+          regions: productData.regions || []
         })
 
         // Fetch category names if categories exist
