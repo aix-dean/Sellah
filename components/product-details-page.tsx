@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ArrowLeft, Package, Tag, Truck, Calendar, Eye, Heart, ShoppingCart, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, Clock, Star, Users, Wrench, PoundSterlingIcon as PhilippinePeso, MapPin } from 'lucide-react'
+import { ArrowLeft, Package, Tag, Truck, Calendar, Eye, Heart, ShoppingCart, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, Clock, Star, Users, Wrench, PhilippinePeso, MapPin } from 'lucide-react'
 import { doc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { loggedGetDoc } from "@/lib/firestore-logger"
