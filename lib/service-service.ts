@@ -16,7 +16,7 @@ import type { Service, ServiceFormData } from "@/types/service";
 
 const SERVICES_COLLECTION = "services";
 
-export default const serviceService = {
+export const serviceService = {
   /**
    * Creates a new service in Firestore.
    * @param userId The ID of the user creating the service.
