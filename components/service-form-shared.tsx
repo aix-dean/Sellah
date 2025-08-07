@@ -118,13 +118,13 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
       } else {
         // If no schedule data, ensure default values are applied
         setSchedule({
-          monday: { available: true, startTime: "09:00", endTime: "17:00" },
-          tuesday: { available: true, startTime: "09:00", endTime: "17:00" },
-          wednesday: { available: true, startTime: "09:00", endTime: "17:00" },
-          thursday: { available: true, startTime: "09:00", endTime: "17:00" },
-          friday: { available: true, startTime: "09:00", endTime: "17:00" },
-          saturday: { available: false, startTime: "09:00", endTime: "17:00" },
-          sunday: { available: false, startTime: "09:00", endTime: "17:00" }
+          monday: { available: false, startTime: "00:00", endTime: "23:59" },
+          tuesday: { available: false, startTime: "00:00", endTime: "23:59" },
+          wednesday: { available: false, startTime: "00:00", endTime: "23:59" },
+          thursday: { available: false, startTime: "00:00", endTime: "23:59" },
+          friday: { available: false, startTime: "00:00", endTime: "23:59" },
+          saturday: { available: false, startTime: "00:00", endTime: "23:59" },
+          sunday: { available: false, startTime: "00:00", endTime: "23:59" }
         })
       }
     }
