@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { useToast } from "@/hooks/use-toast"
 import type { CreateServiceData } from "@/types/service"
 
-export default function AddServicePage() {
+export function AddServicePage() {
   const router = useRouter()
   const { user } = useAuth()
   const { toast } = useToast()
