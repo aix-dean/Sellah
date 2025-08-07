@@ -2,233 +2,386 @@ import { db, storage } from "@/lib/firebase";
 import {
   collection,
   addDoc,
-  serverTimestamp,
   doc,
   updateDoc,
   getDoc,
+  getDocs,
   query,
   where,
-  getDocs,
-  deleteDoc,
+  orderBy,
+  limit,
+  startAfter,
+  serverTimestamp,
+  writeBatch,
+  type QueryDocumentSnapshot,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
-import type { Service, ServiceFormData } from "@/types/service";
+import type { Service, CreateServiceData } from "@/types/service";
 
-const SERVICES_COLLECTION = "services";
+export interface ServiceFilter {
+  serviceType?: string;
+  status?: string;
+  priceMin?: number;
+  priceMax?: number;
+  search?: string;
+}
 
-export const serviceService = {
-  /**
-   * Creates a new service in Firestore.
-   * @param userId The ID of the user creating the service.
-   * @param serviceData The service data to create.
-   * @param imageFiles An array of image files to upload.
-   * @returns The ID of the newly created service.
-   */
-  async createService(
-    userId: string,
-    serviceData: ServiceFormData,
-    imageFiles: File[],
-  ): Promise<string> {
+export interface ServicesResponse {
+  services: Service[];
+  total: number;
+  hasMore: boolean;
+  lastDoc?: QueryDocumentSnapshot;
+}
+
+const PRODUCTS_COLLECTION = "products";
+
+export const ServiceService = {
+  // Upload a single service image
+  async uploadServiceImage(file: File, userId: string, serviceId?: string): Promise<string> {
     try {
-      const imageUrls: string[] = [];
-      for (const file of imageFiles) {
-        const storageRef = ref(
-          storage,
-          `service_images/${userId}/${Date.now()}_${file.name}`,
-        );
-        await uploadBytes(storageRef, file);
-        const url = await getDownloadURL(storageRef);
-        imageUrls.push(url);
-      }
+      const fileName = `${Date.now()}_${file.name}`;
+      const path = serviceId ? `services/${userId}/${serviceId}/${fileName}` : `services/${userId}/temp/${fileName}`;
+      const storageRef = ref(storage, path);
 
-      const docRef = await addDoc(collection(db, SERVICES_COLLECTION), {
-        ...serviceData,
-        userId,
-        imageUrls,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+
+      return downloadURL;
+    } catch (error) {
+      console.error("Error uploading service image:", error);
+      throw error;
+    }
+  },
+
+  // Upload multiple service images
+  async uploadServiceImages(files: File[], userId: string, serviceId?: string): Promise<string[]> {
+    try {
+      const uploadPromises = files.map((file) => this.uploadServiceImage(file, userId, serviceId));
+      const imageUrls = await Promise.all(uploadPromises);
+      return imageUrls;
+    } catch (error) {
+      console.error("Error uploading service images:", error);
+      throw error;
+    }
+  },
+
+  // Delete service images from storage
+  async deleteServiceImages(imageUrls: string[]): Promise<void> {
+    try {
+      const deletePromises = imageUrls.map(async (url) => {
+        try {
+          // Extract path from Firebase Storage URL
+          const urlObj = new URL(url);
+          const path = decodeURIComponent(urlObj.pathname.split("/o/")[1].split("?")[0]);
+          const imageRef = ref(storage, path);
+          await deleteObject(imageRef);
+        } catch (error) {
+          console.error("Error deleting image:", url, error);
+        }
       });
+
+      await Promise.all(deletePromises);
+    } catch (error) {
+      console.error("Error deleting service images:", error);
+      throw error;
+    }
+  },
+
+  // Create a new service
+  async createService(serviceData: Omit<CreateServiceData, "imageUrls">, imageFiles: File[] = []): Promise<string> {
+    try {
+      // Upload images first
+      const imageUrls = imageFiles.length > 0 ? await this.uploadServiceImages(imageFiles, serviceData.seller_id) : [];
+
+      const service: Omit<Service, "id"> = {
+        ...serviceData,
+        imageUrls,
+        type: "SERVICES",
+        active: true,
+        deleted: false,
+        views: 0,
+        bookings: 0,
+        rating: 5,
+        created_at: serverTimestamp(),
+        updated_at: serverTimestamp(),
+      } as Omit<Service, "id">; // Cast to ensure type compatibility with serverTimestamp
+
+      console.log("Data being sent to Firestore for creation:", service); // Debug log
+
+      const docRef = await addDoc(collection(db, PRODUCTS_COLLECTION), service);
+      console.log("Service created successfully:", docRef.id);
       return docRef.id;
     } catch (error) {
       console.error("Error creating service:", error);
-      throw new Error("Failed to create service.");
+      throw error;
     }
   },
 
-  /**
-   * Fetches a single service by its ID.
-   * @param serviceId The ID of the service to fetch.
-   * @returns The service data or null if not found.
-   */
-  async getServiceById(serviceId: string): Promise<Service | null> {
-    try {
-      const docRef = doc(db, SERVICES_COLLECTION, serviceId);
-      const docSnap = await getDoc(docRef);
-
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        return {
-          id: docSnap.id,
-          userId: data.userId,
-          name: data.name,
-          description: data.description,
-          category: data.category,
-          price: data.price,
-          duration: data.duration,
-          availability: data.availability,
-          scope: data.scope,
-          regions: data.regions || [],
-          imageUrls: data.imageUrls || [],
-          createdAt: data.createdAt?.toDate().toISOString() || "",
-          updatedAt: data.updatedAt?.toDate().toISOString() || "",
-          schedule: data.schedule || {},
-        };
-      } else {
-        return null;
-      }
-    } catch (error) {
-      console.error("Error fetching service by ID:", error);
-      throw new Error("Failed to fetch service.");
-    }
-  },
-
-  /**
-   * Updates an existing service in Firestore.
-   * @param serviceId The ID of the service to update.
-   * @param serviceData The updated service data.
-   * @param existingImageUrls URLs of images that should be kept.
-   * @param newImageFiles New image files to upload.
-   */
+  // Update an existing service
   async updateService(
     serviceId: string,
-    serviceData: Partial<ServiceFormData>,
-    existingImageUrls: string[],
-    newImageFiles: File[],
+    updates: Partial<Service>,
+    newImageFiles: File[] = [],
+    existingImageUrls: string[] = [],
   ): Promise<void> {
     try {
-      const serviceRef = doc(db, SERVICES_COLLECTION, serviceId);
-      const currentServiceSnap = await getDoc(serviceRef);
+      const serviceRef = doc(db, PRODUCTS_COLLECTION, serviceId);
 
-      if (!currentServiceSnap.exists()) {
-        throw new Error("Service not found.");
-      }
+      // Upload new images if any
+      const newImageUrls =
+        newImageFiles.length > 0
+          ? await this.uploadServiceImages(newImageFiles, updates.seller_id || "", serviceId)
+          : [];
 
-      const currentImageUrls: string[] = currentServiceSnap.data().imageUrls || [];
-      const imagesToDelete = currentImageUrls.filter(
-        (url) => !existingImageUrls.includes(url),
-      );
+      // Combine existing and new image URLs
+      const allImageUrls = [...existingImageUrls, ...newImageUrls];
 
-      // Delete removed images from storage
-      for (const url of imagesToDelete) {
-        const imageRef = ref(storage, url);
-        try {
-          await deleteObject(imageRef);
-        } catch (deleteError) {
-          console.warn(`Failed to delete old image: ${url}`, deleteError);
-          // Continue even if an image deletion fails
-        }
-      }
+      // Construct the update data, ensuring schedule is included if present in updates
+      const updateData: Partial<Service> = {
+        ...updates,
+        imageUrls: allImageUrls,
+        updated_at: serverTimestamp(),
+      };
 
-      // Upload new images
-      const uploadedNewImageUrls: string[] = [];
-      for (const file of newImageFiles) {
-        const storageRef = ref(
-          storage,
-          `service_images/${currentServiceSnap.data().userId}/${Date.now()}_${file.name}`,
-        );
-        await uploadBytes(storageRef, file);
-        const url = await getDownloadURL(storageRef);
-        uploadedNewImageUrls.push(url);
-      }
+      console.log("Data being sent to Firestore for update:", updateData); // Debug log
 
-      const finalImageUrls = [...existingImageUrls, ...uploadedNewImageUrls];
-
-      console.log("Data being sent to Firestore for update:", {
-        ...serviceData,
-        imageUrls: finalImageUrls,
-        updatedAt: serverTimestamp(),
-      }); // Debug log
-
-      await updateDoc(serviceRef, {
-        ...serviceData,
-        imageUrls: finalImageUrls,
-        updatedAt: serverTimestamp(),
-      });
+      await updateDoc(serviceRef, updateData);
+      console.log("Service updated successfully:", serviceId);
     } catch (error) {
       console.error("Error updating service:", error);
-      throw new Error("Failed to update service.");
+      throw error;
     }
   },
 
-  /**
-   * Deletes a service and its associated images from Firestore and Storage.
-   * @param serviceId The ID of the service to delete.
-   */
-  async deleteService(serviceId: string): Promise<void> {
+  // Soft delete service
+  async deleteService(serviceId: string, userId: string): Promise<void> {
     try {
-      const serviceRef = doc(db, SERVICES_COLLECTION, serviceId);
-      const serviceSnap = await getDoc(serviceRef);
+      const serviceRef = doc(db, PRODUCTS_COLLECTION, serviceId);
+      const serviceDoc = await getDoc(serviceRef);
 
-      if (serviceSnap.exists()) {
-        const imageUrls: string[] = serviceSnap.data().imageUrls || [];
-
-        // Delete images from storage
-        for (const url of imageUrls) {
-          const imageRef = ref(storage, url);
-          try {
-            await deleteObject(imageRef);
-          } catch (deleteError) {
-            console.warn(`Failed to delete image: ${url}`, deleteError);
-          }
-        }
-
-        // Delete service document from Firestore
-        await deleteDoc(serviceRef);
-      } else {
-        throw new Error("Service not found.");
+      if (!serviceDoc.exists()) {
+        throw new Error("Service not found");
       }
+
+      const serviceData = serviceDoc.data() as Service;
+
+      // Verify ownership
+      if (serviceData.seller_id !== userId) {
+        throw new Error("Unauthorized: You can only delete your own services");
+      }
+
+      // Soft delete: set active=false and deleted=true
+      await updateDoc(serviceRef, {
+        active: false,
+        deleted: true,
+        updated_at: serverTimestamp(),
+      });
+
+      console.log("Service soft deleted successfully:", serviceId);
     } catch (error) {
       console.error("Error deleting service:", error);
-      throw new Error("Failed to delete service.");
+      throw error;
     }
   },
 
-  /**
-   * Fetches all services for a given user.
-   * @param userId The ID of the user whose services to fetch.
-   * @returns An array of services.
-   */
-  async getServicesByUserId(userId: string): Promise<Service[]> {
+  // Get a single service
+  async getService(serviceId: string): Promise<Service | null> {
     try {
-      const q = query(
-        collection(db, SERVICES_COLLECTION),
-        where("userId", "==", userId),
+      const serviceDoc = await getDoc(doc(db, PRODUCTS_COLLECTION, serviceId)); // Use "products" collection
+
+      if (serviceDoc.exists()) {
+        const data = serviceDoc.data();
+        if (data.type === "SERVICES") { // Ensure it's a service
+          return {
+            id: serviceDoc.id,
+            name: data.name,
+            description: data.description,
+            category: data.category,
+            price: data.price,
+            duration: data.duration || undefined,
+            imageUrls: data.imageUrls || undefined,
+            seller_id: data.seller_id,
+            type: data.type,
+            active: data.active,
+            deleted: data.deleted,
+            views: data.views,
+            bookings: data.bookings,
+            rating: data.rating,
+            availability: data.availability,
+            scope: data.scope,
+            regions: data.regions || undefined,
+            schedule: data.schedule || undefined,
+            created_at: data.created_at,
+            updated_at: data.updated_at,
+          } as Service;
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error("Error getting service:", error);
+      throw error;
+    }
+  },
+
+  // Get services with filters
+  async getServices(
+    filters: ServiceFilter = {},
+    pageSize = 20,
+    lastDoc?: QueryDocumentSnapshot,
+  ): Promise<ServicesResponse> {
+    try {
+      let q = query(
+        collection(db, PRODUCTS_COLLECTION),
+        where("type", "==", "SERVICES"),
+        where("active", "==", true),
+        where("deleted", "==", false),
       );
+
+      // Apply filters
+      if (filters.serviceType) {
+        q = query(q, where("serviceType", "==", filters.serviceType));
+      }
+
+      if (filters.status) {
+        q = query(q, where("status", "==", filters.status));
+      }
+
+      // Add ordering
+      q = query(q, orderBy("created_at", "desc"));
+
+      // Add pagination
+      if (lastDoc) {
+        q = query(q, startAfter(lastDoc));
+      }
+
+      q = query(q, limit(pageSize + 1));
+
       const querySnapshot = await getDocs(q);
-      const services: Service[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        services.push({
-          id: doc.id,
-          userId: data.userId,
-          name: data.name,
-          description: data.description,
-          category: data.category,
-          price: data.price,
-          duration: data.duration,
-          availability: data.availability,
-          scope: data.scope,
-          regions: data.regions || [],
-          imageUrls: data.imageUrls || [],
-          createdAt: data.createdAt?.toDate().toISOString() || "",
-          updatedAt: data.updatedAt?.toDate().toISOString() || "",
-          schedule: data.schedule || {},
+      const docs = querySnapshot.docs;
+
+      const hasMore = docs.length > pageSize;
+      const services = docs.slice(0, pageSize).map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Service[];
+
+      // Apply client-side filters
+      let filteredServices = services;
+
+      if (filters.search) {
+        const searchTerm = filters.search.toLowerCase();
+        filteredServices = services.filter(
+          (service) =>
+            service.name.toLowerCase().includes(searchTerm) || service.description.toLowerCase().includes(searchTerm),
+        );
+      }
+
+      if (filters.priceMin !== undefined) {
+        filteredServices = filteredServices.filter((service) => service.price >= filters.priceMin!);
+      }
+
+      if (filters.priceMax !== undefined) {
+        filteredServices = filteredServices.filter((service) => service.price <= filters.priceMax!);
+      }
+
+      return {
+        services: filteredServices,
+        total: filteredServices.length,
+        hasMore,
+        lastDoc: hasMore ? docs[pageSize - 1] : undefined,
+      };
+    } catch (error) {
+      console.error("Error getting services:", error);
+      throw error;
+    }
+  },
+
+  // Get user services
+  async getUserServices(
+    userId: string,
+    filters: ServiceFilter = {},
+    pageSize = 20,
+    lastDoc?: QueryDocumentSnapshot,
+  ): Promise<ServicesResponse> {
+    try {
+      let q = query(
+        collection(db, PRODUCTS_COLLECTION),
+        where("seller_id", "==", userId),
+        where("type", "==", "SERVICES"),
+        where("active", "==", true),
+        where("deleted", "==", false),
+      );
+
+      // Apply additional filters
+      if (filters.status) {
+        q = query(q, where("status", "==", filters.status));
+      }
+
+      if (filters.serviceType) {
+        q = query(q, where("serviceType", "==", filters.serviceType));
+      }
+
+      // Add ordering
+      q = query(q, orderBy("created_at", "desc"));
+
+      // Add pagination
+      if (lastDoc) {
+        q = query(q, startAfter(lastDoc));
+      }
+
+      q = query(q, limit(pageSize + 1));
+
+      const querySnapshot = await getDocs(q);
+      const docs = querySnapshot.docs;
+
+      const hasMore = docs.length > pageSize;
+      const services = docs.slice(0, pageSize).map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Service[];
+
+      return {
+        services,
+        total: services.length,
+        hasMore,
+        lastDoc: hasMore ? docs[pageSize - 1] : undefined,
+      };
+    } catch (error) {
+      console.error("Error getting user services:", error);
+      throw error;
+    }
+  },
+
+  // Bulk delete services
+  async bulkDeleteServices(serviceIds: string[], userId: string): Promise<void> {
+    try {
+      const batch = writeBatch(db);
+
+      // Get all services to delete their images
+      const services = await Promise.all(serviceIds.map((id) => this.getService(id)));
+
+      // Delete images
+      const allImages = services.filter((service) => service !== null).flatMap((service) => service!.imageUrls || []);
+
+      if (allImages.length > 0) {
+        await this.deleteServiceImages(allImages);
+      }
+
+      // Soft delete service documents
+      serviceIds.forEach((id) => {
+        const serviceRef = doc(db, PRODUCTS_COLLECTION, id);
+        batch.update(serviceRef, {
+          active: false,
+          deleted: true,
+          updated_at: serverTimestamp(),
         });
       });
-      return services;
+
+      await batch.commit();
+      console.log("Bulk delete completed for", serviceIds.length, "services");
     } catch (error) {
-      console.error("Error fetching services by user ID:", error);
-      throw new Error("Failed to fetch services.");
+      console.error("Error bulk deleting services:", error);
+      throw error;
     }
   },
 };
