@@ -14,7 +14,7 @@ interface EditServicePageProps {
   serviceId: string
 }
 
-export default function EditServicePage({ serviceId }: EditServicePageProps) {
+export function EditServicePage({ serviceId }: EditServicePageProps) {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
   const { toast } = useToast()
