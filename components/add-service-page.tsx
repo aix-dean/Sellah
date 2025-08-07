@@ -37,7 +37,7 @@ export function AddServicePage() {
         title: "Service Created",
         description: "Your new service has been successfully added.",
       })
-      router.push("/dashboard/services") // Redirect to services list
+      router.push("/dashboard/products") // Redirect to services list
     } catch (error) {
       console.error("Failed to create service:", error)
       toast({
