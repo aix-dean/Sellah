@@ -368,6 +368,7 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
       </div>
     )
   }
+  const dayOrder = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
   if (error || !product) {
     return (
