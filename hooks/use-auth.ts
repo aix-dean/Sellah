@@ -1,42 +1,49 @@
-import { useState, useEffect, createContext, useContext, useMemo } from "react"
-import { auth } from "@/lib/firebase"
-import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth"
+"use client"
 
-interface AuthContextType {
-  user: FirebaseUser | null
+import { useState, useEffect } from "react"
+import { onAuthStateChanged, type User } from "firebase/auth"
+import { auth } from "@/lib/firebase"
+
+export interface UseAuthReturn {
+  user: User | null
   loading: boolean
+  error: string | null
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
-
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<FirebaseUser | null>(null)
+export function useAuth(): UseAuthReturn {
+  const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser)
-      setLoading(false)
-    })
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      (user) => {
+        setUser(user)
+        setLoading(false)
+        setError(null)
+      },
+      (error) => {
+        console.error("Auth state change error:", error)
+        setError(error.message)
+        setLoading(false)
+      },
+    )
 
     return () => unsubscribe()
   }, [])
 
-  const memoedValue = useMemo(
-    () => ({
-      user,
-      loading,
-    }),
-    [user, loading],
-  )
-
-  return <AuthContext.Provider value={memoedValue}>{children}</AuthContext.Provider>
+  return { user, loading, error }
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext)
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider")
-  }
-  return context
+// Helper hook to check if user is authenticated
+export function useAuthUser(): User | null {
+  const { user } = useAuth()
+  return user
+}
+
+// Helper hook to check authentication status
+export function useIsAuthenticated(): boolean {
+  const { user, loading } = useAuth()
+  return !loading && !!user
 }
