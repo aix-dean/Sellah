@@ -577,26 +577,29 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
                 Service Schedule
               </h2>
               <div className="space-y-3">
-                {Object.entries(product.schedule).map(([day, schedule]) => (
-                  <div key={day} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center">
-                      <Calendar className="w-4 h-4 text-gray-400 mr-2" />
-                      <span className="font-medium capitalize">{day}</span>
-                    </div>
-                    <div className="flex items-center">
-                      {schedule.available ? (
-                        <div className="flex items-center text-green-600">
-                          <Clock className="w-4 h-4 mr-1" />
-                          <span className="text-sm">
-                            {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
-                          </span>
-                        </div>
-                      ) : (
-                        <Badge variant="secondary">Closed</Badge>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                
+{Object.entries(product.schedule)
+  .sort(([dayA], [dayB]) => dayOrder.indexOf(dayA.toLowerCase()) - dayOrder.indexOf(dayB.toLowerCase()))
+  .map(([day, schedule]) => (
+    <div key={day} className="flex items-center justify-between p-3 border rounded-lg">
+      <div className="flex items-center">
+        <Calendar className="w-4 h-4 text-gray-400 mr-2" />
+        <span className="font-medium capitalize">{day}</span>
+      </div>
+      <div className="flex items-center">
+        {schedule.available ? (
+          <div className="flex items-center text-green-600">
+            <Clock className="w-4 h-4 mr-1" />
+            <span className="text-sm">
+              {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
+            </span>
+          </div>
+        ) : (
+          <Badge variant="secondary">Closed</Badge>
+        )}
+      </div>
+    </div>
+))}
               </div>
             </div>
           )}
