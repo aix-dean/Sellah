@@ -743,7 +743,7 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
           {/* Product/Service Info */}
           <div className="bg-white rounded-lg shadow-sm border p-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-4 text-left">
-              {isService ? "Service" : "Product"} Info
+              {isService ? "Service Coverage" : "Product Info"}
             </h2>
             <div className="space-y-4">
               <div className="flex items-center">
@@ -760,15 +760,15 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
                   <div className="font-medium">{formatDate(product.updated)}</div>
                 </div>
               </div>
-              {isService && product.coverageArea && (
+              {isService &&  (
                 <div className="flex items-start">
                   <MapPin className="w-5 h-5 text-gray-400 mr-3 mt-0.5" />
                   <div>
                     <div className="text-sm text-gray-500">Coverage Area</div>
                     <div className="font-medium">
-                      {product.coverageArea.scope === 'nationwide' ? (
+                      {product.scope === 'nationwide' ? (
                         'Nationwide'
-                      ) : product.coverageArea.scope === 'regional' ? (
+                      ) : product.scope === 'regional' ? (
                         <div className="flex flex-wrap gap-1 mt-1">
                           {product.coverageArea.regions?.map((region) => (
                             <Badge key={region} variant="secondary" className="text-xs">
