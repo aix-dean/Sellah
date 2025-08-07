@@ -37,3 +37,6 @@ export interface CreateServiceData {
   regions?: string[]
   schedule?: ServiceSchedule // Added schedule property
 }
+
+// Add ServiceFormData as an alias for CreateServiceData for compatibility
+export type ServiceFormData = CreateServiceData;

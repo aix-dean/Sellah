@@ -12,7 +12,7 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
-import type { Service, ServiceFormData } from "@/types/service";
+import type { Service, CreateServiceData } from "@/types/service";
 
 const SERVICES_COLLECTION = "services";
 
@@ -105,8 +105,8 @@ export const ServiceService = {
    * Updates an existing service in Firestore.
    * @param serviceId The ID of the service to update.
    * @param serviceData The updated service data.
-   * @param existingImageUrls URLs of images that should be kept.
    * @param newImageFiles New image files to upload.
+   * @param existingImageUrls URLs of images that should be kept.
    */
   async updateService(
     serviceId: string,

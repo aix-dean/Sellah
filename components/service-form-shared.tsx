@@ -23,7 +23,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
 import { useCategories } from "@/hooks/use-categories"
 import { Upload, X, Loader2, AlertCircle, MapPin, Globe, CheckCircle, Info, Calendar } from 'lucide-react'
-import type { Service } from "@/types/service"
+import type { Service, CreateServiceData } from "@/types/service"
 import type { ServiceSchedule } from "@/types/schedule"
 
 // Philippine regions data
@@ -60,7 +60,7 @@ const DAYS_OF_WEEK = [
 
 interface ServiceFormSharedProps {
   initialData?: Service
-  onSubmit: (serviceData: any, existingImageUrls: string[], newImageFiles: File[]) => Promise<void>
+  onSubmit: (serviceData: CreateServiceData, existingImageUrls: string[], newImageFiles: File[]) => Promise<void>
   isLoading: boolean
   submitButtonText: string
 }
@@ -251,7 +251,10 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
   }
 
   const validateForm = (): boolean => {
+    console.log("ServiceFormShared: Starting validation with data:", formData); // Debug log
+
     if (!formData.name.trim()) {
+      console.log("ServiceFormShared: Name validation failed"); // Debug log
       toast({
         title: "Validation Error",
         description: "Service name is required",
@@ -261,6 +264,7 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
     }
 
     if (!formData.description.trim()) {
+      console.log("ServiceFormShared: Description validation failed"); // Debug log
       toast({
         title: "Validation Error",
         description: "Service description is required",
@@ -270,6 +274,7 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
     }
 
     if (!formData.category) {
+      console.log("ServiceFormShared: Category validation failed"); // Debug log
       toast({
         title: "Validation Error",
         description: "Please select a category",
@@ -279,6 +284,7 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
     }
 
     if (formData.price <= 0) {
+      console.log("ServiceFormShared: Price validation failed"); // Debug log
       toast({
         title: "Validation Error",
         description: "Price must be greater than 0",
@@ -288,6 +294,7 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
     }
 
     if (formData.scope === "regional" && formData.regions.length === 0) {
+      console.log("ServiceFormShared: Regional validation failed"); // Debug log
       toast({
         title: "Validation Error",
         description: "Please select at least one region for regional services",
@@ -296,6 +303,7 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
       return false
     }
 
+    console.log("ServiceFormShared: All validations passed"); // Debug log
     return true
   }
 
@@ -321,13 +329,17 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
     const existingImageUrls = imageUrls.filter(url => !url.startsWith('blob:'))
     const newImageFiles = images
 
-    // Include schedule in form data
-    const serviceData = {
+    // Include schedule in form data and ensure seller_id is set
+    const serviceData: CreateServiceData = {
       ...formData,
-      schedule
+      schedule,
+      seller_id: user.uid // Ensure seller_id is always set
     }
 
     console.log("ServiceFormShared: Calling onSubmit with data:", serviceData); // Debug log
+    console.log("ServiceFormShared: Existing image URLs:", existingImageUrls); // Debug log
+    console.log("ServiceFormShared: New image files:", newImageFiles); // Debug log
+
     await onSubmit(serviceData, existingImageUrls, newImageFiles)
   }
 
@@ -388,14 +400,12 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
                   onValueChange={(value) => handleInputChange("category", value)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Roll Up" />
+                    <SelectValue placeholder="Select service type" />
                   </SelectTrigger>
                   <SelectContent>
-                    {/* Hardcoded options as per user request */}
                     <SelectItem value="Roll Up">Roll Up</SelectItem>
                     <SelectItem value="Roll Down">Roll Down</SelectItem>
                     <SelectItem value="Delivery">Delivery</SelectItem>
-                    {/* Removed dynamic categories loading as per user request for specific options */}
                   </SelectContent>
                 </Select>
               </div>
@@ -409,7 +419,7 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Active" />
+                    <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="available">Active</SelectItem>
