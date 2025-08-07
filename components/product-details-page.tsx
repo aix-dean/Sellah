@@ -368,7 +368,7 @@ export default function ProductDetailsPage({ productId }: ProductDetailsPageProp
       </div>
     )
   }
-
+  console.log(`Product Details: ${JSON.stringify(prodocts)}`)
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Navigation */}
