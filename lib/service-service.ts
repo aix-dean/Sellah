@@ -242,8 +242,12 @@ export const ServiceService = {
     }
   },
 
-  // Alias for getServiceById for compatibility
+  /**
+   * Fetches a single service by its ID (alias for getServiceById).
+   * @param serviceId The ID of the service to fetch.
+   * @returns The service data or null if not found.
+   */
   async getService(serviceId: string): Promise<Service | null> {
-    return this.getServiceById(serviceId);
+    return await this.getServiceById(serviceId);
   }
 };
