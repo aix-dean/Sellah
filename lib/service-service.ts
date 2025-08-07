@@ -48,6 +48,7 @@ export const ServiceService = {
         views: 0,
         bookings: 0,
         rating: 0,
+        status: "published",
         created_at: serverTimestamp(),
         updated_at: serverTimestamp(),
       });
