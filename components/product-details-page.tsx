@@ -87,10 +87,8 @@ interface Product {
       endTime: string
     }
   }
-
-  scope: 'regional' | 'nationwide'
+  scope: string
   regions?: string[]
-  
   bookings?: number
   rating?: number
   stock?: number
