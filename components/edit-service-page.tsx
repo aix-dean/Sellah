@@ -82,7 +82,7 @@ export function EditServicePage({ serviceId }: EditServicePageProps) {
         description: "Your service has been successfully updated.",
       })
       // Only redirect on successful update
-      router.push("/dashboard/services")
+      router.push("/dashboard/products")
     } catch (error) {
       console.error("Failed to update service:", error)
       toast({
