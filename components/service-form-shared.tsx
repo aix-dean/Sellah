@@ -398,6 +398,7 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
                 <Select
                   value={formData.category}
                   onValueChange={(value) => handleInputChange("category", value)}
+                  defaultValue={initialData?.category}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select service type" />
