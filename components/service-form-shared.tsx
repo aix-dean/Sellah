@@ -397,7 +397,7 @@ export default function ServiceFormShared({ initialData, onSubmit, isLoading, su
               <div className="space-y-2">
                 <Label htmlFor="category">Service Type *</Label>
                 <Select
-                  value={formData.category}
+                  value={initialData?.category}
                   onValueChange={(value) => handleInputChange("category", value)}
                   defaultValue={initialData?.category}
                 >
