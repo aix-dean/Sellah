@@ -87,10 +87,10 @@ interface Product {
       endTime: string
     }
   }
-  coverageArea?: {
-    scope: 'local' | 'regional' | 'nationwide'
-    regions?: string[]
-  }
+
+  scope: 'regional' | 'nationwide'
+  regions?: string[]
+  
   bookings?: number
   rating?: number
   stock?: number
