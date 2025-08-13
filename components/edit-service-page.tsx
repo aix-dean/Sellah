@@ -2,13 +2,12 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Loader2 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { useToast } from "@/hooks/use-toast"
-import { useAuth } from "@/hooks/use-auth"
-import ServiceFormShared from "./service-form-shared"
+import ServiceFormShared from "@/components/service-form-shared"
 import { ServiceService } from "@/lib/service-service"
-import type { Service } from "@/types/service"
+import { useAuth } from "@/hooks/use-auth"
+import { useToast } from "@/hooks/use-toast"
+import { Skeleton } from "@/components/ui/skeleton"
+import type { Service, CreateServiceData } from "@/types/service"
 
 interface EditServicePageProps {
   serviceId: string
@@ -16,158 +15,117 @@ interface EditServicePageProps {
 
 export function EditServicePage({ serviceId }: EditServicePageProps) {
   const router = useRouter()
-  const { toast } = useToast()
   const { user } = useAuth()
-  const [isLoading, setIsLoading] = useState(false)
-  const [isLoadingService, setIsLoadingService] = useState(true)
+  const { toast } = useToast()
   const [service, setService] = useState<Service | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [isFetching, setIsFetching] = useState(true)
 
   useEffect(() => {
     const fetchService = async () => {
-      if (!serviceId || !user) return
-
-      setIsLoadingService(true)
+      setIsFetching(true)
       try {
         const fetchedService = await ServiceService.getService(serviceId)
-
-        if (!fetchedService) {
-          setError("Service not found")
-          return
+        if (fetchedService) {
+          setService(fetchedService)
+        } else {
+          toast({
+            title: "Service Not Found",
+            description: "The service you are trying to edit does not exist.",
+            variant: "destructive",
+          })
+          // Don't redirect, just show error
         }
-
-        // Check if user owns this service
-        if (fetchedService.seller_id !== user.uid) {
-          setError("You don't have permission to edit this service")
-          return
-        }
-
-        setService(fetchedService)
-      } catch (error: any) {
-        console.error("Error fetching service:", error)
-        setError("Failed to load service details")
+      } catch (error) {
+        console.error("Failed to fetch service:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load service data. Please try again.",
+          variant: "destructive",
+        })
+        // Don't redirect, just show error
       } finally {
-        setIsLoadingService(false)
+        setIsFetching(false)
       }
     }
 
-    fetchService()
-  }, [serviceId, user])
+    if (serviceId) {
+      fetchService()
+    }
+  }, [serviceId, toast])
 
-  const handleSubmit = async (serviceData: any, existingImageUrls: string[], newImageFiles: File[]) => {
+  const handleSubmit = async (
+    serviceData: CreateServiceData,
+    existingImageUrls: string[],
+    newImageFiles: File[],
+  ) => {
     if (!user || !service) {
       toast({
-        title: "Error",
-        description: "You must be logged in to edit a service",
+        title: "Authentication Required",
+        description: "You must be logged in and the service must be loaded to update.",
         variant: "destructive",
       })
       return
     }
 
     setIsLoading(true)
-
     try {
-      const updateData = {
-        ...serviceData,
-        seller_id: user.uid,
-        type: "SERVICES" as const,
-        status: serviceData.status || "published",
-      }
-
-      await ServiceService.updateService(serviceId, updateData, newImageFiles, existingImageUrls)
-
+      // Use the correct parameter order for updateService
+      await ServiceService.updateService(
+        service.id,
+        { ...serviceData, seller_id: user.uid },
+        newImageFiles,
+        existingImageUrls,
+      )
       toast({
-        title: "Success",
-        description: "Service updated successfully!",
+        title: "Service Updated",
+        description: "Your service has been successfully updated.",
       })
-
-      router.push(`/dashboard/products/${serviceId}`)
-    } catch (error: any) {
-      console.error("Error updating service:", error)
+      // Only redirect on successful update
+      router.push("/dashboard/products")
+    } catch (error) {
+      console.error("Failed to update service:", error)
       toast({
         title: "Error",
-        description: error.message || "Failed to update service. Please try again.",
+        description: "Failed to update service. Please try again.",
         variant: "destructive",
       })
+      // Don't redirect on error, just show the error message
     } finally {
       setIsLoading(false)
     }
   }
 
-  if (isLoadingService) {
+  if (isFetching) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="max-w-4xl mx-auto p-6">
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-            <span className="ml-2 text-gray-600">Loading service details...</span>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="max-w-4xl mx-auto p-6">
-          <div className="flex items-center gap-4 mb-6">
-            <Button variant="ghost" size="sm" onClick={() => router.back()} className="flex items-center gap-2">
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </Button>
-          </div>
-          <div className="text-center py-12">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Error</h2>
-            <p className="text-gray-600 mb-6">{error}</p>
-            <Button onClick={() => router.push("/dashboard/products")} variant="outline">
-              Go to Products
-            </Button>
-          </div>
-        </div>
+      <div className="container mx-auto py-8">
+        <h1 className="text-3xl font-bold mb-6">Edit Service</h1>
+        <Skeleton className="h-[600px] w-full rounded-lg" />
       </div>
     )
   }
 
   if (!service) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="max-w-4xl mx-auto p-6">
-          <div className="text-center py-12">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Service Not Found</h2>
-            <p className="text-gray-600 mb-6">The service you're looking for doesn't exist or has been deleted.</p>
-            <Button onClick={() => router.push("/dashboard/products")} variant="outline">
-              Go to Products
-            </Button>
-          </div>
+      <div className="container mx-auto py-8">
+        <h1 className="text-3xl font-bold mb-6">Edit Service</h1>
+        <div className="text-center text-gray-500 py-12">
+          <p className="text-lg mb-4">Service not found or failed to load.</p>
+          <p className="text-sm">Please check the service ID and try again.</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto p-6">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" size="sm" onClick={() => router.back()} className="flex items-center gap-2">
-            <ArrowLeft className="w-4 h-4" />
-            Back
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Edit Service</h1>
-            <p className="text-gray-600">Update your service listing</p>
-          </div>
-        </div>
-
-        {/* Form */}
-        <ServiceFormShared
-          initialData={service}
-          onSubmit={handleSubmit}
-          isLoading={isLoading}
-          submitButtonText="Update Service"
-        />
-      </div>
+    <div className="container mx-auto py-8">
+      <h1 className="text-3xl font-bold mb-6">Edit Service</h1>
+      <ServiceFormShared
+        initialData={service}
+        onSubmit={handleSubmit}
+        isLoading={isLoading}
+        submitButtonText="Update Service"
+      />
     </div>
   )
 }

@@ -1,47 +1,42 @@
+import type { Timestamp } from "firebase/firestore"
+import type { ServiceSchedule } from "./schedule"
+
 export interface Service {
   id: string
   name: string
   description: string
-  serviceType: "roll_up" | "roll_down" | "delivery"
+  category: string
   price: number
-  schedule: {
-    [key: string]: {
-      available: boolean
-      startTime: string
-      endTime: string
-    }
-  }
+  duration?: string
+  imageUrls?: string[]
   seller_id: string
-  type: "SERVICES"
-  status: "active" | "inactive" | "draft"
-  views: number
-  likes: number
-  bookings: number
-  rating: number
-  imageUrls: string[]
+  type: "SERVICES" // Discriminator for services in 'products' collection
   active: boolean
   deleted: boolean
-  created_at?: any
-  updated_at?: any
+  views: number
+  bookings: number
+  rating: number
+  availability: "available" | "unavailable"
+  scope: "nationwide" | "regional"
+  regions?: string[] // Array of region codes if scope is regional
+  schedule?: ServiceSchedule // Added schedule property
+  created_at: Timestamp
+  updated_at: Timestamp
 }
 
 export interface CreateServiceData {
   name: string
   description: string
-  serviceType: "roll_up" | "roll_down" | "delivery"
+  category: string
   price: number
-  schedule: {
-    [key: string]: {
-      available: boolean
-      startTime: string
-      endTime: string
-    }
-  }
+  duration?: string
+  imageUrls?: string[]
   seller_id: string
-  type: "SERVICES"
-  status: "active" | "inactive" | "draft"
-  views: number
-  bookings: number
-  rating: number
-  imageUrls: string[]
+  availability: "available" | "unavailable"
+  scope: "nationwide" | "regional"
+  regions?: string[]
+  schedule?: ServiceSchedule // Added schedule property
 }
+
+// Add ServiceFormData as an alias for CreateServiceData for compatibility
+export type ServiceFormData = CreateServiceData;

@@ -7,24 +7,11 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Label } from "@/components/ui/label"
-import {
-  Plus,
-  Search,
-  Grid3X3,
-  List,
-  Eye,
-  Edit,
-  Trash2,
-  MoreHorizontal,
-  Package,
-  Star,
-  Building2,
-  Loader2,
-  X,
-  CheckCircle,
-  Wrench,
-} from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Plus, Search, MoreHorizontal, Edit, Trash2, Eye, Package, Wrench, Globe } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import Link from "next/link"
 import { useRealTimeProducts } from "@/hooks/use-real-time-products"
 import { useUserData } from "@/hooks/use-user-data"
 import { collection, addDoc, serverTimestamp, doc, updateDoc } from "firebase/firestore"
@@ -34,7 +21,6 @@ import { DeleteProductDialog } from "./delete-product-dialog"
 import { deleteProduct } from "@/lib/product-service"
 import { useToast } from "@/hooks/use-toast"
 import { useCategories } from "@/hooks/use-categories"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface CompanyFormData {
   name: string
@@ -401,172 +387,22 @@ export default function ProductsPage() {
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Inventory</h1>
             <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your product inventory and listings</p>
           </div>
-          <Button onClick={handleAddProduct} className="bg-red-500 hover:bg-red-600 text-white w-full sm:w-auto">
-            <Plus className="w-4 h-4 mr-2" />
-            <span className="sm:hidden">{activeTab === "supplies" ? "Add" : "Add Service"}</span>
-            <span className="hidden sm:inline">{activeTab === "supplies" ? "Add Product" : "Add Service"}</span>
-          </Button>
-        </div>
-
-        {/* Company Information Form Overlay */}
-        {showCompanyForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b">
-                <div className="flex items-center space-x-2">
-                  <Building2 className="w-5 h-5 text-red-500" />
-                  <h3 className="text-lg font-semibold text-gray-900">Company Information Required</h3>
-                </div>
-                <Button variant="ghost" size="sm" onClick={handleCloseCompanyForm} className="p-1">
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-
-              <div className="p-6">
-                <div className="mb-6">
-                  <p className="text-gray-600 mb-2">
-                    To add {activeTab === "supplies" ? "products" : "services"}, we need your company information first.
-                    Please fill out the details below.
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    This information will be used for your product listings and business profile.
-                  </p>
-                </div>
-
-                {companyError && (
-                  <Alert variant="destructive" className="mb-4">
-                    <AlertDescription>{companyError}</AlertDescription>
-                  </Alert>
-                )}
-
-                {companySuccess && (
-                  <Alert className="mb-4 border-green-200 bg-green-50">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                    <AlertDescription className="text-green-800">{companySuccess}</AlertDescription>
-                  </Alert>
-                )}
-
-                <form onSubmit={handleCompanySubmit} className="space-y-4">
-                  <div>
-                    <Label htmlFor="company_name">Company Name *</Label>
-                    <Input
-                      id="company_name"
-                      name="name"
-                      value={companyData.name}
-                      onChange={handleCompanyInputChange}
-                      placeholder="Enter your company name"
-                      required
-                      disabled={savingCompany}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="address_street">Street Address</Label>
-                    <Input
-                      id="address_street"
-                      name="address_street"
-                      value={companyData.address_street}
-                      onChange={handleCompanyInputChange}
-                      placeholder="Enter street address (optional)"
-                      disabled={savingCompany}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="address_city">City *</Label>
-                      <Input
-                        id="address_city"
-                        name="address_city"
-                        value={companyData.address_city}
-                        onChange={handleCompanyInputChange}
-                        placeholder="Enter city"
-                        required
-                        disabled={savingCompany}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="address_province">Province *</Label>
-                      <Input
-                        id="address_province"
-                        name="address_province"
-                        value={companyData.address_province}
-                        onChange={handleCompanyInputChange}
-                        placeholder="Enter province"
-                        required
-                        disabled={savingCompany}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="website">Website (optional)</Label>
-                    <Input
-                      id="website"
-                      name="website"
-                      type="url"
-                      value={companyData.website}
-                      onChange={handleCompanyInputChange}
-                      placeholder="https://www.example.com"
-                      disabled={savingCompany}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="position">Your Position *</Label>
-                    <Input
-                      id="position"
-                      name="position"
-                      value={companyData.position}
-                      onChange={handleCompanyInputChange}
-                      placeholder="e.g., CEO, Founder, Manager"
-                      required
-                      disabled={savingCompany}
-                    />
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 justify-end pt-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleCloseCompanyForm}
-                      disabled={savingCompany}
-                      className="w-full sm:w-auto bg-transparent"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={savingCompany}
-                      className="bg-red-500 hover:bg-red-600 text-white w-full sm:w-auto"
-                    >
-                      {savingCompany ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <Building2 className="w-4 h-4 mr-2" />
-                          Save & Continue
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </form>
-              </div>
-            </div>
+          <div className="flex gap-2 w-full sm:w-auto">
+            {/* Added Website button to the left of Add Product button */}
+            <Link href="/dashboard/website" prefetch={true}>
+              <Button className="bg-blue-500 hover:bg-blue-600 text-white flex-1 sm:flex-none">
+                <Globe className="w-4 h-4 mr-2" />
+                <span className="sm:hidden">Website</span>
+                <span className="hidden sm:inline">Website</span>
+              </Button>
+            </Link>
+            <Button onClick={handleAddProduct} className="bg-red-500 hover:bg-red-600 text-white flex-1 sm:flex-none">
+              <Plus className="w-4 h-4 mr-2" />
+              <span className="sm:hidden">{activeTab === "supplies" ? "Add" : "Add Service"}</span>
+              <span className="hidden sm:inline">{activeTab === "supplies" ? "Add Product" : "Add Service"}</span>
+            </Button>
           </div>
-        )}
-
-        {/* Delete Product Dialog */}
-        <DeleteProductDialog
-          product={productToDelete}
-          isOpen={!!productToDelete}
-          isDeleting={isDeleting}
-          onConfirm={handleDeleteConfirm}
-          onCancel={handleDeleteCancel}
-        />
+        </div>
 
         {/* Tabs for Supplies and Services */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
@@ -599,22 +435,26 @@ export default function ProductsPage() {
 
                   {/* Filters */}
                   <div className="flex flex-col sm:flex-row gap-3">
-                    <select
+                    <Select
                       value={selectedCategory}
-                      onChange={(e) => setSelectedCategory(e.target.value)}
-                      className="w-full px-3 pr-6 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                      onValueChange={(value) => setSelectedCategory(value)}
                       disabled={categoriesLoading}
                     >
-                      {categoriesLoading ? (
-                        <option value="all">Loading categories...</option>
-                      ) : (
-                        categories.map((category) => (
-                          <option key={category.id} value={category.id}>
+                      <SelectTrigger className="w-full px-3 pr-6 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                        {categoriesLoading ? (
+                          <SelectValue placeholder="Loading categories..." />
+                        ) : (
+                          <SelectValue placeholder="Select category" />
+                        )}
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((category) => (
+                          <SelectItem key={category.id} value={category.id}>
                             {category.name}
-                          </option>
-                        ))
-                      )}
-                    </select>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
 
                     {/* View Mode Toggle */}
                     <div className="flex border border-gray-300 rounded-md">
@@ -624,7 +464,7 @@ export default function ProductsPage() {
                         onClick={() => setViewMode("grid")}
                         className={`rounded-r-none ${viewMode === "grid" ? "bg-red-500 hover:bg-red-600" : ""}`}
                       >
-                        <Grid3X3 className="w-4 h-4" />
+                        <Package className="w-4 h-4" />
                       </Button>
                       <Button
                         variant={viewMode === "list" ? "default" : "ghost"}
@@ -632,7 +472,7 @@ export default function ProductsPage() {
                         onClick={() => setViewMode("list")}
                         className={`rounded-l-none ${viewMode === "list" ? "bg-red-500 hover:bg-red-600" : ""}`}
                       >
-                        <List className="w-4 h-4" />
+                        <Wrench className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
@@ -692,7 +532,7 @@ export default function ProductsPage() {
                         <div className="flex items-center justify-between mb-3">
                           <span className="text-lg font-bold text-red-600">{getPriceFromVariations(product)}</span>
                           <div className="flex items-center space-x-1">
-                            <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                            <Globe className="w-4 h-4 text-yellow-400 fill-current" />
                             <span className="text-sm text-gray-600">{product.rating || 5}</span>
                           </div>
                         </div>
@@ -767,9 +607,6 @@ export default function ProductsPage() {
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Status
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Sales
                         </th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Actions
@@ -860,17 +697,18 @@ export default function ProductsPage() {
 
                   {/* Service Type Filter */}
                   <div className="flex flex-col sm:flex-row gap-3">
-                    <select
-                      value={selectedCategory}
-                      onChange={(e) => setSelectedCategory(e.target.value)}
-                      className="w-full px-3 pr-6 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                    >
-                      {categories.map((category) => (
-                        <option key={category.id} value={category.id}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </select>
+                    <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value)}>
+                      <SelectTrigger className="w-full px-3 pr-6 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                        <SelectValue placeholder="Select service type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((category) => (
+                          <SelectItem key={category.id} value={category.id}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
 
                     {/* View Mode Toggle */}
                     <div className="flex border border-gray-300 rounded-md">
@@ -880,7 +718,7 @@ export default function ProductsPage() {
                         onClick={() => setViewMode("grid")}
                         className={`rounded-r-none ${viewMode === "grid" ? "bg-red-500 hover:bg-red-600" : ""}`}
                       >
-                        <Grid3X3 className="w-4 h-4" />
+                        <Package className="w-4 h-4" />
                       </Button>
                       <Button
                         variant={viewMode === "list" ? "default" : "ghost"}
@@ -888,7 +726,7 @@ export default function ProductsPage() {
                         onClick={() => setViewMode("list")}
                         className={`rounded-l-none ${viewMode === "list" ? "bg-red-500 hover:bg-red-600" : ""}`}
                       >
-                        <List className="w-4 h-4" />
+                        <Wrench className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
@@ -948,7 +786,7 @@ export default function ProductsPage() {
                         <div className="flex items-center justify-between mb-3">
                           <span className="text-lg font-bold text-red-600">{formatPrice(service.price || 0)}</span>
                           <div className="flex items-center space-x-1">
-                            <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                            <Globe className="w-4 h-4 text-yellow-400 fill-current" />
                             <span className="text-sm text-gray-600">{service.rating || 5}</span>
                           </div>
                         </div>
@@ -1096,6 +934,166 @@ export default function ProductsPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Company Information Form Overlay */}
+      {showCompanyForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b">
+              <div className="flex items-center space-x-2">
+                <Globe className="w-5 h-5 text-red-500" />
+                <h3 className="text-lg font-semibold text-gray-900">Company Information Required</h3>
+              </div>
+              <Button variant="ghost" size="sm" onClick={handleCloseCompanyForm} className="p-1">
+                <Globe className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="p-6">
+              <div className="mb-6">
+                <p className="text-gray-600 mb-2">
+                  To add {activeTab === "supplies" ? "products" : "services"}, we need your company information first.
+                  Please fill out the details below.
+                </p>
+                <p className="text-sm text-gray-500">
+                  This information will be used for your product listings and business profile.
+                </p>
+              </div>
+
+              {companyError && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertDescription>{companyError}</AlertDescription>
+                </Alert>
+              )}
+
+              {companySuccess && (
+                <Alert className="mb-4 border-green-200 bg-green-50">
+                  <Globe className="w-4 h-4 text-green-600" />
+                  <AlertDescription className="text-green-800">{companySuccess}</AlertDescription>
+                </Alert>
+              )}
+
+              <form onSubmit={handleCompanySubmit} className="space-y-4">
+                <div>
+                  <Label htmlFor="company_name">Company Name *</Label>
+                  <Input
+                    id="company_name"
+                    name="name"
+                    value={companyData.name}
+                    onChange={handleCompanyInputChange}
+                    placeholder="Enter your company name"
+                    required
+                    disabled={savingCompany}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="address_street">Street Address</Label>
+                  <Input
+                    id="address_street"
+                    name="address_street"
+                    value={companyData.address_street}
+                    onChange={handleCompanyInputChange}
+                    placeholder="Enter street address (optional)"
+                    disabled={savingCompany}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="address_city">City *</Label>
+                    <Input
+                      id="address_city"
+                      name="address_city"
+                      value={companyData.address_city}
+                      onChange={handleCompanyInputChange}
+                      placeholder="Enter city"
+                      required
+                      disabled={savingCompany}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="address_province">Province *</Label>
+                    <Input
+                      id="address_province"
+                      name="address_province"
+                      value={companyData.address_province}
+                      onChange={handleCompanyInputChange}
+                      placeholder="Enter province"
+                      required
+                      disabled={savingCompany}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="website">Website (optional)</Label>
+                  <Input
+                    id="website"
+                    name="website"
+                    type="url"
+                    value={companyData.website}
+                    onChange={handleCompanyInputChange}
+                    placeholder="https://www.example.com"
+                    disabled={savingCompany}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="position">Your Position *</Label>
+                  <Input
+                    id="position"
+                    name="position"
+                    value={companyData.position}
+                    onChange={handleCompanyInputChange}
+                    placeholder="e.g., CEO, Founder, Manager"
+                    required
+                    disabled={savingCompany}
+                  />
+                </div>
+
+                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 justify-end pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCloseCompanyForm}
+                    disabled={savingCompany}
+                    className="w-full sm:w-auto bg-transparent"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={savingCompany}
+                    className="bg-red-500 hover:bg-red-600 text-white w-full sm:w-auto"
+                  >
+                    {savingCompany ? (
+                      <>
+                        <Globe className="w-4 h-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Globe className="w-4 h-4 mr-2" />
+                        Save & Continue
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Product Dialog */}
+      <DeleteProductDialog
+        product={productToDelete}
+        isOpen={!!productToDelete}
+        isDeleting={isDeleting}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+      />
     </div>
   )
 }
