@@ -6,14 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, Monitor, Box, Lightbulb, Zap, ChevronLeft, ChevronRight } from "lucide-react"
 import { useParams, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { collection, query, where, getDocs } from "firebase/firestore"
+import { doc, getDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
 export default function ProductDetailPage() {
   const params = useParams()
   const router = useRouter()
   const companySlug = params.slug as string
-  const productSlug = params.product as string
+  const productId = params.product as string // Now treating this as product ID instead of slug
   const [activeSection, setActiveSection] = useState("specifications")
   const [showBackToTop, setShowBackToTop] = useState(false)
   const [currentApplicationIndex, setCurrentApplicationIndex] = useState(0)
@@ -26,68 +26,41 @@ export default function ProductDetailPage() {
       try {
         setLoading(true)
 
-        // First, get company data
-        const searchName = companySlug
-          .split("-")
-          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(" ")
+        const companyDocRef = doc(db, "companies", companySlug)
+        const companyDoc = await getDoc(companyDocRef)
 
-        const companiesRef = collection(db, "companies")
-        const companyQuery = query(
-          companiesRef,
-          where("name", ">=", searchName),
-          where("name", "<=", searchName + "\uf8ff"),
-        )
-        const companySnapshot = await getDocs(companyQuery)
-
-        if (!companySnapshot.empty) {
-          const companyDoc = companySnapshot.docs[0]
+        if (companyDoc.exists()) {
           const companyInfo = { id: companyDoc.id, ...companyDoc.data() }
           setCompanyData(companyInfo)
 
-          // Then fetch product data for this company
-          const productsRef = collection(db, "products")
-          const productsQuery = query(productsRef, where("company_id", "==", companyDoc.id))
-          const productsSnapshot = await getDocs(productsQuery)
+          const productDocRef = doc(db, "products", productId)
+          const productDoc = await getDoc(productDocRef)
 
-          const companyProducts = productsSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-            slug:
-              doc.data().slug ||
-              doc
-                .data()
-                .name?.toLowerCase()
-                .replace(/\s+/g, "-")
-                .replace(/[^a-z0-9-]/g, ""),
-          }))
+          if (productDoc.exists()) {
+            const productData = { id: productDoc.id, ...productDoc.data() }
 
-          // Find the specific product by slug
-          const foundProduct = companyProducts.find((p) => p.slug === productSlug)
-
-          if (foundProduct) {
             const transformedProduct = {
-              ...foundProduct,
-              icon: getProductIcon(foundProduct),
-              description: foundProduct.description || `Professional ${foundProduct.name} solution`,
-              features: foundProduct.features ||
-                foundProduct.key_features || ["Professional Grade", "High Quality", "Reliable Performance"],
-              specs: foundProduct.specifications ||
-                foundProduct.specs || {
-                  "Product Name": foundProduct.name,
-                  SKU: foundProduct.sku || "N/A",
-                  Price: foundProduct.price ? `$${foundProduct.price}` : "Contact for pricing",
-                  Stock: foundProduct.stock || "Available",
-                  Status: foundProduct.status || "Active",
+              ...productData,
+              icon: getProductIcon(productData),
+              description: productData.description || `Professional ${productData.name} solution`,
+              features: productData.features ||
+                productData.key_features || ["Professional Grade", "High Quality", "Reliable Performance"],
+              specs: productData.specifications ||
+                productData.specs || {
+                  "Product Name": productData.name,
+                  SKU: productData.sku || "N/A",
+                  Price: productData.price ? `$${productData.price}` : "Contact for pricing",
+                  Stock: productData.stock || "Available",
+                  Status: productData.status || "Active",
                 },
-              types: foundProduct.variants || [
+              types: productData.variants || [
                 {
-                  name: `Standard ${foundProduct.name}`,
+                  name: `Standard ${productData.name}`,
                   specification: "Professional grade",
                   application: "General use",
                 },
               ],
-              applications: foundProduct.applications || [
+              applications: productData.applications || [
                 "Commercial applications",
                 "Professional installations",
                 "Business environments",
@@ -96,25 +69,27 @@ export default function ProductDetailPage() {
             }
             setProduct(transformedProduct)
           } else {
+            console.error("Product not found with ID:", productId)
             // Fallback to hardcoded product if not found in Firestore
-            setProduct(getHardcodedProduct(productSlug))
+            setProduct(getHardcodedProduct("default"))
           }
         } else {
+          console.error("Company not found with ID:", companySlug)
           // Fallback if company not found
-          setProduct(getHardcodedProduct(productSlug))
-          setCompanyData({ name: searchName })
+          setProduct(getHardcodedProduct("default"))
+          setCompanyData({ name: "Company" })
         }
       } catch (error) {
         console.error("Error fetching product data:", error)
-        setProduct(getHardcodedProduct(productSlug))
-        setCompanyData({ name: companySlug.replace("-", " ") })
+        setProduct(getHardcodedProduct("default"))
+        setCompanyData({ name: "Company" })
       } finally {
         setLoading(false)
       }
     }
 
     fetchProductData()
-  }, [companySlug, productSlug])
+  }, [companySlug, productId])
 
   const getProductIcon = (product: any) => {
     const name = product.name?.toLowerCase() || ""
@@ -126,40 +101,26 @@ export default function ProductDetailPage() {
   }
 
   const getHardcodedProduct = (slug: string) => {
-    const products = {
-      "led-poster": {
-        name: "LED Poster",
-        icon: <Monitor className="h-8 w-8" />,
-        description: "High-resolution LED posters for advertising and information display",
-        features: ["4K Resolution", "Lightweight Design", "Easy Installation", "Remote Control"],
-        specs: {
-          Resolution: "3840 x 2160",
-          Brightness: "2500 nits",
-          "Viewing Angle": "160°",
-          "Power Consumption": "150W",
-          Weight: "15kg",
-          Dimensions: "1920 x 1080mm",
-          "Pixel Pitch": "2.5mm",
-          "Refresh Rate": "3840Hz",
-          "Operating Temperature": "-20°C to +60°C",
-          "IP Rating": "IP54",
-          Lifespan: "100,000 hours",
-          "Control System": "WiFi, USB, LAN",
-        },
-        types: [
-          { name: "Indoor LED Poster", size: '43" - 86"', resolution: "4K", brightness: "500-1000 nits" },
-          { name: "Outdoor LED Poster", size: '55" - 98"', resolution: "4K", brightness: "2500-5000 nits" },
-        ],
-        applications: [
-          "Retail stores and shopping malls",
-          "Restaurants and cafes",
-          "Corporate lobbies and offices",
-          "Transportation hubs",
-        ],
+    return {
+      name: "LED Product",
+      icon: <Monitor className="h-8 w-8" />,
+      description: "Professional LED solution for your business needs",
+      features: ["Professional Grade", "High Quality", "Reliable Performance"],
+      specs: {
+        "Product Name": "LED Product",
+        SKU: "N/A",
+        Price: "Contact for pricing",
+        Stock: "Available",
+        Status: "Active",
       },
-      // Add other hardcoded products as fallback
+      types: [{ name: "Standard LED Product", specification: "Professional grade", application: "General use" }],
+      applications: [
+        "Commercial applications",
+        "Professional installations",
+        "Business environments",
+        "Industrial use cases",
+      ],
     }
-    return products[slug as keyof typeof products] || null
   }
 
   useEffect(() => {
@@ -301,7 +262,7 @@ export default function ProductDetailPage() {
                 {companyData?.name || "Company"}
               </div>
             </div>
-            <Button onClick={() => router.push(`/website/${companySlug}/${productSlug}/quote`)}>Request Quote</Button>
+            <Button onClick={() => router.push(`/website/${companySlug}/${productId}/quote`)}>Request Quote</Button>
           </div>
         </div>
       </header>
@@ -482,7 +443,7 @@ export default function ProductDetailPage() {
 
                     <Button
                       className="w-full sm:w-auto px-8"
-                      onClick={() => router.push(`/website/${companySlug}/${productSlug}/quote`)}
+                      onClick={() => router.push(`/website/${companySlug}/${productId}/quote`)}
                     >
                       Get Quote for {type.name}
                     </Button>
@@ -570,7 +531,7 @@ export default function ProductDetailPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
               className="bg-background text-foreground hover:bg-background/90 px-8 py-3 font-semibold"
-              onClick={() => router.push(`/website/${companySlug}/${productSlug}/quote`)}
+              onClick={() => router.push(`/website/${companySlug}/${productId}/quote`)}
             >
               Request Quote
             </Button>

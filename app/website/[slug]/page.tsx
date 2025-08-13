@@ -25,28 +25,23 @@ export default function CompanyWebsite() {
       try {
         setLoading(true)
 
-        // Convert slug back to potential company name for search
-        const searchName = companySlug
-          .split("-")
-          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(" ")
+        const companyId = companySlug
 
-        // Query companies collection to find matching company
-        const companiesRef = collection(db, "companies")
-        const q = query(companiesRef, where("name", ">=", searchName), where("name", "<=", searchName + "\uf8ff"))
-        const querySnapshot = await getDocs(q)
+        // Fetch company document directly by ID
+        const companyDocRef = doc(db, "companies", companyId)
+        const companyDoc = await getDoc(companyDocRef)
 
-        if (!querySnapshot.empty) {
-          const companyDoc = querySnapshot.docs[0]
+        if (companyDoc.exists()) {
           const companyInfo = { id: companyDoc.id, ...companyDoc.data() }
           setCompanyData(companyInfo)
 
           await fetchThemeConfig(companyDoc.id)
           await fetchCompanyProducts(companyDoc.id)
         } else {
+          console.error("Company not found with ID:", companyId)
           // Fallback to default company data
           setCompanyData({
-            name: searchName,
+            name: "Company",
             business_type: "LED Solutions Provider",
           })
           setFallbackProducts()
@@ -55,10 +50,7 @@ export default function CompanyWebsite() {
         console.error("Error fetching company data:", error)
         // Set fallback data
         setCompanyData({
-          name: companySlug
-            .split("-")
-            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(" "),
+          name: "Company",
           business_type: "LED Solutions Provider",
         })
         setFallbackProducts()
@@ -507,7 +499,7 @@ export default function CompanyWebsite() {
                         </div>
                       )}
                     </div>
-                    <Link href={`/website/${companySlug}/${product.slug}`} prefetch={true} className="mt-auto">
+                    <Link href={`/website/${companySlug}/${product.id}`} prefetch={true} className="mt-auto">
                       <Button variant="outline" className="w-full bg-transparent">
                         View Details
                       </Button>

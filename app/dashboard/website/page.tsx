@@ -36,15 +36,7 @@ export default function WebsitePage() {
     text: "#1f2937",
   })
 
-  const getCompanySlug = (companyName: string) => {
-    return companyName
-      .replace(/[^a-zA-Z0-9\s-]/g, "") // Remove special characters but keep uppercase
-      .replace(/\s+/g, "-") // Replace spaces with hyphens
-      .replace(/-+/g, "-") // Replace multiple hyphens with single
-      .trim()
-  }
-
-  const companySlug = company?.name ? getCompanySlug(company.name) : "company"
+  const companyId = userData?.company_id || "company"
 
   const handleSaveTheme = async () => {
     if (!userData?.company_id) {
@@ -61,7 +53,11 @@ export default function WebsitePage() {
       const websiteConfigRef = doc(collection(db, "companies", userData.company_id, "website_config"), "theme")
 
       const themeData = {
-        colors: themeColors,
+        primaryColor: themeColors.primary,
+        secondaryColor: themeColors.secondary,
+        accentColor: themeColors.accent,
+        backgroundColor: themeColors.background,
+        textColor: themeColors.text,
         updated_at: new Date(),
         ...(userData.uid && { updated_by: userData.uid }), // Only include if uid exists
       }
@@ -182,7 +178,7 @@ export default function WebsitePage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Link href={`/website/${companySlug.toLowerCase()}`} target="_blank">
+              <Link href={`/website/${companyId}`} target="_blank">
                 <Button className="bg-blue-500 hover:bg-blue-600 text-white w-full flex items-center gap-2">
                   <ExternalLink className="w-4 h-4" />
                   View Website
