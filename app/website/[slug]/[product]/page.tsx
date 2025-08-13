@@ -12,7 +12,7 @@ import { db } from "@/lib/firebase"
 export default function ProductDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const companySlug = params.company as string
+  const companySlug = params.slug as string
   const productSlug = params.product as string
   const [activeSection, setActiveSection] = useState("specifications")
   const [showBackToTop, setShowBackToTop] = useState(false)

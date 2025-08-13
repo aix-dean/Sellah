@@ -15,7 +15,7 @@ import { useState } from "react"
 export default function QuotePage() {
   const params = useParams()
   const router = useRouter()
-  const companySlug = params.company as string
+  const companySlug = params.slug as string
   const productSlug = params.product as string
   const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState({

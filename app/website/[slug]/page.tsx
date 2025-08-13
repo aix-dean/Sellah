@@ -13,7 +13,7 @@ import { db } from "@/lib/firebase"
 
 export default function CompanyWebsite() {
   const params = useParams()
-  const companySlug = params.company as string
+  const companySlug = params.slug as string
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [companyData, setCompanyData] = useState<any>(null)
   const [products, setProducts] = useState<any[]>([])

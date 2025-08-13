@@ -182,7 +182,7 @@ export default function WebsitePage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Link href={`/website/${companySlug}`} target="_blank">
+              <Link href={`/website/${companySlug.toLowerCase()}`} target="_blank">
                 <Button className="bg-blue-500 hover:bg-blue-600 text-white w-full flex items-center gap-2">
                   <ExternalLink className="w-4 h-4" />
                   View Website
