@@ -11,7 +11,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Search, MoreHorizontal, Edit, Trash2, Eye, Package, Wrench, Globe } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import Link from "next/link"
 import { useRealTimeProducts } from "@/hooks/use-real-time-products"
 import { useUserData } from "@/hooks/use-user-data"
 import { collection, addDoc, serverTimestamp, doc, updateDoc } from "firebase/firestore"
@@ -388,14 +387,6 @@ export default function ProductsPage() {
             <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your product inventory and listings</p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
-            {/* Added Website button to the left of Add Product button */}
-            <Link href="/dashboard/website" prefetch={true}>
-              <Button className="bg-blue-500 hover:bg-blue-600 text-white flex-1 sm:flex-none">
-                <Globe className="w-4 h-4 mr-2" />
-                <span className="sm:hidden">Website</span>
-                <span className="hidden sm:inline">Website</span>
-              </Button>
-            </Link>
             <Button onClick={handleAddProduct} className="bg-red-500 hover:bg-red-600 text-white flex-1 sm:flex-none">
               <Plus className="w-4 h-4 mr-2" />
               <span className="sm:hidden">{activeTab === "supplies" ? "Add" : "Add Service"}</span>

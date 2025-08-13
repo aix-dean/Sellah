@@ -10,7 +10,7 @@ import { db } from "@/lib/firebase"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Package, ShoppingCart, Users, Bell, MessageSquare, ChevronDown, LogOut, X } from "lucide-react"
+import { Package, ShoppingCart, Users, Bell, MessageSquare, ChevronDown, LogOut, X, Globe } from "lucide-react"
 import { useRouter, usePathname } from "next/navigation"
 import { signOut } from "@/lib/auth"
 
@@ -35,6 +35,7 @@ export default function DashboardLayout({ children, activeItem, userName = "" }:
   const menuItems = [
     { id: "inventory", label: "Inventory", icon: Package, href: "/dashboard/products" },
     { id: "orders", label: "Orders", icon: ShoppingCart, href: "/dashboard/orders" },
+    { id: "website", label: "Website", icon: Globe, href: "/dashboard/website" },
     { id: "account", label: "Account", icon: Users, href: "/dashboard/account" },
   ]
 
@@ -44,6 +45,7 @@ export default function DashboardLayout({ children, activeItem, userName = "" }:
 
     if (pathname.startsWith("/dashboard/products")) return "inventory"
     if (pathname.startsWith("/dashboard/orders")) return "orders"
+    if (pathname.startsWith("/dashboard/website")) return "website"
     if (pathname.startsWith("/dashboard/account")) return "account"
 
     return "inventory" // default fallback
@@ -73,7 +75,7 @@ export default function DashboardLayout({ children, activeItem, userName = "" }:
   }
 
   const handleChat = () => {
-    router.push('/dashboard/chat')
+    router.push("/dashboard/chat")
   }
   // Get status badge configuration
   const getStatusBadge = (status: string) => {
@@ -192,22 +194,21 @@ export default function DashboardLayout({ children, activeItem, userName = "" }:
     }
   }, [])
 
+  const userStatus = userData?.status || "UNKNOWN"
+  const statusBadge = getStatusBadge(userStatus)
+  console.log("statusBadge:", statusBadge)
 
-      const userStatus = userData?.status || "UNKNOWN"
-    const statusBadge = getStatusBadge(userStatus)
-    console.log('statusBadge:', statusBadge)
-  
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Fixed Header */}
       <header className="bg-red-500 text-white px-4 py-3 flex items-center justify-between h-16 fixed top-0 left-0 right-0 z-50 shadow-md">
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
-             <img src="/logo.svg" alt="Logo" className="h-8 w-auto" />
+            <img src="/logo.svg" alt="Logo" className="h-8 w-auto" />
           </div>
 
           {/* Status Badge - Only show when not loading and userData exists */}
-                 {!loading && userData && (
+          {!loading && userData && (
             <Badge
               variant={statusBadge.variant}
               className={`${statusBadge.className} text-xs font-semibold px-2 py-1 ml-2`}

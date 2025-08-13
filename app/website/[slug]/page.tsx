@@ -311,10 +311,6 @@ export default function CompanyWebsite() {
               </Link>
             </nav>
 
-            <div className="hidden md:block">
-              <Button>Request Quote</Button>
-            </div>
-
             <button className="md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
@@ -335,7 +331,6 @@ export default function CompanyWebsite() {
                 <Link href="#contact" className="text-foreground hover:text-primary transition-colors">
                   Contact
                 </Link>
-                <Button className="w-full">Request Quote</Button>
               </nav>
             </div>
           )}
@@ -416,96 +411,93 @@ export default function CompanyWebsite() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {products.map((product) => (
-                <Card key={product.id} className="hover:shadow-lg transition-shadow h-full flex flex-col">
-                  <CardHeader>
-                    <div className="flex items-center gap-3 mb-2">
-                      <div
-                        className="p-2 rounded-lg"
-                        style={
-                          theme?.primaryColor
-                            ? {
-                                backgroundColor: theme.primaryColor + "1A",
-                                color: theme.primaryColor,
-                              }
-                            : {}
-                        }
-                      >
-                        {getProductIcon(product)}
-                      </div>
-                      <CardTitle className="text-xl">{product.name}</CardTitle>
-                    </div>
-                    <CardDescription className="flex-1">{product.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="flex-1 flex flex-col">
-                    <div className="space-y-4 flex-1">
-                      {product.media && product.media.length > 0 && product.media[0].url && (
-                        <div className="w-full aspect-square bg-gray-100 rounded-lg overflow-hidden">
-                          <img
-                            src={product.media[0].url || "/placeholder.svg"}
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.currentTarget.style.display = "none"
-                            }}
-                          />
-                        </div>
-                      )}
-
-                      {product.price && typeof product.price === "number" && product.price > 0 && (
+                <Link key={product.id} href={`/website/${companySlug}/${product.id}`} prefetch={true}>
+                  <Card className="hover:shadow-lg hover:scale-[1.02] transition-all duration-200 h-full flex flex-col cursor-pointer">
+                    <CardHeader>
+                      <div className="flex items-center gap-3 mb-2">
                         <div
-                          className="text-lg font-semibold"
+                          className="p-2 rounded-lg"
                           style={
                             theme?.primaryColor
                               ? {
+                                  backgroundColor: theme.primaryColor + "1A",
                                   color: theme.primaryColor,
                                 }
                               : {}
                           }
                         >
-                          ${product.price}
+                          {getProductIcon(product)}
                         </div>
-                      )}
+                        <CardTitle className="text-xl">{product.name}</CardTitle>
+                      </div>
+                      <CardDescription className="flex-1">{product.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex-1 flex flex-col">
+                      <div className="space-y-4 flex-1">
+                        {product.media && product.media.length > 0 && product.media[0].url && (
+                          <div className="w-full aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                            <img
+                              src={product.media[0].url || "/placeholder.svg"}
+                              alt={product.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none"
+                              }}
+                            />
+                          </div>
+                        )}
 
-                      {product.stock !== undefined && (
-                        <div className="text-sm">
-                          <Badge variant={product.stock > 0 ? "default" : "destructive"}>
-                            {product.stock > 0 ? `${product.stock} in stock` : "Out of stock"}
-                          </Badge>
-                        </div>
-                      )}
+                        {product.price && typeof product.price === "number" && product.price > 0 && (
+                          <div
+                            className="text-lg font-semibold"
+                            style={
+                              theme?.primaryColor
+                                ? {
+                                    color: theme.primaryColor,
+                                  }
+                                : {}
+                            }
+                          >
+                            ${product.price}
+                          </div>
+                        )}
 
-                      {product.features && product.features.length > 0 && (
-                        <div>
-                          <h4 className="font-semibold mb-2 text-foreground">Key Features:</h4>
-                          <ul className="space-y-1">
-                            {(Array.isArray(product.features) ? product.features : [product.features]).map(
-                              (feature: string, index: number) => (
-                                <li key={index} className="text-sm text-muted-foreground flex items-center gap-2">
-                                  <div
-                                    className="w-1.5 h-1.5 rounded-full"
-                                    style={
-                                      theme?.primaryColor
-                                        ? {
-                                            backgroundColor: theme.primaryColor,
-                                          }
-                                        : {}
-                                    }
-                                  ></div>
-                                  {feature}
-                                </li>
-                              ),
-                            )}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                    <Link href={`/website/${companySlug}/${product.id}`} prefetch={true} className="mt-auto">
-                      <Button variant="outline" className="w-full bg-transparent">
-                        View Details
-                      </Button>
-                    </Link>
-                  </CardContent>
-                </Card>
+                        {product.stock !== undefined && (
+                          <div className="text-sm">
+                            <Badge variant={product.stock > 0 ? "default" : "destructive"}>
+                              {product.stock > 0 ? `${product.stock} in stock` : "Out of stock"}
+                            </Badge>
+                          </div>
+                        )}
+
+                        {product.features && product.features.length > 0 && (
+                          <div>
+                            <h4 className="font-semibold mb-2 text-foreground">Key Features:</h4>
+                            <ul className="space-y-1">
+                              {(Array.isArray(product.features) ? product.features : [product.features]).map(
+                                (feature: string, index: number) => (
+                                  <li key={index} className="text-sm text-muted-foreground flex items-center gap-2">
+                                    <div
+                                      className="w-1.5 h-1.5 rounded-full"
+                                      style={
+                                        theme?.primaryColor
+                                          ? {
+                                              backgroundColor: theme.primaryColor,
+                                            }
+                                          : {}
+                                      }
+                                    ></div>
+                                    {feature}
+                                  </li>
+                                ),
+                              )}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
               ))}
             </div>
           )}
