@@ -36,11 +36,21 @@ export default function QuotePage() {
     timeline: "",
     priority: "",
 
-    // Step 4: Contact Information
+    // Step 4: Contact Information & Client Details
     name: "",
     email: "",
     phone: "",
     company: "",
+    jobTitle: "",
+    industry: "",
+    companySize: "",
+    address: "",
+    city: "",
+    state: "",
+    zipCode: "",
+    country: "",
+    website: "",
+    referralSource: "",
 
     // Step 5: Additional Requirements
     additionalInfo: "",
@@ -317,55 +327,206 @@ export default function QuotePage() {
         return (
           <Card>
             <CardHeader>
-              <CardTitle>Contact Information</CardTitle>
-              <CardDescription>How can we reach you with the quote?</CardDescription>
+              <CardTitle>Contact Information & Client Details</CardTitle>
+              <CardDescription>Tell us about yourself and your organization</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-foreground">Personal Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Full Name *</Label>
+                    <Input
+                      id="name"
+                      placeholder="Enter your full name"
+                      value={formData.name}
+                      onChange={(e) => updateFormData("name", e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="jobTitle">Job Title</Label>
+                    <Input
+                      id="jobTitle"
+                      placeholder="e.g., Marketing Manager, CEO"
+                      value={formData.jobTitle}
+                      onChange={(e) => updateFormData("jobTitle", e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email Address *</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="Enter your email"
+                      value={formData.email}
+                      onChange={(e) => updateFormData("email", e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="Enter your phone number"
+                      value={formData.phone}
+                      onChange={(e) => updateFormData("phone", e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-foreground">Company Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="company">Company Name</Label>
+                    <Input
+                      id="company"
+                      placeholder="Enter your company name"
+                      value={formData.company}
+                      onChange={(e) => updateFormData("company", e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="website">Company Website</Label>
+                    <Input
+                      id="website"
+                      type="url"
+                      placeholder="https://www.example.com"
+                      value={formData.website}
+                      onChange={(e) => updateFormData("website", e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="industry">Industry</Label>
+                    <Select value={formData.industry} onValueChange={(value) => updateFormData("industry", value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select industry" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="retail">Retail</SelectItem>
+                        <SelectItem value="hospitality">Hospitality</SelectItem>
+                        <SelectItem value="education">Education</SelectItem>
+                        <SelectItem value="healthcare">Healthcare</SelectItem>
+                        <SelectItem value="corporate">Corporate</SelectItem>
+                        <SelectItem value="entertainment">Entertainment</SelectItem>
+                        <SelectItem value="government">Government</SelectItem>
+                        <SelectItem value="transportation">Transportation</SelectItem>
+                        <SelectItem value="real-estate">Real Estate</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="companySize">Company Size</Label>
+                    <Select
+                      value={formData.companySize}
+                      onValueChange={(value) => updateFormData("companySize", value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select company size" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1-10">1-10 employees</SelectItem>
+                        <SelectItem value="11-50">11-50 employees</SelectItem>
+                        <SelectItem value="51-200">51-200 employees</SelectItem>
+                        <SelectItem value="201-500">201-500 employees</SelectItem>
+                        <SelectItem value="501-1000">501-1000 employees</SelectItem>
+                        <SelectItem value="1000+">1000+ employees</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-foreground">Address Information</h3>
                 <div className="space-y-2">
-                  <Label htmlFor="name">Full Name *</Label>
+                  <Label htmlFor="address">Street Address</Label>
                   <Input
-                    id="name"
-                    placeholder="Enter your full name"
-                    value={formData.name}
-                    onChange={(e) => updateFormData("name", e.target.value)}
-                    required
+                    id="address"
+                    placeholder="Enter street address"
+                    value={formData.address}
+                    onChange={(e) => updateFormData("address", e.target.value)}
                   />
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="city">City</Label>
+                    <Input
+                      id="city"
+                      placeholder="Enter city"
+                      value={formData.city}
+                      onChange={(e) => updateFormData("city", e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="state">State/Province</Label>
+                    <Input
+                      id="state"
+                      placeholder="Enter state"
+                      value={formData.state}
+                      onChange={(e) => updateFormData("state", e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="zipCode">ZIP/Postal Code</Label>
+                    <Input
+                      id="zipCode"
+                      placeholder="Enter ZIP code"
+                      value={formData.zipCode}
+                      onChange={(e) => updateFormData("zipCode", e.target.value)}
+                    />
+                  </div>
+                </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email Address *</Label>
+                  <Label htmlFor="country">Country</Label>
                   <Input
-                    id="email"
-                    type="email"
-                    placeholder="Enter your email"
-                    value={formData.email}
-                    onChange={(e) => updateFormData("email", e.target.value)}
-                    required
+                    id="country"
+                    placeholder="Enter country"
+                    value={formData.country}
+                    onChange={(e) => updateFormData("country", e.target.value)}
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-foreground">Additional Information</h3>
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="Enter your phone number"
-                    value={formData.phone}
-                    onChange={(e) => updateFormData("phone", e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="company">Company Name</Label>
-                  <Input
-                    id="company"
-                    placeholder="Enter your company name"
-                    value={formData.company}
-                    onChange={(e) => updateFormData("company", e.target.value)}
-                  />
+                  <Label htmlFor="referralSource">How did you hear about us?</Label>
+                  <Select
+                    value={formData.referralSource}
+                    onValueChange={(value) => updateFormData("referralSource", value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select referral source" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="google">Google Search</SelectItem>
+                      <SelectItem value="social-media">Social Media</SelectItem>
+                      <SelectItem value="referral">Referral from colleague</SelectItem>
+                      <SelectItem value="trade-show">Trade Show/Event</SelectItem>
+                      <SelectItem value="advertisement">Advertisement</SelectItem>
+                      <SelectItem value="website">Company Website</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </CardContent>

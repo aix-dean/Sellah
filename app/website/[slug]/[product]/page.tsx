@@ -262,7 +262,7 @@ export default function ProductDetailPage() {
                 {companyData?.name || "Company"}
               </div>
             </div>
-            <Button onClick={() => router.push(`/website/${companySlug}/${productId}/quote`)}>Request Quote</Button>
+            <Button onClick={() => router.push(`/website/${companySlug}/${productId}/quote`)}>Project Brief</Button>
           </div>
         </div>
       </header>
@@ -445,7 +445,7 @@ export default function ProductDetailPage() {
                       className="w-full sm:w-auto px-8"
                       onClick={() => router.push(`/website/${companySlug}/${productId}/quote`)}
                     >
-                      Get Quote for {type.name}
+                      Get Project Brief for {type.name}
                     </Button>
                   </div>
                 </div>
@@ -533,7 +533,7 @@ export default function ProductDetailPage() {
               className="bg-background text-foreground hover:bg-background/90 px-8 py-3 font-semibold"
               onClick={() => router.push(`/website/${companySlug}/${productId}/quote`)}
             >
-              Request Quote
+              Project Brief
             </Button>
             <Button
               variant="outline"
