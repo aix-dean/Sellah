@@ -17,7 +17,7 @@ import Link from "next/link"
 import { useUserData } from "@/hooks/use-user-data"
 import { useCompanyData } from "@/hooks/use-company-data"
 import { useState } from "react"
-import { doc, setDoc, collection } from "firebase/firestore"
+import { doc, updateDoc, getDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useToast } from "@/hooks/use-toast"
 
@@ -28,15 +28,65 @@ export default function WebsitePage() {
 
   const [isThemeDialogOpen, setIsThemeDialogOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isLoadingTheme, setIsLoadingTheme] = useState(false)
   const [themeColors, setThemeColors] = useState({
     primary: "#3b82f6",
     secondary: "#64748b",
     accent: "#f59e0b",
+    button: "#3b82f6",
+    buttonText: "#ffffff", // Added button text color
+    header: "#1f2937",
     background: "#ffffff",
     text: "#1f2937",
+    footerBackground: "#1f2937",
+    footerText: "#ffffff",
   })
 
   const companyId = userData?.company_id || "company"
+
+  const loadExistingTheme = async () => {
+    if (!userData?.company_id) return
+
+    setIsLoadingTheme(true)
+    try {
+      const companyDocRef = doc(db, "companies", userData.company_id)
+      const companyDoc = await getDoc(companyDocRef)
+
+      if (companyDoc.exists()) {
+        const companyData = companyDoc.data()
+        const theme = companyData.theme
+
+        if (theme) {
+          setThemeColors({
+            primary: theme.primaryColor || "#3b82f6",
+            secondary: theme.secondaryColor || "#64748b",
+            accent: theme.accentColor || "#f59e0b",
+            button: theme.buttonColor || "#3b82f6",
+            buttonText: theme.buttonTextColor || "#ffffff",
+            header: theme.headerColor || "#1f2937",
+            background: theme.backgroundColor || "#ffffff",
+            text: theme.textColor || "#1f2937",
+            footerBackground: theme.footerBackgroundColor || "#1f2937",
+            footerText: theme.footerTextColor || "#ffffff",
+          })
+        }
+      }
+    } catch (error) {
+      console.error("Error loading existing theme:", error)
+      toast({
+        title: "Warning",
+        description: "Could not load existing theme colors. Using defaults.",
+        variant: "default",
+      })
+    } finally {
+      setIsLoadingTheme(false)
+    }
+  }
+
+  const handleOpenThemeDialog = () => {
+    setIsThemeDialogOpen(true)
+    loadExistingTheme()
+  }
 
   const handleSaveTheme = async () => {
     if (!userData?.company_id) {
@@ -50,19 +100,25 @@ export default function WebsitePage() {
 
     setIsSaving(true)
     try {
-      const websiteConfigRef = doc(collection(db, "companies", userData.company_id, "website_config"), "theme")
+      const companyDocRef = doc(db, "companies", userData.company_id)
 
       const themeData = {
-        primaryColor: themeColors.primary,
-        secondaryColor: themeColors.secondary,
-        accentColor: themeColors.accent,
-        backgroundColor: themeColors.background,
-        textColor: themeColors.text,
-        updated_at: new Date(),
-        ...(userData.uid && { updated_by: userData.uid }), // Only include if uid exists
+        theme: {
+          primaryColor: themeColors.primary,
+          secondaryColor: themeColors.secondary,
+          accentColor: themeColors.accent,
+          buttonColor: themeColors.button,
+          buttonTextColor: themeColors.buttonText,
+          headerColor: themeColors.header,
+          backgroundColor: themeColors.background,
+          textColor: themeColors.text,
+          footerBackgroundColor: themeColors.footerBackground,
+          footerTextColor: themeColors.footerText,
+        },
+        updatedAt: new Date(),
       }
 
-      await setDoc(websiteConfigRef, themeData)
+      await updateDoc(companyDocRef, themeData)
 
       toast({
         title: "Theme Updated",
@@ -184,7 +240,11 @@ export default function WebsitePage() {
                   View Website
                 </Button>
               </Link>
-              <Button variant="outline" onClick={() => setIsThemeDialogOpen(true)} className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={handleOpenThemeDialog}
+                className="flex items-center gap-2 bg-transparent"
+              >
                 <Palette className="w-4 h-4" />
                 Update Theme
               </Button>
@@ -211,115 +271,237 @@ export default function WebsitePage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-6 py-4">
-            <div className="grid gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="primary">Primary Color</Label>
-                <div className="flex items-center gap-3">
-                  <Input
-                    id="primary"
-                    type="color"
-                    value={themeColors.primary}
-                    onChange={(e) => handleColorChange("primary", e.target.value)}
-                    className="w-16 h-10 p-1 border rounded"
-                  />
-                  <Input
-                    type="text"
-                    value={themeColors.primary}
-                    onChange={(e) => handleColorChange("primary", e.target.value)}
-                    className="flex-1"
-                    placeholder="#3b82f6"
-                  />
-                </div>
-              </div>
+          {isLoadingTheme ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              <span className="ml-2 text-sm text-muted-foreground">Loading current theme...</span>
+            </div>
+          ) : (
+            <div className="grid gap-6 py-4">
+              <div className="grid gap-4">
+                {/* Brand Colors Section */}
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-gray-700 border-b pb-1">Brand Colors</h4>
 
-              <div className="grid gap-2">
-                <Label htmlFor="secondary">Secondary Color</Label>
-                <div className="flex items-center gap-3">
-                  <Input
-                    id="secondary"
-                    type="color"
-                    value={themeColors.secondary}
-                    onChange={(e) => handleColorChange("secondary", e.target.value)}
-                    className="w-16 h-10 p-1 border rounded"
-                  />
-                  <Input
-                    type="text"
-                    value={themeColors.secondary}
-                    onChange={(e) => handleColorChange("secondary", e.target.value)}
-                    className="flex-1"
-                    placeholder="#64748b"
-                  />
-                </div>
-              </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="primary">Primary Color</Label>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        id="primary"
+                        type="color"
+                        value={themeColors.primary}
+                        onChange={(e) => handleColorChange("primary", e.target.value)}
+                        className="w-16 h-10 p-1 border rounded"
+                      />
+                      <Input
+                        type="text"
+                        value={themeColors.primary}
+                        onChange={(e) => handleColorChange("primary", e.target.value)}
+                        className="flex-1"
+                        placeholder="#3b82f6"
+                      />
+                    </div>
+                  </div>
 
-              <div className="grid gap-2">
-                <Label htmlFor="accent">Accent Color</Label>
-                <div className="flex items-center gap-3">
-                  <Input
-                    id="accent"
-                    type="color"
-                    value={themeColors.accent}
-                    onChange={(e) => handleColorChange("accent", e.target.value)}
-                    className="w-16 h-10 p-1 border rounded"
-                  />
-                  <Input
-                    type="text"
-                    value={themeColors.accent}
-                    onChange={(e) => handleColorChange("accent", e.target.value)}
-                    className="flex-1"
-                    placeholder="#f59e0b"
-                  />
-                </div>
-              </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="secondary">Secondary Color</Label>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        id="secondary"
+                        type="color"
+                        value={themeColors.secondary}
+                        onChange={(e) => handleColorChange("secondary", e.target.value)}
+                        className="w-16 h-10 p-1 border rounded"
+                      />
+                      <Input
+                        type="text"
+                        value={themeColors.secondary}
+                        onChange={(e) => handleColorChange("secondary", e.target.value)}
+                        className="flex-1"
+                        placeholder="#64748b"
+                      />
+                    </div>
+                  </div>
 
-              <div className="grid gap-2">
-                <Label htmlFor="background">Background Color</Label>
-                <div className="flex items-center gap-3">
-                  <Input
-                    id="background"
-                    type="color"
-                    value={themeColors.background}
-                    onChange={(e) => handleColorChange("background", e.target.value)}
-                    className="w-16 h-10 p-1 border rounded"
-                  />
-                  <Input
-                    type="text"
-                    value={themeColors.background}
-                    onChange={(e) => handleColorChange("background", e.target.value)}
-                    className="flex-1"
-                    placeholder="#ffffff"
-                  />
+                  <div className="grid gap-2">
+                    <Label htmlFor="accent">Accent Color</Label>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        id="accent"
+                        type="color"
+                        value={themeColors.accent}
+                        onChange={(e) => handleColorChange("accent", e.target.value)}
+                        className="w-16 h-10 p-1 border rounded"
+                      />
+                      <Input
+                        type="text"
+                        value={themeColors.accent}
+                        onChange={(e) => handleColorChange("accent", e.target.value)}
+                        className="flex-1"
+                        placeholder="#f59e0b"
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div className="grid gap-2">
-                <Label htmlFor="text">Text Color</Label>
-                <div className="flex items-center gap-3">
-                  <Input
-                    id="text"
-                    type="color"
-                    value={themeColors.text}
-                    onChange={(e) => handleColorChange("text", e.target.value)}
-                    className="w-16 h-10 p-1 border rounded"
-                  />
-                  <Input
-                    type="text"
-                    value={themeColors.text}
-                    onChange={(e) => handleColorChange("text", e.target.value)}
-                    className="flex-1"
-                    placeholder="#1f2937"
-                  />
+                {/* Button Colors Section */}
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-gray-700 border-b pb-1">Button Colors</h4>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="button">Button Color</Label>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        id="button"
+                        type="color"
+                        value={themeColors.button}
+                        onChange={(e) => handleColorChange("button", e.target.value)}
+                        className="w-16 h-10 p-1 border rounded"
+                      />
+                      <Input
+                        type="text"
+                        value={themeColors.button}
+                        onChange={(e) => handleColorChange("button", e.target.value)}
+                        className="flex-1"
+                        placeholder="#3b82f6"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="buttonText">Button Text Color</Label>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        id="buttonText"
+                        type="color"
+                        value={themeColors.buttonText}
+                        onChange={(e) => handleColorChange("buttonText", e.target.value)}
+                        className="w-16 h-10 p-1 border rounded"
+                      />
+                      <Input
+                        type="text"
+                        value={themeColors.buttonText}
+                        onChange={(e) => handleColorChange("buttonText", e.target.value)}
+                        className="flex-1"
+                        placeholder="#ffffff"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Layout Colors Section */}
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-gray-700 border-b pb-1">Layout Colors</h4>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="header">Header Color</Label>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        id="header"
+                        type="color"
+                        value={themeColors.header}
+                        onChange={(e) => handleColorChange("header", e.target.value)}
+                        className="w-16 h-10 p-1 border rounded"
+                      />
+                      <Input
+                        type="text"
+                        value={themeColors.header}
+                        onChange={(e) => handleColorChange("header", e.target.value)}
+                        className="flex-1"
+                        placeholder="#1f2937"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="footerBackground">Footer Background Color</Label>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        id="footerBackground"
+                        type="color"
+                        value={themeColors.footerBackground}
+                        onChange={(e) => handleColorChange("footerBackground", e.target.value)}
+                        className="w-16 h-10 p-1 border rounded"
+                      />
+                      <Input
+                        type="text"
+                        value={themeColors.footerBackground}
+                        onChange={(e) => handleColorChange("footerBackground", e.target.value)}
+                        className="flex-1"
+                        placeholder="#1f2937"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="footerText">Footer Text Color</Label>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        id="footerText"
+                        type="color"
+                        value={themeColors.footerText}
+                        onChange={(e) => handleColorChange("footerText", e.target.value)}
+                        className="w-16 h-10 p-1 border rounded"
+                      />
+                      <Input
+                        type="text"
+                        value={themeColors.footerText}
+                        onChange={(e) => handleColorChange("footerText", e.target.value)}
+                        className="flex-1"
+                        placeholder="#ffffff"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="background">Background Color</Label>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        id="background"
+                        type="color"
+                        value={themeColors.background}
+                        onChange={(e) => handleColorChange("background", e.target.value)}
+                        className="w-16 h-10 p-1 border rounded"
+                      />
+                      <Input
+                        type="text"
+                        value={themeColors.background}
+                        onChange={(e) => handleColorChange("background", e.target.value)}
+                        className="flex-1"
+                        placeholder="#ffffff"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="text">Text Color</Label>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        id="text"
+                        type="color"
+                        value={themeColors.text}
+                        onChange={(e) => handleColorChange("text", e.target.value)}
+                        className="w-16 h-10 p-1 border rounded"
+                      />
+                      <Input
+                        type="text"
+                        value={themeColors.text}
+                        onChange={(e) => handleColorChange("text", e.target.value)}
+                        className="flex-1"
+                        placeholder="#1f2937"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsThemeDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSaveTheme} disabled={isSaving}>
+            <Button onClick={handleSaveTheme} disabled={isSaving || isLoadingTheme}>
               {isSaving ? "Saving..." : "Save Theme"}
             </Button>
           </DialogFooter>

@@ -61,13 +61,17 @@ export default function CompanyWebsite() {
 
     const fetchThemeConfig = async (companyId: string) => {
       try {
-        const themeDocRef = doc(db, "companies", companyId, "website_config", "theme")
-        const themeDoc = await getDoc(themeDocRef)
+        const companyDocRef = doc(db, "companies", companyId)
+        const companyDoc = await getDoc(companyDocRef)
 
-        if (themeDoc.exists()) {
-          const themeData = themeDoc.data()
-          setTheme(themeData)
-          applyTheme(themeData)
+        if (companyDoc.exists()) {
+          const companyData = companyDoc.data()
+          const themeData = companyData.theme
+
+          if (themeData) {
+            setTheme(themeData)
+            applyTheme(themeData)
+          }
         }
       } catch (error) {
         console.error("Error fetching theme config:", error)
@@ -110,6 +114,21 @@ export default function CompanyWebsite() {
         root.style.setProperty("--muted-foreground", themeData.textColor + "80") // 50% opacity
       }
 
+      if (themeData.buttonColor) {
+        root.style.setProperty("--button", themeData.buttonColor)
+        root.style.setProperty("--button-foreground", themeData.buttonTextColor || "#ffffff")
+      }
+
+      if (themeData.headerColor) {
+        root.style.setProperty("--header", themeData.headerColor)
+        root.style.setProperty("--header-foreground", "#ffffff")
+      }
+
+      if (themeData.footerBackgroundColor) {
+        root.style.setProperty("--footer", themeData.footerBackgroundColor)
+        root.style.setProperty("--footer-foreground", themeData.footerTextColor || "#ffffff")
+      }
+
       // Update elements that should use primary color
       const primaryElements = document.querySelectorAll(".bg-primary, .text-primary, .border-primary")
       primaryElements.forEach((element) => {
@@ -121,6 +140,36 @@ export default function CompanyWebsite() {
         }
         if (element.classList.contains("border-primary")) {
           ;(element as HTMLElement).style.borderColor = themeData.primaryColor
+        }
+      })
+
+      const buttonElements = document.querySelectorAll("button, .btn")
+      buttonElements.forEach((element) => {
+        if (
+          themeData.buttonColor &&
+          !element.classList.contains("variant-ghost") &&
+          !element.classList.contains("variant-outline")
+        ) {
+          ;(element as HTMLElement).style.backgroundColor = themeData.buttonColor
+          ;(element as HTMLElement).style.borderColor = themeData.buttonColor
+          ;(element as HTMLElement).style.color = themeData.buttonTextColor || "#ffffff"
+        }
+      })
+
+      const headerElements = document.querySelectorAll("header, nav, .header-element")
+      headerElements.forEach((element) => {
+        if (themeData.headerColor) {
+          ;(element as HTMLElement).style.backgroundColor = themeData.headerColor
+        }
+      })
+
+      const footerElements = document.querySelectorAll("footer, .footer-element")
+      footerElements.forEach((element) => {
+        if (themeData.footerBackgroundColor) {
+          ;(element as HTMLElement).style.backgroundColor = themeData.footerBackgroundColor
+        }
+        if (themeData.footerTextColor) {
+          ;(element as HTMLElement).style.color = themeData.footerTextColor
         }
       })
     }
@@ -274,7 +323,17 @@ export default function CompanyWebsite() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+      <header
+        className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b"
+        style={
+          theme?.headerColor
+            ? {
+                backgroundColor: theme.headerColor + "F0", // Add slight transparency
+                backdropFilter: "blur(8px)",
+              }
+            : {}
+        }
+      >
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
@@ -291,27 +350,86 @@ export default function CompanyWebsite() {
                   }}
                 />
               ) : null}
-              <div className={`text-2xl font-bold text-foreground ${companyData?.logo ? "hidden" : "block"}`}>
+              <div
+                className={`text-2xl font-bold ${companyData?.logo ? "hidden" : "block"}`}
+                style={
+                  theme?.headerColor
+                    ? {
+                        color: "#ffffff",
+                      }
+                    : {}
+                }
+              >
                 {companyData?.name || "Company"}
               </div>
             </div>
 
             <nav className="hidden md:flex items-center space-x-8">
-              <Link href="#products" className="text-foreground hover:text-primary transition-colors">
+              <Link
+                href="#products"
+                className="transition-colors"
+                style={
+                  theme?.headerColor
+                    ? {
+                        color: "#ffffff",
+                      }
+                    : {}
+                }
+              >
                 Products
               </Link>
-              <Link href="#specifications" className="text-foreground hover:text-primary transition-colors">
+              <Link
+                href="#specifications"
+                className="transition-colors"
+                style={
+                  theme?.headerColor
+                    ? {
+                        color: "#ffffff",
+                      }
+                    : {}
+                }
+              >
                 Specifications
               </Link>
-              <Link href="#applications" className="text-foreground hover:text-primary transition-colors">
+              <Link
+                href="#applications"
+                className="transition-colors"
+                style={
+                  theme?.headerColor
+                    ? {
+                        color: "#ffffff",
+                      }
+                    : {}
+                }
+              >
                 Applications
               </Link>
-              <Link href="#contact" className="text-foreground hover:text-primary transition-colors">
+              <Link
+                href="#contact"
+                className="transition-colors"
+                style={
+                  theme?.headerColor
+                    ? {
+                        color: "#ffffff",
+                      }
+                    : {}
+                }
+              >
                 Contact
               </Link>
             </nav>
 
-            <button className="md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+            <button
+              className="md:hidden"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              style={
+                theme?.headerColor
+                  ? {
+                      color: "#ffffff",
+                    }
+                  : {}
+              }
+            >
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
           </div>
@@ -319,16 +437,56 @@ export default function CompanyWebsite() {
           {mobileMenuOpen && (
             <div className="md:hidden border-t py-4">
               <nav className="flex flex-col space-y-4">
-                <Link href="#products" className="text-foreground hover:text-primary transition-colors">
+                <Link
+                  href="#products"
+                  className="transition-colors"
+                  style={
+                    theme?.headerColor
+                      ? {
+                          color: "#ffffff",
+                        }
+                      : {}
+                  }
+                >
                   Products
                 </Link>
-                <Link href="#specifications" className="text-foreground hover:text-primary transition-colors">
+                <Link
+                  href="#specifications"
+                  className="transition-colors"
+                  style={
+                    theme?.headerColor
+                      ? {
+                          color: "#ffffff",
+                        }
+                      : {}
+                  }
+                >
                   Specifications
                 </Link>
-                <Link href="#applications" className="text-foreground hover:text-primary transition-colors">
+                <Link
+                  href="#applications"
+                  className="transition-colors"
+                  style={
+                    theme?.headerColor
+                      ? {
+                          color: "#ffffff",
+                        }
+                      : {}
+                  }
+                >
                   Applications
                 </Link>
-                <Link href="#contact" className="text-foreground hover:text-primary transition-colors">
+                <Link
+                  href="#contact"
+                  className="transition-colors"
+                  style={
+                    theme?.headerColor
+                      ? {
+                          color: "#ffffff",
+                        }
+                      : {}
+                  }
+                >
                   Contact
                 </Link>
               </nav>
@@ -370,12 +528,19 @@ export default function CompanyWebsite() {
           <Button
             size="lg"
             style={
-              theme?.primaryColor
+              theme?.buttonColor
                 ? {
-                    backgroundColor: theme.primaryColor,
-                    borderColor: theme.primaryColor,
+                    backgroundColor: theme.buttonColor,
+                    borderColor: theme.buttonColor,
+                    color: theme.buttonTextColor || "#ffffff",
                   }
-                : {}
+                : theme?.primaryColor
+                  ? {
+                      backgroundColor: theme.primaryColor,
+                      borderColor: theme.primaryColor,
+                      color: theme.buttonTextColor || "#ffffff",
+                    }
+                  : {}
             }
             className="hover:opacity-90 transition-opacity"
           >
@@ -505,7 +670,17 @@ export default function CompanyWebsite() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-background border-t py-16">
+      <footer
+        className="py-16 border-t"
+        style={
+          theme?.footerBackgroundColor
+            ? {
+                backgroundColor: theme.footerBackgroundColor,
+                color: theme.footerTextColor || "#ffffff",
+              }
+            : { backgroundColor: "#f8f9fa" }
+        }
+      >
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             <div className="lg:col-span-1">
@@ -523,28 +698,52 @@ export default function CompanyWebsite() {
                     }}
                   />
                 ) : null}
-                <div className={`text-2xl font-bold text-foreground ${companyData?.logo ? "hidden" : "block"}`}>
+                <div
+                  className={`text-2xl font-bold ${companyData?.logo ? "hidden" : "block"}`}
+                  style={{
+                    color: theme?.footerTextColor || theme?.headerColor ? "#ffffff" : undefined,
+                  }}
+                >
                   {companyData?.name || "Company"}
                 </div>
               </div>
 
-              <p className="text-muted-foreground mb-6">
+              <p
+                className="mb-6"
+                style={{
+                  color: theme?.footerTextColor ? theme.footerTextColor + "CC" : "#6b7280",
+                }}
+              >
                 Professional LED solutions for businesses worldwide. Quality, innovation, and reliability in every
                 product.
               </p>
               <div className="mb-6">
-                <h3 className="font-semibold mb-4 text-foreground">Newsletter</h3>
+                <h3
+                  className="font-semibold mb-4"
+                  style={{
+                    color: theme?.footerTextColor || "#374151",
+                  }}
+                >
+                  Newsletter
+                </h3>
                 <div className="flex">
                   <Input placeholder="Enter your email" className="rounded-r-none" />
                   <Button
                     className="rounded-l-none"
                     style={
-                      theme?.primaryColor
+                      theme?.buttonColor
                         ? {
-                            backgroundColor: theme.primaryColor,
-                            borderColor: theme.primaryColor,
+                            backgroundColor: theme.buttonColor,
+                            borderColor: theme.buttonColor,
+                            color: theme.buttonTextColor || "#ffffff",
                           }
-                        : {}
+                        : theme?.primaryColor
+                          ? {
+                              backgroundColor: theme.primaryColor,
+                              borderColor: theme.primaryColor,
+                              color: theme.buttonTextColor || "#ffffff",
+                            }
+                          : {}
                     }
                   >
                     Subscribe
@@ -554,7 +753,13 @@ export default function CompanyWebsite() {
             </div>
           </div>
 
-          <div className="border-t border-border mt-12 pt-8 text-sm text-muted-foreground">
+          <div
+            className="border-t mt-12 pt-8 text-sm"
+            style={{
+              borderColor: theme?.footerTextColor ? theme.footerTextColor + "33" : "#e5e7eb",
+              color: theme?.footerTextColor ? theme.footerTextColor + "CC" : "#6b7280",
+            }}
+          >
             <p>© 2025 {companyData?.name || "Company"} LED. All rights reserved.</p>
           </div>
         </div>

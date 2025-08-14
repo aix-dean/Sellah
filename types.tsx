@@ -97,6 +97,18 @@ export interface Company {
   created_by: string
   createdAt: Date
   updatedAt: Date
+  theme?: {
+    primaryColor?: string
+    secondaryColor?: string
+    accentColor?: string
+    backgroundColor?: string
+    textColor?: string
+    buttonColor?: string
+    buttonTextColor?: string // Added button text color for better contrast control
+    headerColor?: string
+    footerBackgroundColor?: string // Added footer color fields for better footer theming control
+    footerTextColor?: string
+  }
 }
 
 export interface Category {

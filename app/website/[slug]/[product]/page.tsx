@@ -22,6 +22,77 @@ export default function ProductDetailPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (companyData?.theme) {
+      const theme = companyData.theme
+      const root = document.documentElement
+
+      // Apply theme colors as CSS custom properties
+      if (theme.primaryColor) root.style.setProperty("--primary", theme.primaryColor)
+      if (theme.secondaryColor) root.style.setProperty("--secondary", theme.secondaryColor)
+      if (theme.accentColor) root.style.setProperty("--accent", theme.accentColor)
+      if (theme.backgroundColor) root.style.setProperty("--background", theme.backgroundColor)
+      if (theme.textColor) root.style.setProperty("--foreground", theme.textColor)
+
+      if (theme.buttonColor) {
+        root.style.setProperty("--button", theme.buttonColor)
+        root.style.setProperty("--button-foreground", theme.buttonTextColor || "#ffffff")
+      }
+
+      if (theme.headerColor) {
+        root.style.setProperty("--header", theme.headerColor)
+        root.style.setProperty("--header-foreground", "#ffffff")
+      }
+
+      if (theme.footerBackgroundColor) {
+        root.style.setProperty("--footer", theme.footerBackgroundColor)
+        root.style.setProperty("--footer-foreground", theme.footerTextColor || "#ffffff")
+      }
+
+      // Set complementary colors for better contrast
+      if (theme.primaryColor) {
+        root.style.setProperty("--primary-foreground", theme.backgroundColor || "#ffffff")
+      }
+      if (theme.backgroundColor) {
+        root.style.setProperty("--card", theme.backgroundColor)
+        root.style.setProperty("--popover", theme.backgroundColor)
+      }
+      if (theme.secondaryColor) {
+        root.style.setProperty("--muted", theme.secondaryColor + "20") // Add transparency
+        root.style.setProperty("--muted-foreground", theme.secondaryColor)
+      }
+      if (theme.textColor) {
+        root.style.setProperty("--card-foreground", theme.textColor)
+        root.style.setProperty("--popover-foreground", theme.textColor)
+      }
+    }
+
+    // Cleanup function to reset theme on unmount
+    return () => {
+      if (companyData?.theme) {
+        const root = document.documentElement
+        root.style.removeProperty("--primary")
+        root.style.removeProperty("--secondary")
+        root.style.removeProperty("--accent")
+        root.style.removeProperty("--background")
+        root.style.removeProperty("--foreground")
+        root.style.removeProperty("--button")
+        root.style.removeProperty("--button-foreground")
+        root.style.removeProperty("--header")
+        root.style.removeProperty("--header-foreground")
+        root.style.removeProperty("--footer")
+        root.style.removeProperty("--footer-foreground")
+        root.style.removeProperty("--primary-foreground")
+        root.style.removeProperty("--card")
+        root.style.removeProperty("--popover")
+        root.style.removeProperty("--muted")
+        root.style.removeProperty("--muted-foreground")
+        root.style.removeProperty("--card-foreground")
+        root.style.removeProperty("--popover-foreground")
+      }
+    }
+  }, [companyData])
+
+  useEffect(() => {
     const fetchProductData = async () => {
       try {
         setLoading(true)
@@ -114,12 +185,7 @@ export default function ProductDetailPage() {
         Status: "Active",
       },
       types: [{ name: "Standard LED Product", specification: "Professional grade", application: "General use" }],
-      applications: [
-        "Commercial applications",
-        "Professional installations",
-        "Business environments",
-        "Industrial use cases",
-      ],
+      applications: ["Corporate", "Conference Room", "Command Center", "Broadcasting", "Retail", "Entertainment"],
     }
   }
 
@@ -236,11 +302,31 @@ export default function ProductDetailPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+      <header
+        className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b"
+        style={
+          companyData?.theme?.headerColor
+            ? {
+                backgroundColor: companyData.theme.headerColor + "F0", // Add slight transparency
+                backdropFilter: "blur(8px)",
+              }
+            : {}
+        }
+      >
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-4">
-              <Button variant="ghost" onClick={() => router.push(`/website/${companySlug}`)}>
+              <Button
+                variant="ghost"
+                onClick={() => router.push(`/website/${companySlug}`)}
+                style={
+                  companyData?.theme?.headerColor
+                    ? {
+                        color: "#ffffff",
+                      }
+                    : {}
+                }
+              >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back
               </Button>
@@ -256,18 +342,34 @@ export default function ProductDetailPage() {
                 />
               ) : null}
               <div
-                className="text-2xl font-bold text-foreground"
-                style={{ display: companyData?.logo ? "none" : "block" }}
+                className="text-2xl font-bold"
+                style={{
+                  display: companyData?.logo ? "none" : "block",
+                  color: companyData?.theme?.headerColor ? "#ffffff" : undefined,
+                }}
               >
                 {companyData?.name || "Company"}
               </div>
             </div>
-            <Button onClick={() => router.push(`/website/${companySlug}/${productId}/quote`)}>Project Brief</Button>
+            <Button
+              onClick={() => router.push(`/website/${companySlug}/${productId}/quote`)}
+              style={
+                companyData?.theme?.buttonColor
+                  ? {
+                      backgroundColor: companyData.theme.buttonColor,
+                      borderColor: companyData.theme.buttonColor,
+                      color: companyData.theme.buttonTextColor || "#ffffff",
+                    }
+                  : {}
+              }
+            >
+              Project Brief
+            </Button>
           </div>
         </div>
       </header>
 
-      <nav className="sticky top-16 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+      <nav className="sticky top-16 z-40 bg-transparent backdrop-blur supports-[backdrop-filter]:bg-transparent border-b">
         <div className="container mx-auto px-4">
           <div className="flex items-center h-14 overflow-x-auto">
             <div className="flex space-x-8 min-w-max">
@@ -444,6 +546,15 @@ export default function ProductDetailPage() {
                     <Button
                       className="w-full sm:w-auto px-8"
                       onClick={() => router.push(`/website/${companySlug}/${productId}/quote`)}
+                      style={
+                        companyData?.theme?.buttonColor
+                          ? {
+                              backgroundColor: companyData.theme.buttonColor,
+                              borderColor: companyData.theme.buttonColor,
+                              color: companyData.theme.buttonTextColor || "#ffffff",
+                            }
+                          : {}
+                      }
                     >
                       Get Project Brief for {type.name}
                     </Button>
@@ -522,22 +633,44 @@ export default function ProductDetailPage() {
       </div>
 
       {/* CTA Section */}
-      <section className="bg-primary text-primary-foreground py-16">
+      <section className="py-16" style={{ backgroundColor: "#1f2937", color: "#ffffff" }}>
         <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold mb-4">Ready to Get Started?</h2>
-          <p className="text-lg mb-8 max-w-2xl mx-auto">
+          <h2 className="text-3xl font-bold mb-4" style={{ color: "#ffffff" }}>
+            Ready to Get Started?
+          </h2>
+          <p
+            className="text-lg mb-8 max-w-2xl mx-auto"
+            style={{
+              color: companyData?.theme?.footerTextColor ? companyData.theme.footerTextColor + "CC" : "#ffffff",
+            }}
+          >
             Contact our sales team for a personalized quote and consultation for {product.name}.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
-              className="bg-background text-foreground hover:bg-background/90 px-8 py-3 font-semibold"
+              className="px-8 py-3 font-semibold"
               onClick={() => router.push(`/website/${companySlug}/${productId}/quote`)}
+              style={
+                companyData?.theme?.buttonColor && companyData?.theme?.buttonTextColor
+                  ? {
+                      backgroundColor: companyData.theme.buttonColor,
+                      color: companyData.theme.buttonTextColor,
+                    }
+                  : {
+                      backgroundColor: "#ffffff",
+                      color: "#000000",
+                    }
+              }
             >
               Project Brief
             </Button>
             <Button
               variant="outline"
-              className="border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary px-8 py-3 font-semibold bg-transparent"
+              className="px-8 py-3 font-semibold bg-transparent"
+              style={{
+                borderColor: companyData?.theme?.footerTextColor || "#ffffff",
+                color: companyData?.theme?.footerTextColor || "#ffffff",
+              }}
             >
               Schedule Demo
             </Button>
