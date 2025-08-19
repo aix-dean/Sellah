@@ -149,7 +149,7 @@ export default function CompanyWebsite() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-primary/5 to-primary/10 py-20">
+      <section className="relative bg-gradient-to-br from-primary/5 to-primary/10 min-h-screen flex items-center justify-center">
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-4xl md:text-6xl font-bold mb-4 text-foreground">Professional LED Solutions</h1>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
