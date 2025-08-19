@@ -446,17 +446,23 @@ export default function CompanyWebsite() {
             </div>
 
             <nav className="hidden md:flex items-center space-x-8">
+              <Link href="#home" className="transition-colors text-white/90 hover:text-white">
+                Home
+              </Link>
+              <Link href="#applications" className="transition-colors text-white/90 hover:text-white">
+                Application
+              </Link>
+              <Link href="#recent-works" className="transition-colors text-white/90 hover:text-white">
+                Recent Works
+              </Link>
               <Link href="#products" className="transition-colors text-white/90 hover:text-white">
                 Products
               </Link>
-              <Link href="#specifications" className="transition-colors text-white/90 hover:text-white">
-                Specifications
+              <Link href="#about-us" className="transition-colors text-white/90 hover:text-white">
+                About Us
               </Link>
-              <Link href="#applications" className="transition-colors text-white/90 hover:text-white">
-                Applications
-              </Link>
-              <Link href="#contact" className="transition-colors text-white/90 hover:text-white">
-                Contact
+              <Link href="#why-us" className="transition-colors text-white/90 hover:text-white">
+                Why Us
               </Link>
             </nav>
 
@@ -468,17 +474,23 @@ export default function CompanyWebsite() {
           {mobileMenuOpen && (
             <div className="md:hidden border-t border-white/20 py-4">
               <nav className="flex flex-col space-y-4">
+                <Link href="#home" className="transition-colors text-white/90 hover:text-white">
+                  Home
+                </Link>
+                <Link href="#applications" className="transition-colors text-white/90 hover:text-white">
+                  Application
+                </Link>
+                <Link href="#recent-works" className="transition-colors text-white/90 hover:text-white">
+                  Recent Works
+                </Link>
                 <Link href="#products" className="transition-colors text-white/90 hover:text-white">
                   Products
                 </Link>
-                <Link href="#specifications" className="transition-colors text-white/90 hover:text-white">
-                  Specifications
+                <Link href="#about-us" className="transition-colors text-white/90 hover:text-white">
+                  About Us
                 </Link>
-                <Link href="#applications" className="transition-colors text-white/90 hover:text-white">
-                  Applications
-                </Link>
-                <Link href="#contact" className="transition-colors text-white/90 hover:text-white">
-                  Contact
+                <Link href="#why-us" className="transition-colors text-white/90 hover:text-white">
+                  Why Us
                 </Link>
               </nav>
             </div>
@@ -488,6 +500,7 @@ export default function CompanyWebsite() {
 
       <div className="pt-16">
         <section
+          id="home"
           className="relative bg-gradient-to-br from-primary/5 to-primary/10 w-full h-[90vh] flex items-center justify-center overflow-hidden"
           style={
             theme?.primaryColor
@@ -613,40 +626,6 @@ export default function CompanyWebsite() {
         </section>
       </div>
 
-      <section id="about" className="bg-background">
-        <div className="w-full">
-          <div className="flex flex-col lg:flex-row min-h-[600px]">
-            {/* Left side - Text content with dark background */}
-            <div className="w-full lg:w-1/2 bg-gray-900 text-white flex items-center p-8 lg:p-16">
-              <div className="max-w-xl">
-                <h2 className="text-4xl lg:text-5xl font-bold mb-4">Lorem Ipsum Dolor Sit Amet</h2>
-                <h3 className="text-xl lg:text-2xl mb-8 text-gray-300">Consectetur Adipiscing Elit</h3>
-                <p className="mb-8 text-sm leading-relaxed">
-                  Professional LED solutions for businesses worldwide. Quality, innovation, and reliability in every
-                  product.
-                </p>
-                <div className="mb-8">
-                  <h3 className="font-semibold mb-2 text-sm">Contact Us</h3>
-                  <p className="text-sm">📞 +63 (2) 8123-4567</p>
-                </div>
-                <button className="bg-white text-gray-900 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
-                  Get To Know Us
-                </button>
-              </div>
-            </div>
-
-            {/* Right side - Image */}
-            <div className="w-full lg:w-1/2 relative">
-              <img
-                src="/placeholder.svg?height=600&width=800"
-                alt="LED displays and audiovisual systems showcase"
-                className="w-full h-full object-cover"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
       <section id="applications" className="py-16 bg-muted/30">
         <div className="w-full">
           <div className="text-center mb-12">
@@ -662,7 +641,7 @@ export default function CompanyWebsite() {
       </section>
 
       {/* Our Recent Works Section */}
-      <section className="w-full aspect-video relative overflow-hidden">
+      <section id="recent-works" className="w-full aspect-video relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent z-20"></div>
         <img
           src="/placeholder.svg?height=720&width=1280"
@@ -709,8 +688,152 @@ export default function CompanyWebsite() {
         </div>
       </section>
 
-      {/* Why Choose Us Section */}
-      <section className="py-16 bg-white">
+      {/* Featured Products Section */}
+      <section id="products" className="py-16 bg-white">
+        {" "}
+        {/* Changed from bg-slate-900 to bg-white */}
+        <div className="w-full">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold mb-4 text-gray-900">Featured Products</h2>{" "}
+            {/* Changed from text-white to text-gray-900 */}
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              {" "}
+              {/* Changed from text-gray-300 to text-gray-600 */}
+              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et
+              dolore magna aliqua.
+            </p>
+          </div>
+
+          <div className="flex flex-col lg:flex-row min-h-[600px]">
+            {/* Left side - Product showcase content */}
+            <div className="w-full lg:w-1/2 flex items-center p-8 lg:p-16">
+              <div className="max-w-xl">
+                <h3 className="text-4xl lg:text-5xl font-bold mb-6 text-gray-900">Classic Products</h3>{" "}
+                {/* Changed from text-white to text-gray-900 */}
+                <p className="text-lg mb-8 text-gray-700 leading-relaxed">
+                  {" "}
+                  {/* Changed from text-gray-300 to text-gray-700 */}
+                  LED signage that provides exceptional image with robust product quality to empower businesses to reach
+                  a new level.
+                </p>
+                <button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-full font-semibold transition-colors mb-8">
+                  View More
+                </button>
+                <div className="flex gap-4">
+                  {[
+                    { name: "Umate LM", active: false },
+                    { name: "Uslimiii", active: false },
+                    { name: "Uslim S2", active: false },
+                    { name: "Usign", active: true },
+                  ].map((product, index) => (
+                    <div key={index} className="text-center">
+                      <div
+                        className={`w-16 h-12 rounded-lg mb-2 flex items-center justify-center ${
+                          product.active ? "bg-blue-600" : "bg-gray-200" /* Changed from bg-slate-700 to bg-gray-200 */
+                        }`}
+                      >
+                        <img
+                          src="/placeholder.svg?height=48&width=64"
+                          alt={product.name}
+                          className="w-8 h-8 object-cover"
+                        />
+                      </div>
+                      <span className="text-xs text-gray-600">{product.name}</span>{" "}
+                      {/* Changed from text-gray-300 to text-gray-600 */}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Right side - Product image and specifications */}
+            <div className="w-full lg:w-1/2 relative p-8 lg:p-16">
+              <div className="w-1/2 mx-auto aspect-square bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg overflow-hidden mb-6 flex items-center justify-center">
+                {" "}
+                {/* Changed from dark blue gradient to light gray gradient */}
+                <img
+                  src="/placeholder.svg?height=400&width=400"
+                  alt="LED Display Modules"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="text-xl font-semibold text-gray-900">
+                  {" "}
+                  {/* Changed from text-white to text-gray-900 */}
+                  Designed for Outdoor Digital Signage Market P6/9/10
+                </h4>
+                <ul className="space-y-2 text-gray-700">
+                  {" "}
+                  {/* Changed from text-gray-300 to text-gray-700 */}
+                  <li className="flex items-start gap-2">
+                    <span className="w-1 h-1 bg-gray-900 rounded-full mt-2 flex-shrink-0"></span>{" "}
+                    {/* Changed from bg-white to bg-gray-900 */}
+                    <span>1x1ft metric size is optimal for signages and billboards</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="w-1 h-1 bg-gray-900 rounded-full mt-2 flex-shrink-0"></span>{" "}
+                    {/* Changed from bg-white to bg-gray-900 */}
+                    <span>Triple Protection design makes module and PDU IP69K</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="w-1 h-1 bg-gray-900 rounded-full mt-2 flex-shrink-0"></span>{" "}
+                    {/* Changed from bg-white to bg-gray-900 */}
+                    <span>Fanless Design, no noise and fewer risks</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="w-1 h-1 bg-gray-900 rounded-full mt-2 flex-shrink-0"></span>{" "}
+                    {/* Changed from bg-white to bg-gray-900 */}
+                    <span>Low Power consumption: 545W/SQM @850nits</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="w-1 h-1 bg-gray-900 rounded-full mt-2 flex-shrink-0"></span>{" "}
+                    {/* Changed from bg-white to bg-gray-900 */}
+                    <span>Flawless Display: 7680Hz refresh rate, 16bit, calibrated</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="about-us" className="bg-background">
+        <div className="w-full">
+          <div className="flex flex-col lg:flex-row min-h-[600px]">
+            {/* Left side - Text content with dark background */}
+            <div className="w-full lg:w-1/2 bg-gray-900 text-white flex items-center p-8 lg:p-16">
+              <div className="max-w-xl">
+                <h2 className="text-4xl lg:text-5xl font-bold mb-4">About Us</h2>
+                <h3 className="text-xl lg:text-2xl mb-8 text-gray-300">Consectetur Adipiscing Elit</h3>
+                <p className="mb-8 text-sm leading-relaxed">
+                  Professional LED solutions for businesses worldwide. Quality, innovation, and reliability in every
+                  product.
+                </p>
+                <div className="mb-8">
+                  <h3 className="font-semibold mb-2 text-sm">Contact Us</h3>
+                  <p className="text-sm">📞 +63 (2) 8123-4567</p>
+                </div>
+                <button className="bg-white text-gray-900 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
+                  Get To Know Us
+                </button>
+              </div>
+            </div>
+
+            {/* Right side - Image */}
+            <div className="w-full lg:w-1/2 relative">
+              <img
+                src="/placeholder.svg?height=600&width=800"
+                alt="LED displays and audiovisual systems showcase"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="why-us" className="py-16 bg-white">
         <div className="container mx-auto px-4">
           <div className="flex flex-col lg:flex-row items-center gap-12">
             {/* Left side - Content */}
@@ -796,98 +919,6 @@ export default function CompanyWebsite() {
                     </svg>
                   </button>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="products" className="py-16 bg-slate-900 text-white">
-        <div className="w-full">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold mb-4 text-white">Featured Products</h2>
-            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et
-              dolore magna aliqua.
-            </p>
-          </div>
-
-          <div className="flex flex-col lg:flex-row min-h-[600px]">
-            {/* Left side - Product showcase content */}
-            <div className="w-full lg:w-1/2 flex items-center p-8 lg:p-16">
-              <div className="max-w-xl">
-                <h3 className="text-4xl lg:text-5xl font-bold mb-6 text-white">Classic Products</h3>
-                <p className="text-lg mb-8 text-gray-300 leading-relaxed">
-                  LED signage that provides exceptional image with robust product quality to empower businesses to reach
-                  a new level.
-                </p>
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-full font-semibold transition-colors mb-8">
-                  View More
-                </button>
-
-                <div className="flex gap-4">
-                  {[
-                    { name: "Umate LM", active: false },
-                    { name: "Uslimiii", active: false },
-                    { name: "Uslim S2", active: false },
-                    { name: "Usign", active: true },
-                  ].map((product, index) => (
-                    <div key={index} className="text-center">
-                      <div
-                        className={`w-16 h-12 rounded-lg mb-2 flex items-center justify-center ${
-                          product.active ? "bg-blue-600" : "bg-slate-700"
-                        }`}
-                      >
-                        <img
-                          src="/placeholder.svg?height=48&width=64"
-                          alt={product.name}
-                          className="w-8 h-8 object-cover"
-                        />
-                      </div>
-                      <span className="text-xs text-gray-300">{product.name}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Right side - Product image and specifications */}
-            <div className="w-full lg:w-1/2 relative p-8 lg:p-16">
-              <div className="w-1/2 mx-auto aspect-square bg-gradient-to-br from-blue-900 to-slate-800 rounded-lg overflow-hidden mb-6 flex items-center justify-center">
-                <img
-                  src="/placeholder.svg?height=400&width=400"
-                  alt="LED Display Modules"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-
-              {/* Product specifications */}
-              <div className="space-y-4">
-                <h4 className="text-lg font-semibold text-white mb-4">
-                  Designed for Outdoor Digital Signage Market P6/9/10
-                </h4>
-                <ul className="space-y-2 text-gray-300">
-                  <li className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                    1x1ft metric size is optimal for signages and billboards
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                    Triple Protection design makes module and PDU IP69K
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                    Fanless Design, no noise and fewer risks
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                    Low Power consumption: 545W/SQM @850nits
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                    Flawless Display: 7680Hz refresh rate, 16bit, calibrated
-                  </li>
-                </ul>
               </div>
             </div>
           </div>
