@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { onAuthStateChanged } from "firebase/auth"
 import { auth, db } from "@/lib/firebase"
 import { collection, addDoc, serverTimestamp } from "firebase/firestore"
@@ -10,6 +11,7 @@ import LobbyPage from "@/components/lobby-page"
 export default function Home() {
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState(null)
+  const router = useRouter()
 
   // Function to get user's IP address and location
   const getUserLocationData = async () => {
@@ -63,20 +65,25 @@ export default function Home() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      console.log("[v0] Auth state changed:", currentUser ? "User authenticated" : "No user")
+      console.log("[v0] User object:", currentUser)
+
       setUser(currentUser)
       setLoading(false)
 
       // Create analytics document on page load
       await createAnalyticsDocument(currentUser)
 
-      // If user is logged in, redirect to dashboard
       if (currentUser) {
-        window.location.href = "/dashboard/products"
+        console.log("[v0] User is authenticated, redirecting to /dashboard/products")
+        router.push("/dashboard/products")
+      } else {
+        console.log("[v0] No user, showing lobby page")
       }
     })
 
     return () => unsubscribe()
-  }, [])
+  }, [router])
 
   if (loading) {
     return (
@@ -87,5 +94,5 @@ export default function Home() {
   }
 
   // Show lobby page only for non-authenticated users
-  return <LobbyPage />
+  return user ? null : <LobbyPage />
 }

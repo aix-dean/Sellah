@@ -214,14 +214,11 @@ export default function WebsitePage() {
               <CardDescription>Edit your website content</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full bg-transparent opacity-50 cursor-not-allowed"
-                disabled
-              >
-                Edit Content
-              </Button>
+              <Link href={`/website/edit/${companyId}`}>
+                <Button variant="outline" size="sm" className="w-full bg-transparent">
+                  Edit Content
+                </Button>
+              </Link>
             </CardContent>
           </Card>
         </div>
