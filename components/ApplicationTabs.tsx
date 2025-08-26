@@ -5,25 +5,48 @@ import { Button } from "@/components/ui/button"
 
 interface ApplicationTabsProps {
   theme?: any
+  config?: {
+    tabs: Array<{ id: string; label: string; enabled: boolean }>
+    activeTabColor: string
+    inactiveTabColor: string
+    activeTextColor: string
+    inactiveTextColor: string
+  }
+  content?: {
+    [key: string]: {
+      title: string
+      description: string
+      applications: Array<{ name: string; image?: string }>
+      image?: string
+    }
+  }
 }
 
-export default function ApplicationTabs({ theme }: ApplicationTabsProps) {
+export default function ApplicationTabs({ theme, config, content }: ApplicationTabsProps) {
   const [activeTab, setActiveTab] = useState("Indoor")
+  const [selectedApplication, setSelectedApplication] = useState<number>(0)
 
-  const tabs = [
-    { id: "Indoor", label: "Indoor" },
-    { id: "Outdoor", label: "Outdoor" },
-    { id: "Rental", label: "Rental" },
-    { id: "Sports", label: "Sports" },
-    { id: "Lighting", label: "Lighting" },
+  const tabs = config?.tabs?.filter((tab) => tab.enabled) || [
+    { id: "Indoor", label: "Indoor", enabled: true },
+    { id: "Outdoor", label: "Outdoor", enabled: true },
+    { id: "Rental", label: "Rental", enabled: true },
+    { id: "Sports", label: "Sports", enabled: true },
+    { id: "Lighting", label: "Lighting", enabled: true },
   ]
 
-  const tabContent = {
+  const defaultTabContent = {
     Indoor: {
       title: "Indoor",
       description:
         "From control rooms to governments to retail, Unilumin LED display presents exceptional images in mission-critical places and indoor commercial space.",
-      applications: ["Broadcast Room", "Education & Medical", "Control Room", "Corporate", "Hospitality", "Retail"],
+      applications: [
+        { name: "Broadcast Room" },
+        { name: "Education & Medical" },
+        { name: "Control Room" },
+        { name: "Corporate" },
+        { name: "Hospitality" },
+        { name: "Retail" },
+      ],
       image: "/placeholder.svg?height=400&width=600",
     },
     Outdoor: {
@@ -31,12 +54,12 @@ export default function ApplicationTabs({ theme }: ApplicationTabsProps) {
       description:
         "Weather-resistant LED displays designed for outdoor advertising, digital billboards, and large-scale installations with high brightness and durability.",
       applications: [
-        "Digital Billboards",
-        "Stadium Displays",
-        "Transportation Hubs",
-        "Outdoor Advertising",
-        "Public Information",
-        "Event Venues",
+        { name: "Digital Billboards" },
+        { name: "Stadium Displays" },
+        { name: "Transportation Hubs" },
+        { name: "Outdoor Advertising" },
+        { name: "Public Information" },
+        { name: "Event Venues" },
       ],
       image: "/placeholder.svg?height=400&width=600",
     },
@@ -45,12 +68,12 @@ export default function ApplicationTabs({ theme }: ApplicationTabsProps) {
       description:
         "Portable and modular LED display solutions perfect for events, concerts, trade shows, and temporary installations with quick setup and breakdown.",
       applications: [
-        "Concerts & Events",
-        "Trade Shows",
-        "Corporate Events",
-        "Weddings",
-        "Conferences",
-        "Stage Backdrops",
+        { name: "Concerts & Events" },
+        { name: "Trade Shows" },
+        { name: "Corporate Events" },
+        { name: "Weddings" },
+        { name: "Conferences" },
+        { name: "Stage Backdrops" },
       ],
       image: "/placeholder.svg?height=400&width=600",
     },
@@ -59,12 +82,12 @@ export default function ApplicationTabs({ theme }: ApplicationTabsProps) {
       description:
         "High-performance LED displays for sports venues, stadiums, and arenas with fast refresh rates and excellent visibility for live events.",
       applications: [
-        "Stadium Scoreboards",
-        "Perimeter Displays",
-        "Video Walls",
-        "Sports Bars",
-        "Training Facilities",
-        "Broadcasting",
+        { name: "Stadium Scoreboards" },
+        { name: "Perimeter Displays" },
+        { name: "Video Walls" },
+        { name: "Sports Bars" },
+        { name: "Training Facilities" },
+        { name: "Broadcasting" },
       ],
       image: "/placeholder.svg?height=400&width=600",
     },
@@ -73,18 +96,45 @@ export default function ApplicationTabs({ theme }: ApplicationTabsProps) {
       description:
         "Energy-efficient LED lighting solutions for commercial, industrial, and residential applications with smart controls and long lifespan.",
       applications: [
-        "Street Lighting",
-        "Industrial Lighting",
-        "Architectural Lighting",
-        "Landscape Lighting",
-        "Emergency Lighting",
-        "Smart City Solutions",
+        { name: "Street Lighting" },
+        { name: "Industrial Lighting" },
+        { name: "Architectural Lighting" },
+        { name: "Landscape Lighting" },
+        { name: "Emergency Lighting" },
+        { name: "Smart City Solutions" },
       ],
       image: "/placeholder.svg?height=400&width=600",
     },
   }
 
-  const currentContent = tabContent[activeTab as keyof typeof tabContent]
+  const currentContent = content?.[activeTab] || defaultTabContent[activeTab as keyof typeof defaultTabContent]
+
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId)
+    setSelectedApplication(0)
+  }
+
+  const getDisplayImage = () => {
+    console.log("[v0] Current content:", currentContent)
+    console.log("[v0] Selected application index:", selectedApplication)
+    console.log("[v0] Applications array:", currentContent.applications)
+
+    const application = currentContent.applications[selectedApplication]
+    console.log("[v0] Selected application:", application)
+
+    if (application && typeof application === "object" && application.image) {
+      console.log("[v0] Using application image:", application.image)
+      return application.image
+    }
+
+    console.log("[v0] Using default image:", currentContent.image || "/placeholder.svg")
+    return currentContent.image || "/placeholder.svg?height=400&width=600"
+  }
+
+  const handleApplicationClick = (index: number) => {
+    console.log("[v0] Application clicked:", index)
+    setSelectedApplication(index)
+  }
 
   return (
     <div className="container mx-auto px-4">
@@ -94,23 +144,18 @@ export default function ApplicationTabs({ theme }: ApplicationTabsProps) {
           <Button
             key={tab.id}
             variant={activeTab === tab.id ? "default" : "outline"}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-6 py-2 rounded-full transition-all ${
-              activeTab === tab.id
-                ? theme?.primaryColor
-                  ? `text-white`
-                  : "bg-blue-600 text-white hover:bg-blue-700"
-                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-            }`}
-            style={
-              activeTab === tab.id && theme?.primaryColor
-                ? {
-                    backgroundColor: theme.primaryColor,
-                    borderColor: theme.primaryColor,
-                    color: "#ffffff",
-                  }
-                : {}
-            }
+            onClick={() => handleTabChange(tab.id)}
+            className="px-6 py-2 rounded-full transition-all"
+            style={{
+              backgroundColor:
+                activeTab === tab.id
+                  ? config?.activeTabColor || theme?.primaryColor || "#3b82f6"
+                  : config?.inactiveTabColor || "#ffffff",
+              borderColor:
+                activeTab === tab.id ? config?.activeTabColor || theme?.primaryColor || "#3b82f6" : "#d1d5db",
+              color:
+                activeTab === tab.id ? config?.activeTextColor || "#ffffff" : config?.inactiveTextColor || "#374151",
+            }}
           >
             {tab.label}
           </Button>
@@ -123,9 +168,13 @@ export default function ApplicationTabs({ theme }: ApplicationTabsProps) {
         <div className="order-2 lg:order-1">
           <div className="aspect-[4/3] bg-gray-100 rounded-lg overflow-hidden">
             <img
-              src={currentContent.image || "/placeholder.svg"}
+              src={getDisplayImage() || "/placeholder.svg"}
               alt={`${currentContent.title} LED Display`}
               className="w-full h-full object-cover"
+              onError={(e) => {
+                console.log("[v0] Image failed to load:", getDisplayImage())
+                e.currentTarget.src = "/placeholder.svg?height=400&width=600"
+              }}
             />
           </div>
         </div>
@@ -137,16 +186,27 @@ export default function ApplicationTabs({ theme }: ApplicationTabsProps) {
 
           <div className="space-y-3 mb-8">
             {currentContent.applications.map((application, index) => (
-              <div key={index} className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0"></div>
-                <span className="text-foreground">{application}</span>
+              <div
+                key={index}
+                className={`flex items-center gap-3 cursor-pointer p-2 rounded-md transition-all hover:bg-gray-50 ${
+                  selectedApplication === index ? "bg-blue-50 border-l-4 border-blue-600" : ""
+                }`}
+                onClick={() => handleApplicationClick(index)}
+              >
+                <div
+                  className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                    selectedApplication === index ? "bg-blue-600" : "bg-blue-400"
+                  }`}
+                ></div>
+                <span className={`text-foreground ${selectedApplication === index ? "font-medium text-blue-900" : ""}`}>
+                  {typeof application === "string" ? application : application.name}
+                </span>
+                {typeof application === "object" && application.image && (
+                  <div className="w-1 h-1 bg-green-500 rounded-full ml-auto"></div>
+                )}
               </div>
             ))}
           </div>
-
-          <Button variant="ghost" className="text-blue-600 hover:text-blue-700 p-0 h-auto font-semibold">
-            View More →
-          </Button>
         </div>
       </div>
     </div>
