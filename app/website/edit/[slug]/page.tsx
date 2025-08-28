@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
-import { doc, updateDoc, getDoc, deleteField } from "firebase/firestore"
+import { doc, updateDoc, getDoc, deleteField, collection, query, where, getDocs } from "firebase/firestore"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import { db, storage } from "@/lib/firebase"
 import { Button } from "@/components/ui/button"
@@ -19,6 +19,17 @@ import { Badge } from "@/components/ui/badge"
 
 import ApplicationTabs from "@/components/ApplicationTabs"
 import FeaturedProductsEditDialog from "@/components/featured-products-edit-dialog"
+
+interface Product {
+  id: string
+  name: string
+  description?: string
+  image?: string
+  features?: string[]
+  company_id: string
+  slug?: string
+  [key: string]: any
+}
 
 interface CompanyData {
   name: string
@@ -120,6 +131,8 @@ export default function WebsiteEditPage() {
   const { toast } = useToast()
 
   const [companyData, setCompanyData] = useState<CompanyData | null>(null)
+  const [products, setProducts] = useState<Product[]>([])
+  const [productsLoading, setProductsLoading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [editDialog, setEditDialog] = useState<{
     open: boolean
@@ -506,6 +519,47 @@ export default function WebsiteEditPage() {
     }
   }, [companyData?.web_config?.recentWorksItems])
 
+  const fetchCompanyProducts = async (companyId: string) => {
+    try {
+      setProductsLoading(true)
+      console.log("[v0] Fetching products for company ID:", companyId)
+
+      const productsRef = collection(db, "products")
+      const productsQuery = query(productsRef, where("company_id", "==", companyId))
+      const productsSnapshot = await getDocs(productsQuery)
+
+      const companyProducts = productsSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        slug:
+          doc.data().slug ||
+          doc
+            .data()
+            .name?.toLowerCase()
+            .replace(/\s+/g, "-")
+            .replace(/[^a-z0-9-]/g, ""),
+        description: doc.data().description || `Professional ${doc.data().name} solution`,
+        features: doc.data().features || doc.data().key_features || [],
+      })) as Product[]
+
+      console.log("[v0] Fetched products:", companyProducts)
+      setProducts(companyProducts)
+
+      if (companyProducts.length === 0) {
+        console.log("[v0] No products found for company, showing fallback message")
+      }
+    } catch (error) {
+      console.error("[v0] Error fetching company products:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load products. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setProductsLoading(false)
+    }
+  }
+
   useEffect(() => {
     const fetchCompanyData = async () => {
       if (!slug) {
@@ -522,6 +576,8 @@ export default function WebsiteEditPage() {
           const data = docSnap.data() as CompanyData
           console.log("[v0] Company data loaded:", data)
           setCompanyData(data)
+
+          await fetchCompanyProducts(slug)
         } else {
           console.log("[v0] No company found with slug:", slug)
           setCompanyData(null)
@@ -678,15 +734,17 @@ export default function WebsiteEditPage() {
         "web_config.theme.navColor": navColor,
       })
 
-      // Update local state
       setCompanyData((prev) =>
         prev
           ? {
               ...prev,
-              theme: {
-                ...prev.theme,
-                headerColor: headerColor,
-                navColor: navColor,
+              web_config: {
+                ...prev.web_config,
+                theme: {
+                  ...prev.web_config?.theme,
+                  headerColor: headerColor,
+                  navColor: navColor,
+                },
               },
             }
           : null,
@@ -754,6 +812,7 @@ export default function WebsiteEditPage() {
   const handleHeaderClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     setHeaderColor(companyData?.web_config?.theme?.headerColor || "#1f2937")
+    setNavColor(companyData?.web_config?.theme?.navColor || "#ffffff")
     setHeaderColorDialog(true)
   }
 
@@ -1793,93 +1852,90 @@ export default function WebsiteEditPage() {
                 </div>
               </div>
 
-              <div className="flex flex-col lg:flex-row min-h-[600px]">
-                <div className="w-full lg:w-1/2 flex items-center p-8 lg:p-16">
-                  <div className="max-w-xl">
-                    <div>
-                      <h3 className="text-4xl lg:text-5xl font-bold mb-6 text-gray-900">Classic Products</h3>
-                    </div>
-
-                    <div>
-                      <p className="text-lg text-gray-600 mb-8">
-                        LED signage that provides exceptional image with robust product quality to empower businesses to
-                        reach a new level.
-                      </p>
-                    </div>
-
-                    <div>
-                      <button className="bg-blue-600 text-white px-8 py-3 rounded-full font-semibold mb-8">
-                        View More
-                      </button>
-                    </div>
-
-                    <div className="flex gap-4">
-                      {[
-                        { name: "Umate LM", active: false },
-                        { name: "Uslimiii", active: false },
-                        { name: "Uslim S2", active: false },
-                        { name: "Usign", active: true },
-                      ].map((product, index) => (
-                        <div key={index} className="text-center">
-                          <div
-                            className={`w-16 h-12 rounded-lg mb-2 flex items-center justify-center ${
-                              product.active ? "bg-blue-600" : "bg-gray-200"
-                            }`}
-                          >
-                            <img
-                              src="/placeholder.svg?height=48&width=64"
-                              alt={product.name}
-                              className="w-8 h-8 object-cover"
-                            />
-                          </div>
-                          <span className="text-xs text-gray-600">{product.name}</span>
+              {productsLoading ? (
+                <div className="flex justify-center items-center min-h-[400px]">
+                  <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                  <span className="ml-2 text-gray-600">Loading products...</span>
+                </div>
+              ) : products.length > 0 ? (
+                <div className="flex flex-col lg:flex-row min-h-[600px]">
+                  <div className="w-full lg:w-1/2 flex items-center p-8 lg:p-16">
+                    <div className="w-full h-full flex flex-col justify-center space-y-8">
+                      <div>
+                        <div>
+                          <h3 className="text-4xl lg:text-5xl font-bold mb-6 text-gray-900">
+                            {products[0]?.name || "Featured Product"}
+                          </h3>
                         </div>
-                      ))}
+
+                        <div>
+                          <p className="text-lg text-gray-600 mb-8">
+                            {products[0]?.description || "Professional LED solution for your business needs."}
+                          </p>
+                        </div>
+
+                        <div>
+                          <button className="bg-blue-600 text-white px-8 py-3 rounded-full font-semibold mb-8">
+                            View More
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-4 flex-wrap">
+                        {products.slice(0, 4).map((product, index) => (
+                          <div key={product.id} className="text-center">
+                            <div
+                              className={`w-20 h-16 rounded-lg mb-2 flex items-center justify-center ${
+                                index === 0 ? "bg-blue-600" : "bg-gray-200"
+                              }`}
+                            >
+                              {product.media?.[0]?.url ? (
+                                <img
+                                  src={product.media[0].url || "/placeholder.svg"}
+                                  alt={product.name}
+                                  className="w-12 h-12 object-cover rounded"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 bg-gray-300 rounded flex items-center justify-center">
+                                  <span className="text-xs font-bold text-gray-600">{product.name.charAt(0)}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="w-full lg:w-1/2 relative p-8 lg:p-16">
+                    <div className="w-full mx-auto aspect-square bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg overflow-hidden mb-6 flex items-center justify-center">
+                      {products[0]?.media?.[0]?.url ? (
+                        <img
+                          src={products[0].media[0].url || "/placeholder.svg"}
+                          alt={products[0].name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <img
+                          src="/placeholder.svg?height=400&width=400"
+                          alt="Product Display"
+                          className="w-full h-full object-cover"
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
-
-                <div className="w-full lg:w-1/2 relative p-8 lg:p-16">
-                  <div className="w-1/2 mx-auto aspect-square bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg overflow-hidden mb-6 flex items-center justify-center">
-                    <img
-                      src="/placeholder.svg?height=400&width=400"
-                      alt="LED Display Modules"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="text-xl font-semibold text-gray-900">
-                        Designed for Outdoor Digital Signage Market P6/9/10
-                      </h4>
-                    </div>
-
-                    <ul className="space-y-2 text-gray-700">
-                      <li className="flex items-start gap-2">
-                        <span className="w-1 h-1 bg-gray-900 rounded-full mt-2 flex-shrink-0"></span>
-                        <span>1x1ft metric size is optimal for signages and billboards</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="w-1 h-1 bg-gray-900 rounded-full mt-2 flex-shrink-0"></span>
-                        <span>Triple Protection design makes module and PDU IP69K</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="w-1 h-1 bg-gray-900 rounded-full mt-2 flex-shrink-0"></span>
-                        <span>Fanless Design, no noise and fewer risks</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="w-1 h-1 bg-gray-900 rounded-full mt-2 flex-shrink-0"></span>
-                        <span>Low Power consumption: 545W/SQM @850nits</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="w-1 h-1 bg-gray-900 rounded-full mt-2 flex-shrink-0"></span>
-                        <span>Flawless Display: 7680Hz refresh rate, 16bit, calibrated</span>
-                      </li>
-                    </ul>
+              ) : (
+                <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
+                  <div className="text-gray-400 mb-4">
+                    <ImageIcon className="h-16 w-16 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold mb-2">No Products Found</h3>
+                    <p className="text-gray-500">
+                      No products have been added for this company yet. Add products to display them here.
+                    </p>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </section>
         </FeaturedProductsEditDialog>
@@ -2132,7 +2188,14 @@ export default function WebsiteEditPage() {
 
                         {whyUsConfig.videoUrl && (
                           <div className="aspect-video rounded-lg overflow-hidden bg-gray-200">
-                            <video src={whyUsConfig.videoUrl} className="w-full h-full object-cover" controls />
+                            <video
+                              src={whyUsConfig.videoUrl}
+                              className="w-full h-full object-cover"
+                              controls
+                              autoPlay
+                              muted
+                              loop
+                            />
                           </div>
                         )}
 
@@ -3696,6 +3759,51 @@ export default function WebsiteEditPage() {
                 value={aboutUsConfig.ctaButton}
                 onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, ctaButton: e.target.value }))}
               />
+            </div>
+            <div>
+              <Label>About Us Image</Label>
+              <div className="space-y-3">
+                {aboutUsConfig.image && (
+                  <div className="relative group inline-block">
+                    <img
+                      src={aboutUsConfig.image || "/placeholder.svg"}
+                      alt="About Us"
+                      className="w-full h-32 object-cover rounded border"
+                      onError={(e) => {
+                        e.currentTarget.src = "/placeholder.svg?height=128&width=200"
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setAboutUsConfig((prev) => ({ ...prev, image: "" }))}
+                      className="absolute -top-1 -right-1 w-6 h-6 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) handleAboutUsImageUpload(file)
+                  }}
+                  className="hidden"
+                  id="about-us-image-upload"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => document.getElementById("about-us-image-upload")?.click()}
+                  className="w-full"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  {aboutUsConfig.image ? "Replace Image" : "Upload Image"}
+                </Button>
+              </div>
             </div>
             <div>
               <Label>Background Color</Label>

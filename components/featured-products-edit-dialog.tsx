@@ -17,14 +17,9 @@ interface FeaturedProductsEditDialogProps {
 export default function FeaturedProductsEditDialog({ children }: FeaturedProductsEditDialogProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [formData, setFormData] = useState({
-    sectionTitle: "Featured Products",
     sectionDescription:
       "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-    productTitle: "Classic Products",
-    productDescription:
-      "LED signage that provides exceptional image with robust product quality to empower businesses to reach a new level.",
     buttonText: "View More",
-    specificationTitle: "Designed for Outdoor Digital Signage Market P6/9/10",
     backgroundColor: "#ffffff",
     textColor: "#111827",
   })
@@ -72,15 +67,6 @@ export default function FeaturedProductsEditDialog({ children }: FeaturedProduct
             <h3 className="text-lg font-semibold">Section Header</h3>
             <div className="grid grid-cols-1 gap-4">
               <div>
-                <Label htmlFor="sectionTitle">Section Title</Label>
-                <Input
-                  id="sectionTitle"
-                  value={formData.sectionTitle}
-                  onChange={(e) => handleInputChange("sectionTitle", e.target.value)}
-                  placeholder="Featured Products"
-                />
-              </div>
-              <div>
                 <Label htmlFor="sectionDescription">Section Description</Label>
                 <Textarea
                   id="sectionDescription"
@@ -98,40 +84,12 @@ export default function FeaturedProductsEditDialog({ children }: FeaturedProduct
             <h3 className="text-lg font-semibold">Product Content</h3>
             <div className="grid grid-cols-1 gap-4">
               <div>
-                <Label htmlFor="productTitle">Product Title</Label>
-                <Input
-                  id="productTitle"
-                  value={formData.productTitle}
-                  onChange={(e) => handleInputChange("productTitle", e.target.value)}
-                  placeholder="Classic Products"
-                />
-              </div>
-              <div>
-                <Label htmlFor="productDescription">Product Description</Label>
-                <Textarea
-                  id="productDescription"
-                  value={formData.productDescription}
-                  onChange={(e) => handleInputChange("productDescription", e.target.value)}
-                  placeholder="Product description..."
-                  rows={3}
-                />
-              </div>
-              <div>
                 <Label htmlFor="buttonText">Button Text</Label>
                 <Input
                   id="buttonText"
                   value={formData.buttonText}
                   onChange={(e) => handleInputChange("buttonText", e.target.value)}
                   placeholder="View More"
-                />
-              </div>
-              <div>
-                <Label htmlFor="specificationTitle">Specification Title</Label>
-                <Input
-                  id="specificationTitle"
-                  value={formData.specificationTitle}
-                  onChange={(e) => handleInputChange("specificationTitle", e.target.value)}
-                  placeholder="Specification title..."
                 />
               </div>
             </div>

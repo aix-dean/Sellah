@@ -37,6 +37,7 @@ export default function CompanyWebsite() {
     backgroundColor: "#ffffff",
     textColor: "#1f2937",
   })
+  const [selectedProductIndex, setSelectedProductIndex] = useState(0)
 
   useEffect(() => {
     const fetchCompanyData = async () => {
@@ -579,7 +580,6 @@ export default function CompanyWebsite() {
                     const offsetPosition = elementPosition - 80
                     window.scrollTo({
                       top: offsetPosition,
-                      behavior: "smooth",
                     })
                   }
                 }}
@@ -613,7 +613,6 @@ export default function CompanyWebsite() {
                     const offsetPosition = elementPosition - 80
                     window.scrollTo({
                       top: offsetPosition,
-                      behavior: "smooth",
                     })
                   }
                 }}
@@ -683,7 +682,6 @@ export default function CompanyWebsite() {
                       const offsetPosition = elementPosition - 80
                       window.scrollTo({
                         top: offsetPosition,
-                        behavior: "smooth",
                       })
                     }
                     setMobileMenuOpen(false)
@@ -971,6 +969,15 @@ export default function CompanyWebsite() {
               "/placeholder.svg" ||
               "/placeholder.svg" ||
               "/placeholder.svg" ||
+              "/placeholder.svg" ||
+              "/placeholder.svg" ||
+              "/placeholder.svg" ||
+              "/placeholder.svg" ||
+              "/placeholder.svg" ||
+              "/placeholder.svg" ||
+              "/placeholder.svg" ||
+              "/placeholder.svg" ||
+              "/placeholder.svg" ||
               "/placeholder.svg"
             }
             alt={companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.projectTitle || "Recent Work"}
@@ -1104,99 +1111,103 @@ export default function CompanyWebsite() {
       <section id="products" className="py-16 bg-white">
         <div className="w-full">
           <div className="text-center mb-12">
-            <h2 className="text-4xl lg:text-5xl font-bold mb-4 text-gray-900">Featured Products</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              {companyData?.web_config?.products?.section_description ||
-                "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."}
-            </p>
+            <h2 className="text-4xl font-bold mb-4 text-gray-900">
+              {companyData?.web_config?.products?.section_title || "Featured Products"}
+            </h2>
+            <div>
+              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                {companyData?.web_config?.products?.section_description ||
+                  "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."}
+              </p>
+            </div>
           </div>
 
-          <div className="flex flex-col lg:flex-row min-h-[600px]">
-            {/* Left side - Product showcase content */}
-            <div className="w-full lg:w-1/2 flex items-center p-8 lg:p-16">
-              <div className="max-w-xl">
-                <h3 className="text-4xl lg:text-5xl font-bold mb-6 text-gray-900">Classic Products</h3>
-                <p className="text-lg mb-8 text-gray-700 leading-relaxed">
-                  LED signage that provides exceptional image with robust product quality to empower businesses to reach
-                  a new level.
-                </p>
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-full font-semibold transition-colors mb-8">
-                  View More
-                </button>
-                <div className="flex gap-4">
-                  {[
-                    { name: "Umate LM", active: false },
-                    { name: "Uslimiii", active: false },
-                    { name: "Uslim S2", active: false },
-                    { name: "Usign", active: true },
-                  ].map((product, index) => (
-                    <div key={index} className="text-center">
-                      <div
-                        className={`w-16 h-12 rounded-lg mb-2 flex items-center justify-center ${
-                          product.active ? "bg-blue-600" : "bg-gray-200" /* Changed from bg-slate-700 to bg-gray-200 */
-                        }`}
-                      >
-                        <img
-                          src="/placeholder.svg?height=48&width=64"
-                          alt={product.name}
-                          className="w-8 h-8 object-cover"
-                        />
-                      </div>
-                      <span className="text-xs text-gray-600">{product.name}</span>
-                      {/* Changed from text-gray-300 to text-gray-600 */}
+          {products.length > 0 ? (
+            <div className="flex flex-col lg:flex-row min-h-[600px]">
+              <div className="w-full lg:w-1/2 flex items-center p-8 lg:p-16">
+                <div className="w-full h-full flex flex-col justify-center space-y-8">
+                  <div>
+                    <div>
+                      <h3 className="text-4xl lg:text-5xl font-bold mb-6 text-gray-900">
+                        {products[selectedProductIndex]?.name || "Featured Product"}
+                      </h3>
                     </div>
-                  ))}
+
+                    <div>
+                      <p className="text-lg text-gray-600 mb-8">
+                        {products[selectedProductIndex]?.description ||
+                          "Professional LED solution for your business needs."}
+                      </p>
+                    </div>
+
+                    <div>
+                      <button className="bg-blue-600 text-white px-8 py-3 rounded-full font-semibold mb-8">
+                        {companyData?.web_config?.products?.button_text || "View More"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-4 flex-wrap">
+                    {products.slice(0, 4).map((product, index) => (
+                      <div
+                        key={product.id}
+                        className="text-center cursor-pointer"
+                        onClick={() => setSelectedProductIndex(index)}
+                      >
+                        <div
+                          className={`w-20 h-16 rounded-lg mb-2 flex items-center justify-center ${
+                            index === selectedProductIndex ? "bg-blue-600" : "bg-gray-200"
+                          }`}
+                        >
+                          {product.media?.[0]?.url ? (
+                            <img
+                              src={product.media[0].url || "/placeholder.svg"}
+                              alt={product.name}
+                              className="w-12 h-12 object-cover rounded"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 bg-gray-300 rounded flex items-center justify-center">
+                              <span className="text-xs font-bold text-gray-600">{product.name?.charAt(0) || "P"}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="w-full lg:w-1/2 relative p-8 lg:p-16">
+                <div className="w-full mx-auto aspect-square bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg overflow-hidden mb-6 flex items-center justify-center">
+                  {products[selectedProductIndex]?.media?.[0]?.url ? (
+                    <img
+                      src={products[selectedProductIndex].media[0].url || "/placeholder.svg"}
+                      alt={products[selectedProductIndex].name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <img
+                      src="/placeholder.svg?height=400&width=400"
+                      alt="Product Display"
+                      className="w-full h-full object-cover"
+                    />
+                  )}
                 </div>
               </div>
             </div>
-
-            {/* Right side - Product image and specifications */}
-            <div className="w-full lg:w-1/2 relative p-8 lg:p-16">
-              <div className="w-1/2 mx-auto aspect-square bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg overflow-hidden mb-6 flex items-center justify-center">
-                {/* Changed from dark blue gradient to light gray gradient */}
-                <img
-                  src="/placeholder.svg?height=400&width=400"
-                  alt="LED Display Modules"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-
-              <div className="space-y-4">
-                <h4 className="text-xl font-semibold text-gray-900">
-                  {/* Changed from text-white to text-gray-900 */}
-                  Designed for Outdoor Digital Signage Market P6/9/10
-                </h4>
-                <ul className="space-y-2 text-gray-700">
-                  {/* Changed from text-gray-300 to text-gray-700 */}
-                  <li className="flex items-start gap-2">
-                    <span className="w-1 h-1 bg-gray-900 rounded-full mt-2 flex-shrink-0"></span>
-                    {/* Changed from bg-white to bg-gray-900 */}
-                    <span>1x1ft metric size is optimal for signages and billboards</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="w-1 h-1 bg-gray-900 rounded-full mt-2 flex-shrink-0"></span>
-                    {/* Changed from bg-white to bg-gray-900 */}
-                    <span>Triple Protection design makes module and PDU IP69K</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="w-1 h-1 bg-gray-900 rounded-full mt-2 flex-shrink-0"></span>
-                    {/* Changed from bg-white to bg-gray-900 */}
-                    <span>Fanless Design, no noise and fewer risks</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="w-1 h-1 bg-gray-900 rounded-full mt-2 flex-shrink-0"></span>
-                    {/* Changed from bg-white to bg-gray-900 */}
-                    <span>Low Power consumption: 545W/SQM @850nits</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="w-1 h-1 bg-gray-900 rounded-full mt-2 flex-shrink-0"></span>
-                    {/* Changed from bg-white to bg-gray-900 */}
-                    <span>Flawless Display: 7680Hz refresh rate, 16bit, calibrated</span>
-                  </li>
-                </ul>
+          ) : (
+            <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
+              <div className="text-gray-400 mb-4">
+                <div className="h-16 w-16 mx-auto mb-4 bg-gray-200 rounded-lg flex items-center justify-center">
+                  <span className="text-2xl">📦</span>
+                </div>
+                <h3 className="text-xl font-semibold mb-2">No Products Found</h3>
+                <p className="text-gray-500">
+                  No products have been added for this company yet. Add products to display them here.
+                </p>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </section>
 
@@ -1389,6 +1400,9 @@ export default function CompanyWebsite() {
                   src={companyData.web_config.whyUs.videoUrl}
                   className="w-full aspect-video rounded-lg object-cover shadow-lg"
                   controls
+                  autoPlay
+                  muted
+                  loop
                   poster="/placeholder.svg?height=400&width=600"
                 />
               ) : (
