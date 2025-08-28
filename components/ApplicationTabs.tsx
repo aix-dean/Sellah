@@ -119,6 +119,20 @@ export default function ApplicationTabs({ theme, config, content }: ApplicationT
     console.log("[v0] Selected application index:", selectedApplication)
     console.log("[v0] Applications array:", currentContent.applications)
 
+    if (
+      !currentContent.applications ||
+      !Array.isArray(currentContent.applications) ||
+      currentContent.applications.length === 0
+    ) {
+      console.log("[v0] No applications array, using default image:", currentContent.image || "/placeholder.svg")
+      return currentContent.image || "/placeholder.svg?height=400&width=600"
+    }
+
+    if (selectedApplication < 0 || selectedApplication >= currentContent.applications.length) {
+      console.log("[v0] Selected application index out of bounds, using default image")
+      return currentContent.image || "/placeholder.svg?height=400&width=600"
+    }
+
     const application = currentContent.applications[selectedApplication]
     console.log("[v0] Selected application:", application)
 
@@ -133,7 +147,9 @@ export default function ApplicationTabs({ theme, config, content }: ApplicationT
 
   const handleApplicationClick = (index: number) => {
     console.log("[v0] Application clicked:", index)
-    setSelectedApplication(index)
+    if (currentContent.applications && index >= 0 && index < currentContent.applications.length) {
+      setSelectedApplication(index)
+    }
   }
 
   return (
@@ -185,27 +201,31 @@ export default function ApplicationTabs({ theme, config, content }: ApplicationT
           <p className="text-lg text-muted-foreground mb-8 leading-relaxed">{currentContent.description}</p>
 
           <div className="space-y-3 mb-8">
-            {currentContent.applications.map((application, index) => (
-              <div
-                key={index}
-                className={`flex items-center gap-3 cursor-pointer p-2 rounded-md transition-all hover:bg-gray-50 ${
-                  selectedApplication === index ? "bg-blue-50 border-l-4 border-blue-600" : ""
-                }`}
-                onClick={() => handleApplicationClick(index)}
-              >
+            {currentContent.applications &&
+              Array.isArray(currentContent.applications) &&
+              currentContent.applications.map((application, index) => (
                 <div
-                  className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                    selectedApplication === index ? "bg-blue-600" : "bg-blue-400"
+                  key={index}
+                  className={`flex items-center gap-3 cursor-pointer p-2 rounded-md transition-all hover:bg-gray-50 ${
+                    selectedApplication === index ? "bg-blue-50 border-l-4 border-blue-600" : ""
                   }`}
-                ></div>
-                <span className={`text-foreground ${selectedApplication === index ? "font-medium text-blue-900" : ""}`}>
-                  {typeof application === "string" ? application : application.name}
-                </span>
-                {typeof application === "object" && application.image && (
-                  <div className="w-1 h-1 bg-green-500 rounded-full ml-auto"></div>
-                )}
-              </div>
-            ))}
+                  onClick={() => handleApplicationClick(index)}
+                >
+                  <div
+                    className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                      selectedApplication === index ? "bg-blue-600" : "bg-blue-400"
+                    }`}
+                  ></div>
+                  <span
+                    className={`text-foreground ${selectedApplication === index ? "font-medium text-blue-900" : ""}`}
+                  >
+                    {typeof application === "string" ? application : application.name}
+                  </span>
+                  {typeof application === "object" && application.image && (
+                    <div className="w-1 h-1 bg-green-500 rounded-full ml-auto"></div>
+                  )}
+                </div>
+              ))}
           </div>
         </div>
       </div>

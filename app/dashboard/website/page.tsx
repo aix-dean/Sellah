@@ -1,6 +1,6 @@
 "use client"
 
-import { Globe, Settings, Eye, Edit3, ExternalLink, ArrowLeft, Palette } from "lucide-react"
+import { Globe, Settings, Eye, Edit3, ExternalLink, ArrowLeft, Palette, QrCode, Copy, Monitor } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -41,8 +41,30 @@ export default function WebsitePage() {
     footerBackground: "#1f2937",
     footerText: "#ffffff",
   })
+  const [showQrCode, setShowQrCode] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const companyId = userData?.company_id || "company"
+
+  const terminalPortalUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/website/ZxWUmoFXCLnTXJVAOaAA`
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(terminalPortalUrl)
+      setCopied(true)
+      toast({
+        title: "Copied!",
+        description: "Terminal Portal URL copied to clipboard",
+      })
+      setTimeout(() => setCopied(false), 2000)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to copy URL to clipboard",
+        variant: "destructive",
+      })
+    }
+  }
 
   const loadExistingTheme = async () => {
     if (!userData?.company_id) return
@@ -122,7 +144,7 @@ export default function WebsitePage() {
 
       toast({
         title: "Theme Updated",
-        description: "Your website theme has been successfully updated",
+        description: "Your terminal theme has been successfully updated",
       })
 
       setIsThemeDialogOpen(false)
@@ -161,9 +183,9 @@ export default function WebsitePage() {
             </div>
             <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
               <Globe className="w-8 h-8 text-blue-500" />
-              Website Management
+              Terminal Management
             </h1>
-            <p className="text-gray-600 mt-2">Manage your online presence and website settings</p>
+            <p className="text-gray-600 mt-2">Manage your online presence and terminal settings</p>
           </div>
         </div>
 
@@ -173,9 +195,9 @@ export default function WebsitePage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Eye className="w-5 h-5 text-green-500" />
-                Website Status
+                Terminal Status
               </CardTitle>
-              <CardDescription>Your website is live and accessible</CardDescription>
+              <CardDescription>Your terminal is live and accessible</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2">
@@ -191,7 +213,7 @@ export default function WebsitePage() {
                 <Settings className="w-5 h-5 text-blue-500" />
                 Configuration
               </CardTitle>
-              <CardDescription>Customize your website settings</CardDescription>
+              <CardDescription>Customize your terminal settings</CardDescription>
             </CardHeader>
             <CardContent>
               <Button
@@ -211,7 +233,7 @@ export default function WebsitePage() {
                 <Edit3 className="w-5 h-5 text-purple-500" />
                 Content Editor
               </CardTitle>
-              <CardDescription>Edit your website content</CardDescription>
+              <CardDescription>Edit your terminal content</CardDescription>
             </CardHeader>
             <CardContent>
               <Link href={`/website/edit/${companyId}`}>
@@ -221,20 +243,64 @@ export default function WebsitePage() {
               </Link>
             </CardContent>
           </Card>
+
+          {/* Terminal Portal Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Monitor className="w-5 h-5 text-orange-500" />
+                Terminal Portal
+              </CardTitle>
+              <CardDescription>Access your public terminal portal</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="p-2 bg-gray-50 rounded border text-xs font-mono break-all">{terminalPortalUrl}</div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={copyToClipboard}
+                  className="flex items-center gap-1 flex-1 bg-transparent"
+                >
+                  <Copy className="w-3 h-3" />
+                  {copied ? "Copied!" : "Copy"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowQrCode(!showQrCode)}
+                  className="flex items-center gap-1 flex-1"
+                >
+                  <QrCode className="w-3 h-3" />
+                  QR Code
+                </Button>
+              </div>
+              {showQrCode && (
+                <div className="flex justify-center p-4 bg-white border rounded">
+                  <div className="w-32 h-32 bg-gray-100 border-2 border-dashed border-gray-300 rounded flex items-center justify-center">
+                    <div className="text-center text-xs text-gray-500">
+                      <QrCode className="w-8 h-8 mx-auto mb-1" />
+                      QR Code
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Quick Actions */}
         <Card>
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Common website management tasks</CardDescription>
+            <CardDescription>Common terminal management tasks</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <Link href={`/website/${companyId}`} target="_blank">
                 <Button className="bg-blue-500 hover:bg-blue-600 text-white w-full flex items-center gap-2">
                   <ExternalLink className="w-4 h-4" />
-                  View Website
+                  View Terminal
                 </Button>
               </Link>
               <Button
@@ -243,7 +309,7 @@ export default function WebsitePage() {
                 className="flex items-center gap-2 bg-transparent"
               >
                 <Palette className="w-4 h-4" />
-                Update Theme
+                Update Terminal Theme
               </Button>
               <Button variant="outline" className="opacity-50 cursor-not-allowed bg-transparent" disabled>
                 Manage Pages
@@ -261,10 +327,10 @@ export default function WebsitePage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Palette className="w-5 h-5" />
-              Update Website Theme
+              Update Terminal Theme
             </DialogTitle>
             <DialogDescription>
-              Customize your website colors. Changes will be applied to your live website.
+              Customize your terminal colors. Changes will be applied to your live terminal.
             </DialogDescription>
           </DialogHeader>
 

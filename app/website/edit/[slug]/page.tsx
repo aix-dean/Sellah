@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
 
 import ApplicationTabs from "@/components/ApplicationTabs"
+import FeaturedProductsEditDialog from "@/components/featured-products-edit-dialog"
 
 interface CompanyData {
   name: string
@@ -84,6 +85,24 @@ interface CompanyData {
     whyUs?: {
       bulletPoints: string[]
       videoUrl: string
+    }
+    footer?: {
+      title: string
+      subtitle: string
+      buttonText: string
+      aboutUs: {
+        title: string
+        links: string[]
+      }
+      address: {
+        title: string
+        lines: string[]
+      }
+      followUs: {
+        title: string
+        socialLinks: { name: string; url: string; icon: string }[]
+      }
+      copyright: string
     }
   }
 }
@@ -276,31 +295,82 @@ export default function WebsiteEditPage() {
   })
   const [whyUsLoading, setWhyUsLoading] = useState(false)
 
-  const handleWhyUsClick = () => {
-    // Load existing config from database
-    const existingConfig = companyData?.web_config?.whyUs || {}
-    setWhyUsConfig({
-      bulletPoints: existingConfig.bulletPoints || [
-        "We create LED displays with a focus on quality and usability.",
-        "Our products are conceived, designed, tested, and supported in-house to ensure quality control.",
-        "We provide world-class support with our five-year product warranty, 10-year parts availability guarantee, and white glove service style.",
-        "Since our founding, our company has relied on a tireless work ethic to outperform the competition.",
-        "Thousands of businesses nationwide have trusted us as their LED display manufacturer.",
+  const [footerDialog, setFooterDialog] = useState(false)
+  const [footerConfig, setFooterConfig] = useState({
+    title: "How Can We Help You?",
+    subtitle: "Feel free to let us know.",
+    buttonText: "contact us",
+    aboutUs: {
+      title: "About Us",
+      links: ["About Unilumin", "Joint-Stock Company", "U-Green"],
+    },
+    address: {
+      title: "Address",
+      lines: [
+        "No. 18 Haoye Road, Fuhai Sub-district, Bao'an District",
+        "Shenzhen, Guangdong Province",
+        "sales@unilumin.com",
+        "+86-755-29019999",
       ],
-      videoUrl: existingConfig.videoUrl || "",
+    },
+    followUs: {
+      title: "Follow Us",
+      socialLinks: [
+        { name: "Twitter", url: "#", icon: "twitter" },
+        { name: "YouTube", url: "#", icon: "youtube" },
+        { name: "LinkedIn", url: "#", icon: "linkedin" },
+        { name: "Pinterest", url: "#", icon: "pinterest" },
+        { name: "TikTok", url: "#", icon: "tiktok" },
+      ],
+    },
+    copyright: "copyright © 2025 DOS",
+  })
+  const [footerLoading, setFooterLoading] = useState(false)
+
+  const handleFooterClick = () => {
+    // Load existing config from database
+    const existingConfig = companyData?.web_config?.footer || {}
+    setFooterConfig({
+      title: existingConfig.title || "How Can We Help You?",
+      subtitle: existingConfig.subtitle || "Feel free to let us know.",
+      buttonText: existingConfig.buttonText || "contact us",
+      aboutUs: {
+        title: existingConfig.aboutUs?.title || "About Us",
+        links: existingConfig.aboutUs?.links || ["About Unilumin", "Joint-Stock Company", "U-Green"],
+      },
+      address: {
+        title: existingConfig.address?.title || "Address",
+        lines: existingConfig.address?.lines || [
+          "No. 18 Haoye Road, Fuhai Sub-district, Bao'an District",
+          "Shenzhen, Guangdong Province",
+          "sales@unilumin.com",
+          "+86-755-29019999",
+        ],
+      },
+      followUs: {
+        title: existingConfig.followUs?.title || "Follow Us",
+        socialLinks: existingConfig.followUs?.socialLinks || [
+          { name: "Twitter", url: "#", icon: "twitter" },
+          { name: "YouTube", url: "#", icon: "youtube" },
+          { name: "LinkedIn", url: "#", icon: "linkedin" },
+          { name: "Pinterest", url: "#", icon: "pinterest" },
+          { name: "TikTok", url: "#", icon: "tiktok" },
+        ],
+      },
+      copyright: existingConfig.copyright || "copyright © 2025 DOS",
     })
-    setWhyUsDialog(true)
+    setFooterDialog(true)
   }
 
-  const handleWhyUsSave = async () => {
+  const handleFooterSave = async () => {
     if (!slug) return
 
     try {
-      setWhyUsLoading(true)
+      setFooterLoading(true)
       const docRef = doc(db, "companies", slug)
 
       await updateDoc(docRef, {
-        "web_config.whyUs": whyUsConfig,
+        "web_config.footer": footerConfig,
       })
 
       // Update local state
@@ -310,77 +380,118 @@ export default function WebsiteEditPage() {
           ...prevData,
           web_config: {
             ...prevData.web_config,
-            whyUs: whyUsConfig,
+            footer: footerConfig,
           },
         }
       })
 
       toast({
-        title: "Why Us Section Updated",
+        title: "Footer Section Updated",
         description: "Your changes have been saved successfully.",
       })
-      setWhyUsDialog(false)
+      setFooterDialog(false)
     } catch (error) {
-      console.error("Error saving Why Us section:", error)
+      console.error("Error saving footer section:", error)
       toast({
         title: "Error",
         description: "Failed to save changes. Please try again.",
         variant: "destructive",
       })
     } finally {
-      setWhyUsLoading(false)
+      setFooterLoading(false)
     }
   }
 
-  const addBulletPoint = () => {
-    setWhyUsConfig((prev) => ({
+  const addAboutUsLink = () => {
+    setFooterConfig((prev) => ({
       ...prev,
-      bulletPoints: [...prev.bulletPoints, "New bullet point"],
+      aboutUs: {
+        ...prev.aboutUs,
+        links: [...(prev.aboutUs?.links || []), "New link"],
+      },
     }))
   }
 
-  const removeBulletPoint = (index: number) => {
-    setWhyUsConfig((prev) => ({
+  const removeAboutUsLink = (index: number) => {
+    setFooterConfig((prev) => ({
       ...prev,
-      bulletPoints: prev.bulletPoints.filter((_, i) => i !== index),
+      aboutUs: {
+        ...prev.aboutUs,
+        links: (prev.aboutUs?.links || []).filter((_, i) => i !== index),
+      },
     }))
   }
 
-  const updateBulletPoint = (index: number, value: string) => {
-    setWhyUsConfig((prev) => ({
+  const updateAboutUsLink = (index: number, value: string) => {
+    setFooterConfig((prev) => ({
       ...prev,
-      bulletPoints: prev.bulletPoints.map((point, i) => (i === index ? value : point)),
+      aboutUs: {
+        ...prev.aboutUs,
+        links: (prev.aboutUs?.links || []).map((link, i) => (i === index ? value : link)),
+      },
     }))
   }
 
-  const handleWhyUsVideoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file || !slug) return
+  const addAddressLine = () => {
+    setFooterConfig((prev) => ({
+      ...prev,
+      address: {
+        ...prev.address,
+        lines: [...(prev.address?.lines || []), "New address line"],
+      },
+    }))
+  }
 
-    try {
-      const storageRef = ref(storage, `why-us-videos/${slug}/${Date.now()}_${file.name}`)
-      const snapshot = await uploadBytes(storageRef, file)
-      const downloadURL = await getDownloadURL(snapshot.ref)
+  const removeAddressLine = (index: number) => {
+    setFooterConfig((prev) => ({
+      ...prev,
+      address: {
+        ...prev.address,
+        lines: (prev.address?.lines || []).filter((_, i) => i !== index),
+      },
+    }))
+  }
 
-      setWhyUsConfig((prev) => ({
-        ...prev,
-        videoUrl: downloadURL,
-      }))
+  const updateAddressLine = (index: number, value: string) => {
+    setFooterConfig((prev) => ({
+      ...prev,
+      address: {
+        ...prev.address,
+        lines: (prev.address?.lines || []).map((line, i) => (i === index ? value : line)),
+      },
+    }))
+  }
 
-      toast({
-        title: "Video Uploaded",
-        description: "Video has been uploaded successfully.",
-      })
-    } catch (error) {
-      console.error("Error uploading video:", error)
-      toast({
-        title: "Upload Error",
-        description: "Failed to upload video. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setWhyUsLoading(false)
-    }
+  const addSocialLink = () => {
+    setFooterConfig((prev) => ({
+      ...prev,
+      followUs: {
+        ...prev.followUs,
+        socialLinks: [...(prev.followUs?.socialLinks || []), { name: "New Platform", url: "#", icon: "twitter" }],
+      },
+    }))
+  }
+
+  const removeSocialLink = (index: number) => {
+    setFooterConfig((prev) => ({
+      ...prev,
+      followUs: {
+        ...prev.followUs,
+        socialLinks: (prev.followUs?.socialLinks || []).filter((_, i) => i !== index),
+      },
+    }))
+  }
+
+  const updateSocialLink = (index: number, field: string, value: string) => {
+    setFooterConfig((prev) => ({
+      ...prev,
+      followUs: {
+        ...prev.followUs,
+        socialLinks: (prev.followUs?.socialLinks || []).map((link, i) =>
+          i === index ? { ...link, [field]: value } : link,
+        ),
+      },
+    }))
   }
 
   useEffect(() => {
@@ -1122,6 +1233,102 @@ export default function WebsiteEditPage() {
     </div>
   )
 
+  const updateBulletPoint = (index: number, value: string) => {
+    setWhyUsConfig((prev) => ({
+      ...prev,
+      bulletPoints: prev.bulletPoints.map((point, i) => (i === index ? value : point)),
+    }))
+  }
+
+  const removeBulletPoint = (index: number) => {
+    setWhyUsConfig((prev) => ({
+      ...prev,
+      bulletPoints: prev.bulletPoints.filter((_, i) => i !== index),
+    }))
+  }
+
+  const addBulletPoint = () => {
+    setWhyUsConfig((prev) => ({
+      ...prev,
+      bulletPoints: [...prev.bulletPoints, "New bullet point"],
+    }))
+  }
+
+  const handleWhyUsVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file && file.type.startsWith("video/")) {
+      try {
+        const fileName = `${Date.now()}_${file.name}`
+        const path = `why-us-videos/${slug}/${fileName}`
+        const storageRef = ref(storage, path)
+
+        const snapshot = await uploadBytes(storageRef, file)
+        const downloadURL = await getDownloadURL(snapshot.ref)
+
+        setWhyUsConfig((prev) => ({ ...prev, videoUrl: downloadURL }))
+      } catch (error) {
+        console.error("Error uploading Why Us video:", error)
+      }
+    } else {
+      toast({
+        title: "Invalid File",
+        description: "Please select a valid video file.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleWhyUsSave = async () => {
+    try {
+      setWhyUsLoading(true)
+      const updatedWebConfig = {
+        ...companyData?.web_config,
+        whyUs: whyUsConfig,
+      }
+
+      await updateDoc(doc(db, "companies", slug), {
+        web_config: updatedWebConfig,
+      })
+
+      setCompanyData((prev) => ({
+        ...prev,
+        web_config: updatedWebConfig,
+      }))
+
+      setWhyUsDialog(false)
+    } catch (error) {
+      console.error("Error saving Why Us config:", error)
+      alert("Failed to save changes. Please try again.")
+    } finally {
+      setWhyUsLoading(false)
+    }
+  }
+
+  const handleWhyUsClick = () => {
+    // Load existing config from database
+    const existingConfig = companyData?.web_config?.whyUs
+    if (existingConfig) {
+      setWhyUsConfig(existingConfig)
+    } else {
+      setWhyUsConfig({
+        bulletPoints: [
+          "We create LED displays with a focus on quality and usability.",
+          "Our products are conceived, designed, tested, and supported in-house to ensure quality control.",
+          "We provide world-class support with our five-year product warranty, 10-year parts availability guarantee, and white glove service style.",
+          "Since our founding, our company has relied on a tireless work ethic to outperform the competition.",
+          "Thousands of businesses nationwide have trusted us as their LED display manufacturer.",
+        ],
+        videoUrl: "",
+      })
+    }
+    setWhyUsDialog(true)
+  }
+
+  // const handleFeaturedProductsClick = () => {
+  //   // TODO: Implement featured products edit functionality
+  //   alert("Featured Products Section Edit Functionality Coming Soon!")
+  // }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -1572,146 +1779,110 @@ export default function WebsiteEditPage() {
         </section>
 
         {/* Featured Products Section */}
-        <section id="products" className="py-16 bg-white">
-          <div className="w-full">
-            <div className="text-center mb-12">
-              <h2 className="text-4xl font-bold mb-4 text-gray-900">Featured Products</h2>
+        <FeaturedProductsEditDialog>
+          <section id="products" className="py-16 bg-white">
+            <div className="w-full">
+              <div className="text-center mb-12">
+                <h2 className="text-4xl font-bold mb-4 text-gray-900">Featured Products</h2>
 
-              <EditableElement
-                content={{
-                  type: "description",
-                  content:
-                    companyData?.web_config?.products?.section_description ||
-                    "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-                  section: "products",
-                  field: "section_description",
-                }}
-              >
-                <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-                  {companyData?.web_config?.products?.section_description ||
-                    "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."}
-                </p>
-              </EditableElement>
-            </div>
+                <div>
+                  <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                    {companyData?.web_config?.products?.section_description ||
+                      "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."}
+                  </p>
+                </div>
+              </div>
 
-            <div className="flex flex-col lg:flex-row min-h-[600px]">
-              <div className="w-full lg:w-1/2 flex items-center p-8 lg:p-16">
-                <div className="max-w-xl">
-                  <EditableElement
-                    content={{
-                      type: "heading",
-                      content: "Classic Products",
-                      section: "products",
-                      field: "product_title",
-                    }}
-                  >
-                    <h3 className="text-4xl lg:text-5xl font-bold mb-6 text-gray-900">Classic Products</h3>
-                  </EditableElement>
+              <div className="flex flex-col lg:flex-row min-h-[600px]">
+                <div className="w-full lg:w-1/2 flex items-center p-8 lg:p-16">
+                  <div className="max-w-xl">
+                    <div>
+                      <h3 className="text-4xl lg:text-5xl font-bold mb-6 text-gray-900">Classic Products</h3>
+                    </div>
 
-                  <EditableElement
-                    content={{
-                      type: "description",
-                      content:
-                        "LED signage that provides exceptional image with robust product quality to empower businesses to reach a new level.",
-                      section: "products",
-                      field: "product_description",
-                    }}
-                  >
-                    <p className="text-lg text-gray-600 mb-8">
-                      LED signage that provides exceptional image with robust product quality to empower businesses to
-                      reach a new level.
-                    </p>
-                  </EditableElement>
+                    <div>
+                      <p className="text-lg text-gray-600 mb-8">
+                        LED signage that provides exceptional image with robust product quality to empower businesses to
+                        reach a new level.
+                      </p>
+                    </div>
 
-                  <EditableElement
-                    content={{
-                      type: "button",
-                      content: "View More",
-                      section: "products",
-                      field: "view_more_button",
-                    }}
-                  >
-                    <button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-full font-semibold transition-colors mb-8">
-                      View More
-                    </button>
-                  </EditableElement>
+                    <div>
+                      <button className="bg-blue-600 text-white px-8 py-3 rounded-full font-semibold mb-8">
+                        View More
+                      </button>
+                    </div>
 
-                  <div className="flex gap-4">
-                    {[
-                      { name: "Umate LM", active: false },
-                      { name: "Uslimiii", active: false },
-                      { name: "Uslim S2", active: false },
-                      { name: "Usign", active: true },
-                    ].map((product, index) => (
-                      <div key={index} className="text-center">
-                        <div
-                          className={`w-16 h-12 rounded-lg mb-2 flex items-center justify-center ${
-                            product.active ? "bg-blue-600" : "bg-gray-200"
-                          }`}
-                        >
-                          <img
-                            src="/placeholder.svg?height=48&width=64"
-                            alt={product.name}
-                            className="w-8 h-8 object-cover"
-                          />
+                    <div className="flex gap-4">
+                      {[
+                        { name: "Umate LM", active: false },
+                        { name: "Uslimiii", active: false },
+                        { name: "Uslim S2", active: false },
+                        { name: "Usign", active: true },
+                      ].map((product, index) => (
+                        <div key={index} className="text-center">
+                          <div
+                            className={`w-16 h-12 rounded-lg mb-2 flex items-center justify-center ${
+                              product.active ? "bg-blue-600" : "bg-gray-200"
+                            }`}
+                          >
+                            <img
+                              src="/placeholder.svg?height=48&width=64"
+                              alt={product.name}
+                              className="w-8 h-8 object-cover"
+                            />
+                          </div>
+                          <span className="text-xs text-gray-600">{product.name}</span>
                         </div>
-                        <span className="text-xs text-gray-600">{product.name}</span>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="w-full lg:w-1/2 relative p-8 lg:p-16">
+                  <div className="w-1/2 mx-auto aspect-square bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg overflow-hidden mb-6 flex items-center justify-center">
+                    <img
+                      src="/placeholder.svg?height=400&width=400"
+                      alt="LED Display Modules"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-xl font-semibold text-gray-900">
+                        Designed for Outdoor Digital Signage Market P6/9/10
+                      </h4>
+                    </div>
+
+                    <ul className="space-y-2 text-gray-700">
+                      <li className="flex items-start gap-2">
+                        <span className="w-1 h-1 bg-gray-900 rounded-full mt-2 flex-shrink-0"></span>
+                        <span>1x1ft metric size is optimal for signages and billboards</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="w-1 h-1 bg-gray-900 rounded-full mt-2 flex-shrink-0"></span>
+                        <span>Triple Protection design makes module and PDU IP69K</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="w-1 h-1 bg-gray-900 rounded-full mt-2 flex-shrink-0"></span>
+                        <span>Fanless Design, no noise and fewer risks</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="w-1 h-1 bg-gray-900 rounded-full mt-2 flex-shrink-0"></span>
+                        <span>Low Power consumption: 545W/SQM @850nits</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="w-1 h-1 bg-gray-900 rounded-full mt-2 flex-shrink-0"></span>
+                        <span>Flawless Display: 7680Hz refresh rate, 16bit, calibrated</span>
+                      </li>
+                    </ul>
                   </div>
                 </div>
               </div>
-
-              <div className="w-full lg:w-1/2 relative p-8 lg:p-16">
-                <div className="w-1/2 mx-auto aspect-square bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg overflow-hidden mb-6 flex items-center justify-center">
-                  <img
-                    src="/placeholder.svg?height=400&width=400"
-                    alt="LED Display Modules"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-
-                <div className="space-y-4">
-                  <EditableElement
-                    content={{
-                      type: "heading",
-                      content: "Designed for Outdoor Digital Signage Market P6/9/10",
-                      section: "products",
-                      field: "product_specs_title",
-                    }}
-                  >
-                    <h4 className="text-xl font-semibold text-gray-900">
-                      Designed for Outdoor Digital Signage Market P6/9/10
-                    </h4>
-                  </EditableElement>
-
-                  <ul className="space-y-2 text-gray-700">
-                    <li className="flex items-start gap-2">
-                      <span className="w-1 h-1 bg-gray-900 rounded-full mt-2 flex-shrink-0"></span>
-                      <span>1x1ft metric size is optimal for signages and billboards</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="w-1 h-1 bg-gray-900 rounded-full mt-2 flex-shrink-0"></span>
-                      <span>Triple Protection design makes module and PDU IP69K</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="w-1 h-1 bg-gray-900 rounded-full mt-2 flex-shrink-0"></span>
-                      <span>Fanless Design, no noise and fewer risks</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="w-1 h-1 bg-gray-900 rounded-full mt-2 flex-shrink-0"></span>
-                      <span>Low Power consumption: 545W/SQM @850nits</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="w-1 h-1 bg-gray-900 rounded-full mt-2 flex-shrink-0"></span>
-                      <span>Flawless Display: 7680Hz refresh rate, 16bit, calibrated</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </FeaturedProductsEditDialog>
 
         {/* About Us Section */}
         <section id="about-us" className="bg-background">
@@ -2087,89 +2258,454 @@ export default function WebsiteEditPage() {
 
         {/* Footer Section */}
         <footer className="bg-slate-900 text-white">
-          <div className="py-16 text-center">
-            <h2 className="text-4xl lg:text-5xl font-bold mb-4">How Can We Help You?</h2>
+          <Dialog open={footerDialog} onOpenChange={setFooterDialog}>
+            <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
+              <DialogHeader className="pb-6">
+                <DialogTitle className="text-2xl font-bold">Edit Footer Section</DialogTitle>
+                <p className="text-gray-600 mt-2">
+                  Customize your footer content, contact information, and social media links
+                </p>
+              </DialogHeader>
 
-            <p className="text-lg mb-8 text-gray-300">Feel free to let us know.</p>
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                {/* Left Column - Main Content */}
+                <div className="xl:col-span-2 space-y-6">
+                  {/* Header Section */}
+                  <div className="space-y-4">
+                    <h3 className="text-xl font-semibold text-gray-900">Header Content</h3>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                        <input
+                          type="text"
+                          value={footerConfig.title}
+                          onChange={(e) => setFooterConfig((prev) => ({ ...prev, title: e.target.value }))}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Enter footer title"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Subtitle</label>
+                        <input
+                          type="text"
+                          value={footerConfig.subtitle}
+                          onChange={(e) => setFooterConfig((prev) => ({ ...prev, subtitle: e.target.value }))}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Enter footer subtitle"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Button Text</label>
+                        <input
+                          type="text"
+                          value={footerConfig.buttonText}
+                          onChange={(e) => setFooterConfig((prev) => ({ ...prev, buttonText: e.target.value }))}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Enter button text"
+                        />
+                      </div>
+                    </div>
+                  </div>
 
-            <button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-colors">
-              contact us
-            </button>
-          </div>
+                  {/* About Us Section */}
+                  <div className="border-t pt-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-semibold text-gray-900">About Us Section</h3>
+                      <span className="text-sm text-gray-500">{footerConfig.aboutUs?.links?.length || 0} links</span>
+                    </div>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Section Title</label>
+                        <input
+                          type="text"
+                          value={footerConfig.aboutUs.title}
+                          onChange={(e) =>
+                            setFooterConfig((prev) => ({
+                              ...prev,
+                              aboutUs: { ...prev.aboutUs, title: e.target.value },
+                            }))
+                          }
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Enter section title"
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        {(footerConfig.aboutUs?.links || []).map((link, index) => (
+                          <div key={index} className="flex items-center gap-3">
+                            <input
+                              type="text"
+                              value={link}
+                              onChange={(e) => updateAboutUsLink(index, e.target.value)}
+                              className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder="Enter link text"
+                            />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeAboutUsLink(index)}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
+                        <Button
+                          variant="outline"
+                          onClick={addAboutUsLink}
+                          className="w-full border-dashed bg-transparent"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Link
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
 
-          {/* Three column section */}
-          <div className="container mx-auto px-4 py-12">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {/* About Us */}
-              <div>
-                <h3 className="text-white font-semibold mb-4">About Us</h3>
-                <ul className="space-y-2 text-gray-300">
-                  <li>
-                    <a href="#" className="hover:text-white transition-colors">
-                      About Unilumin
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#" className="hover:text-white transition-colors">
-                      Joint-Stock Company
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#" className="hover:text-white transition-colors">
-                      U-Green
-                    </a>
-                  </li>
-                </ul>
-              </div>
+                  {/* Address Section */}
+                  <div className="border-t pt-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-semibold text-gray-900">Address Section</h3>
+                      <span className="text-sm text-gray-500">{footerConfig.address?.lines?.length || 0} lines</span>
+                    </div>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Section Title</label>
+                        <input
+                          type="text"
+                          value={footerConfig.address.title}
+                          onChange={(e) =>
+                            setFooterConfig((prev) => ({
+                              ...prev,
+                              address: { ...prev.address, title: e.target.value },
+                            }))
+                          }
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Enter section title"
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        {(footerConfig.address?.lines || []).map((line, index) => (
+                          <div key={index} className="flex items-center gap-3">
+                            <input
+                              type="text"
+                              value={line}
+                              onChange={(e) => updateAddressLine(index, e.target.value)}
+                              className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder="Enter address line"
+                            />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeAddressLine(index)}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
+                        <Button
+                          variant="outline"
+                          onClick={addAddressLine}
+                          className="w-full border-dashed bg-transparent"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Address Line
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
 
-              {/* Address */}
-              <div>
-                <h3 className="text-white font-semibold mb-4">Address</h3>
-                <div className="text-gray-300 space-y-2">
-                  <p>No. 18 Haoye Road, Fuhai Sub-district, Bao'an District</p>
-                  <p>Shenzhen, Guangdong Province</p>
-                  <p className="mt-4">sales@unilumin.com</p>
-                  <p>+86-755-29013999</p>
+                  {/* Social Media Section */}
+                  <div className="border-t pt-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-semibold text-gray-900">Social Media Section</h3>
+                      <span className="text-sm text-gray-500">
+                        {footerConfig.followUs?.socialLinks?.length || 0} links
+                      </span>
+                    </div>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Section Title</label>
+                        <input
+                          type="text"
+                          value={footerConfig.followUs.title}
+                          onChange={(e) =>
+                            setFooterConfig((prev) => ({
+                              ...prev,
+                              followUs: { ...prev.followUs, title: e.target.value },
+                            }))
+                          }
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Enter section title"
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        {footerConfig.followUs.socialLinks.map((social, index) => (
+                          <div key={index} className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg">
+                            <div className="flex-1 grid grid-cols-2 gap-3">
+                              <input
+                                type="text"
+                                value={social.name}
+                                onChange={(e) => updateSocialLink(index, "name", e.target.value)}
+                                className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                placeholder="Platform name"
+                              />
+                              <input
+                                type="text"
+                                value={social.url}
+                                onChange={(e) => updateSocialLink(index, "url", e.target.value)}
+                                className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                placeholder="URL"
+                              />
+                            </div>
+                            <select
+                              value={social.icon}
+                              onChange={(e) => updateSocialLink(index, "icon", e.target.value)}
+                              className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            >
+                              <option value="twitter">Twitter</option>
+                              <option value="youtube">YouTube</option>
+                              <option value="linkedin">LinkedIn</option>
+                              <option value="pinterest">Pinterest</option>
+                              <option value="tiktok">TikTok</option>
+                              <option value="facebook">Facebook</option>
+                              <option value="instagram">Instagram</option>
+                            </select>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeSocialLink(index)}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
+                        <Button
+                          variant="outline"
+                          onClick={addSocialLink}
+                          className="w-full border-dashed bg-transparent"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Social Link
+                        </Button>
+                      </div>
+                    </div>
+
+                  {/* Copyright Section */}
+                  <div className="border-t pt-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Copyright Text</label>
+                      <input
+                        type="text"
+                        value={footerConfig.copyright}
+                        onChange={(e) => setFooterConfig((prev) => ({ ...prev, copyright: e.target.value }))}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Enter copyright text"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column - Live Preview */}
+                <div className="space-y-6">
+                  <div className="sticky top-6">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-4">Live Preview</h3>
+                    <div className="border-2 border-gray-200 rounded-xl overflow-hidden bg-slate-900 text-white">
+                      <div className="py-8 text-center px-4">
+                        <h2 className="text-2xl font-bold mb-2">{footerConfig.title}</h2>
+                        <p className="text-gray-300 mb-4 text-sm">{footerConfig.subtitle}</p>
+                        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-semibold transition-colors">
+                          {footerConfig.buttonText}
+                        </button>
+                      </div>
+
+                      <div className="border-t border-slate-800 p-4">
+                        <div className="grid grid-cols-1 gap-4 mb-4 text-xs">
+                          {/* About Us Preview */}
+                          <div>
+                            <h3 className="text-white font-semibold mb-2">{footerConfig.aboutUs.title}</h3>
+                            <div className="text-gray-400 space-y-1">
+                              {footerConfig.aboutUs.links.map((link, index) => (
+                                <p key={index}>{link}</p>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Address Preview */}
+                          <div>
+                            <h3 className="text-white font-semibold mb-2">{footerConfig.address.title}</h3>
+                            <div className="text-gray-400 space-y-1">
+                              {footerConfig.address.lines.map((line, index) => (
+                                <p key={index}>{line}</p>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Social Media Preview */}
+                          <div>
+                            <h3 className="text-white font-semibold mb-2">{footerConfig.followUs.title}</h3>
+                            <div className="flex flex-wrap gap-2">
+                              {footerConfig.followUs.socialLinks.map((social, index) => (
+                                <div key={index} className="w-5 h-5 bg-gray-400 rounded"></div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="border-t border-slate-800 pt-4 text-center">
+                          <p className="text-gray-400 text-xs">{footerConfig.copyright}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Follow Us */}
-              <div>
-                <h3 className="text-white font-semibold mb-4">Follow Us</h3>
-                <div className="flex space-x-4">
-                  <a href="#" className="text-gray-300 hover:text-white transition-colors">
-                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z" />
-                    </svg>
-                  </a>
-                  <a href="#" className="text-gray-300 hover:text-white transition-colors">
-                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.174-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.099.12.112.225.085.347-.09.375-.293 1.199-.334 1.363-.053.225-.172.271-.402.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.92-7.252 4.158 0 7.392 2.967 7.392 6.923 0 4.135-2.607 7.462-6.233 7.462-1.214 0-2.357-.629-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24.009 12.017 24.009c6.624 0 11.99-5.367 11.99-11.988C24.007 5.367 18.641.001.012.001z" />
-                    </svg>
-                  </a>
-                  <a href="#" className="text-gray-300 hover:text-white transition-colors">
-                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-                    </svg>
-                  </a>
-                  <a href="#" className="text-gray-300 hover:text-white transition-colors">
-                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z" />
-                    </svg>
-                  </a>
-                </div>
+              <DialogFooter className="pt-6 border-t">
+                <Button variant="outline" onClick={() => setFooterDialog(false)} className="px-6">
+                  Cancel
+                </Button>
+                <Button onClick={handleFooterSave} disabled={footerLoading} className="px-6">
+                  {footerLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Saving Changes...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Save Changes
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <div
+            className="relative group cursor-pointer hover:ring-2 hover:ring-blue-400 hover:ring-opacity-50 rounded-lg transition-all"
+            onClick={handleFooterClick}
+          >
+            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+              <div className="bg-blue-500 text-white px-3 py-1 rounded text-sm flex items-center gap-2">
+                <Edit3 className="w-4 h-4" />
+                Edit Footer Section
               </div>
             </div>
-          </div>
 
-          {/* Bottom section */}
-          <div className="border-t border-slate-800 py-6">
-            <div className="container mx-auto px-4 flex justify-between items-center">
-              <p className="text-gray-400">copyright © 2025 DOS</p>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors flex items-center">
-                <span className="mr-1">^</span>
-                Back To Top
-              </a>
+            <div className="py-16 text-center">
+              <h2 className="text-4xl lg:text-5xl font-bold mb-4">
+                {companyData?.web_config?.footer?.title || "How Can We Help You?"}
+              </h2>
+
+              <p className="text-lg mb-8 text-gray-300">
+                {companyData?.web_config?.footer?.subtitle || "Feel free to let us know."}
+              </p>
+
+              <button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-colors">
+                {companyData?.web_config?.footer?.buttonText || "contact us"}
+              </button>
+            </div>
+
+            <div className="border-t border-slate-800 py-8">
+              <div className="container mx-auto px-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+                  {/* About Us Section */}
+                  <div className="text-left">
+                    <h3 className="text-white font-semibold mb-4">
+                      {companyData?.web_config?.footer?.aboutUs?.title || "About Us"}
+                    </h3>
+                    <div className="text-gray-400 space-y-2">
+                      {(
+                        companyData?.web_config?.footer?.aboutUs?.links || [
+                          "About Unilumin",
+                          "Joint-Stock Company",
+                          "U-Green",
+                        ]
+                      ).map((link, index) => (
+                        <p key={index}>{link}</p>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Address Section */}
+                  <div className="text-left">
+                    <h3 className="text-white font-semibold mb-4">
+                      {companyData?.web_config?.footer?.address?.title || "Address"}
+                    </h3>
+                    <div className="text-gray-400 space-y-2">
+                      {(
+                        companyData?.web_config?.footer?.address?.lines || [
+                          "No. 18 Haoye Road, Fuhai Sub-district, Bao'an District",
+                          "Shenzhen, Guangdong Province",
+                          "sales@unilumin.com",
+                          "+86-755-29019999",
+                        ]
+                      ).map((line, index) => (
+                        <p key={index}>{line}</p>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Follow Us Section */}
+                  <div className="text-left">
+                    <h3 className="text-white font-semibold mb-4">
+                      {companyData?.web_config?.footer?.followUs?.title || "Follow Us"}
+                    </h3>
+                    <div className="flex space-x-4">
+                      {(
+                        companyData?.web_config?.footer?.followUs?.socialLinks || [
+                          { name: "Twitter", url: "#", icon: "twitter" },
+                          { name: "YouTube", url: "#", icon: "youtube" },
+                          { name: "LinkedIn", url: "#", icon: "linkedin" },
+                          { name: "Pinterest", url: "#", icon: "pinterest" },
+                          { name: "TikTok", url: "#", icon: "tiktok" },
+                        ]
+                      ).map((social, index) => (
+                        <a key={index} href={social.url} className="text-gray-400 hover:text-white transition-colors">
+                          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                            {social.icon === "twitter" && (
+                              <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z" />
+                            )}
+                            {social.icon === "youtube" && (
+                              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                            )}
+                            {social.icon === "linkedin" && (
+                              <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                            )}
+                            {social.icon === "pinterest" && (
+                              <path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.174-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.099.12.112.225.085.347-.09.375-.293 1.199-.334 1.363-.053.225-.172.271-.402.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.92-7.252 4.158 0 7.392 2.967 7.392 6.923 0 4.135-2.607 7.462-6.233 7.462-1.214 0-2.357-.629-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24.009 12.017 24.009c6.624 0 11.99-5.367 11.99-11.988C24.007 5.367 18.641.001.012.001z" />
+                            )}
+                            {social.icon === "tiktok" && (
+                              <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z" />
+                            )}
+                          </svg>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-800 pt-8 flex flex-col md:flex-row justify-between items-center">
+                  <p className="text-gray-400 mb-4 md:mb-0">
+                    {companyData?.web_config?.footer?.copyright || "copyright © 2025 DOS"}
+                  </p>
+                  <a href="#" className="text-gray-400 hover:text-white transition-colors flex items-center">
+                    <span className="mr-2">Back To Top</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 10l7-7m0 0l7 7m-7-7v18"
+                      />
+                    </svg>
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
         </footer>
@@ -2799,46 +3335,25 @@ export default function WebsiteEditPage() {
             {/* Carousel Navigation Colors */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Carousel Navigation Colors</h3>
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="button-color">Button Background</Label>
+                  <Label htmlFor="button-color">Button Color</Label>
                   <div className="flex gap-2 mt-1">
                     <Input
                       id="button-color"
                       type="color"
                       value={carouselNavColors.buttonColor}
-                      onChange={(e) => setCarouselNavColors((prev) => ({ ...prev, buttonColor: e.target.value }))}
+                      onChange={(e) => setCarouselNavColors(prev => ({ ...prev, buttonColor: e.target.value }))}
                       className="w-16 h-10 p-1"
                     />
                     <Input
                       type="text"
                       value={carouselNavColors.buttonColor}
-                      onChange={(e) => setCarouselNavColors((prev) => ({ ...prev, buttonColor: e.target.value }))}
+                      onChange={(e) => setCarouselNavColors(prev => ({ ...prev, buttonColor: e.target.value }))}
                       className="flex-1"
                     />
                   </div>
                 </div>
-
-                <div>
-                  <Label htmlFor="button-hover-color">Button Hover Background</Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      id="button-hover-color"
-                      type="color"
-                      value={carouselNavColors.buttonHoverColor}
-                      onChange={(e) => setCarouselNavColors((prev) => ({ ...prev, buttonHoverColor: e.target.value }))}
-                      className="w-16 h-10 p-1"
-                    />
-                    <Input
-                      type="text"
-                      value={carouselNavColors.buttonHoverColor}
-                      onChange={(e) => setCarouselNavColors((prev) => ({ ...prev, buttonHoverColor: e.target.value }))}
-                      className="flex-1"
-                    />
-                  </div>
-                </div>
-
                 <div>
                   <Label htmlFor="icon-color">Icon Color</Label>
                   <div className="flex gap-2 mt-1">
@@ -2846,32 +3361,13 @@ export default function WebsiteEditPage() {
                       id="icon-color"
                       type="color"
                       value={carouselNavColors.iconColor}
-                      onChange={(e) => setCarouselNavColors((prev) => ({ ...prev, iconColor: e.target.value }))}
+                      onChange={(e) => setCarouselNavColors(prev => ({ ...prev, iconColor: e.target.value }))}
                       className="w-16 h-10 p-1"
                     />
                     <Input
                       type="text"
                       value={carouselNavColors.iconColor}
-                      onChange={(e) => setCarouselNavColors((prev) => ({ ...prev, iconColor: e.target.value }))}
-                      className="flex-1"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="icon-hover-color">Icon Hover Color</Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      id="icon-hover-color"
-                      type="color"
-                      value={carouselNavColors.iconHoverColor}
-                      onChange={(e) => setCarouselNavColors((prev) => ({ ...prev, iconHoverColor: e.target.value }))}
-                      className="w-16 h-10 p-1"
-                    />
-                    <Input
-                      type="text"
-                      value={carouselNavColors.iconHoverColor}
-                      onChange={(e) => setCarouselNavColors((prev) => ({ ...prev, iconHoverColor: e.target.value }))}
+                      onChange={(e) => setCarouselNavColors(prev => ({ ...prev, iconColor: e.target.value }))}
                       className="flex-1"
                     />
                   </div>
@@ -2879,81 +3375,109 @@ export default function WebsiteEditPage() {
               </div>
             </div>
 
-            {/* List of Recent Works Items */}
+            {/* Items Management */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Recent Works Items</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Recent Works Items</h3>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500">
+                    {currentItemIndex + 1} of {recentWorksItems.length}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={addRecentWorksItem}
+                    className="flex items-center gap-1 bg-transparent"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Item
+                  </Button>
+                </div>
+              </div>
 
-              {recentWorksItems.map((item, index) => (
-                <div key={item.id} className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-xl font-semibold">Item #{index + 1}</h4>
-                    <Button variant="destructive" size="sm" onClick={() => removeRecentWorksItem(index)}>
-                      Remove
-                    </Button>
+              {recentWorksItems.length > 0 && (
+                <div className="border rounded-lg p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium">Item {currentItemIndex + 1}</h4>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentItemIndex(Math.max(0, currentItemIndex - 1))}
+                        disabled={currentItemIndex === 0}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentItemIndex(Math.min(recentWorksItems.length - 1, currentItemIndex + 1))}
+                        disabled={currentItemIndex === recentWorksItems.length - 1}
+                      >
+                        Next
+                      </Button>
+                      {recentWorksItems.length > 1 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeRecentWorksItem(currentItemIndex)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <div>
-                      <Label htmlFor={`section-title-${index}`}>Section Title</Label>
+                      <Label>Section Title</Label>
                       <Input
-                        id={`section-title-${index}`}
-                        value={item.sectionTitle}
-                        onChange={(e) => updateRecentWorksItem(index, "sectionTitle", e.target.value)}
+                        value={recentWorksItems[currentItemIndex]?.sectionTitle || ""}
+                        onChange={(e) => updateRecentWorksItem(currentItemIndex, "sectionTitle", e.target.value)}
+                        placeholder="Our Recent Works"
                       />
                     </div>
-
                     <div>
-                      <Label htmlFor={`project-title-${index}`}>Project Title</Label>
+                      <Label>Project Title</Label>
                       <Input
-                        id={`project-title-${index}`}
-                        value={item.projectTitle}
-                        onChange={(e) => updateRecentWorksItem(index, "projectTitle", e.target.value)}
+                        value={recentWorksItems[currentItemIndex]?.projectTitle || ""}
+                        onChange={(e) => updateRecentWorksItem(currentItemIndex, "projectTitle", e.target.value)}
+                        placeholder="Project Name"
                       />
                     </div>
-
                     <div>
-                      <Label htmlFor={`project-description-${index}`}>Project Description</Label>
+                      <Label>Project Description</Label>
                       <Textarea
-                        id={`project-description-${index}`}
-                        value={item.projectDescription}
-                        onChange={(e) => updateRecentWorksItem(index, "projectDescription", e.target.value)}
+                        value={recentWorksItems[currentItemIndex]?.projectDescription || ""}
+                        onChange={(e) => updateRecentWorksItem(currentItemIndex, "projectDescription", e.target.value)}
+                        placeholder="Project description..."
                         rows={3}
                       />
                     </div>
-
                     <div>
-                      <Label htmlFor={`background-image-${index}`}>Background Image/Video</Label>
-                      <Input
-                        id={`background-image-${index}`}
-                        type="file"
-                        accept="image/*, video/*"
-                        onChange={(e) => handleRecentWorksImageUpload(e, index)}
-                      />
-                      {item.backgroundImage && (
+                      <Label>Background Image/Video</Label>
+                      <div className="flex gap-2 mt-1">
+                        <input
+                          type="file"
+                          accept="image/*,video/*"
+                          onChange={(e) => handleRecentWorksImageUpload(e, currentItemIndex)}
+                          className="flex-1 p-2 border rounded"
+                        />
+                      </div>
+                      {recentWorksItems[currentItemIndex]?.backgroundImage && (
                         <div className="mt-2">
-                          {item.mediaType === "video" ? (
-                            <video
-                              src={item.backgroundImage}
-                              className="w-full h-32 object-cover rounded-md"
-                              controls
-                            />
-                          ) : (
-                            <img
-                              src={item.backgroundImage || "/placeholder.svg"}
-                              className="w-full h-32 object-cover rounded-md"
-                              alt="Background"
-                            />
-                          )}
+                          <img
+                            src={recentWorksItems[currentItemIndex].backgroundImage || "/placeholder.svg"}
+                            alt="Background preview"
+                            className="w-full h-32 object-cover rounded"
+                          />
                         </div>
                       )}
                     </div>
                   </div>
                 </div>
-              ))}
-
-              <Button variant="outline" onClick={addRecentWorksItem}>
-                Add New Item
-              </Button>
+              )}
             </div>
           </div>
 
@@ -2968,10 +3492,7 @@ export default function WebsiteEditPage() {
                   Saving...
                 </>
               ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  Save Changes
-                </>
+                "Save Changes"
               )}
             </Button>
           </DialogFooter>
@@ -2980,462 +3501,230 @@ export default function WebsiteEditPage() {
 
       {/* Application Tabs Dialog */}
       <Dialog open={showApplicationTabsDialog} onOpenChange={setShowApplicationTabsDialog}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Edit3 className="w-5 h-5" />
-              Edit Application Tabs Section
-            </DialogTitle>
+            <DialogTitle>Edit Application Tabs</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-6">
-            {/* Tab Management */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Tab Management</h3>
-
-              <div className="space-y-2">
-                {applicationTabsConfig.tabs.map((tab) => (
-                  <div key={tab.id} className="flex items-center justify-between border rounded-lg p-4">
-                    <div className="flex items-center gap-4">
-                      <Label htmlFor={`tab-label-${tab.id}`}>Tab Label</Label>
-                      <Input
-                        id={`tab-label-${tab.id}`}
-                        value={tab.label}
-                        onChange={(e) => updateTab(tab.id, { label: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                      <Label htmlFor={`tab-enabled-${tab.id}`}>Enabled</Label>
-                      <Input
-                        id={`tab-enabled-${tab.id}`}
-                        type="checkbox"
-                        checked={tab.enabled}
-                        onChange={(e) => updateTab(tab.id, { enabled: e.target.checked })}
-                      />
-                      <Button variant="destructive" size="sm" onClick={() => removeTab(tab.id)}>
-                        Remove
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <Button variant="outline" onClick={addNewTab}>
-                Add New Tab
+            <div className="flex gap-2 border-b">
+              <Button
+                variant={applicationTabsDialogTab === "manage" ? "default" : "ghost"}
+                onClick={() => setApplicationTabsDialogTab("manage")}
+              >
+                Manage Tabs
+              </Button>
+              <Button
+                variant={applicationTabsDialogTab === "content" ? "default" : "ghost"}
+                onClick={() => setApplicationTabsDialogTab("content")}
+              >
+                Edit Content
+              </Button>
+              <Button
+                variant={applicationTabsDialogTab === "styling" ? "default" : "ghost"}
+                onClick={() => setApplicationTabsDialogTab("styling")}
+              >
+                Styling
               </Button>
             </div>
 
-            {/* Tab Styling */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Tab Styling</h3>
+            {applicationTabsDialogTab === "manage" && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">Manage Tabs</h3>
+                  <Button onClick={addNewTab} size="sm">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Tab
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {applicationTabsConfig.tabs.map((tab) => (
+                    <div key={tab.id} className="flex items-center gap-3 p-3 border rounded">
+                      <Input
+                        value={tab.label}
+                        onChange={(e) => updateTab(tab.id, { label: e.target.value })}
+                        className="flex-1"
+                      />
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={tab.enabled}
+                          onChange={(e) => updateTab(tab.id, { enabled: e.target.checked })}
+                        />
+                        Enabled
+                      </label>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeTab(tab.id)}
+                        className="text-red-600"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-              <div className="grid grid-cols-2 gap-4">
+            {applicationTabsDialogTab === "content" && (
+              <div className="space-y-4">
                 <div>
-                  <Label htmlFor="active-tab-color">Active Tab Color</Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      id="active-tab-color"
-                      type="color"
-                      value={applicationTabsConfig.activeTabColor}
-                      onChange={(e) =>
-                        setApplicationTabsConfig((prev) => ({ ...prev, activeTabColor: e.target.value }))
-                      }
-                      className="w-16 h-10 p-1"
-                    />
-                    <Input
-                      type="text"
-                      value={applicationTabsConfig.activeTabColor}
-                      onChange={(e) =>
-                        setApplicationTabsConfig((prev) => ({ ...prev, activeTabColor: e.target.value }))
-                      }
-                      className="flex-1"
-                    />
-                  </div>
+                  <Label>Select Tab to Edit</Label>
+                  <select
+                    value={selectedTabForContent}
+                    onChange={(e) => setSelectedTabForContent(e.target.value)}
+                    className="w-full p-2 border rounded mt-1"
+                  >
+                    {applicationTabsConfig.tabs.map((tab) => (
+                      <option key={tab.id} value={tab.id}>
+                        {tab.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                <div>
-                  <Label htmlFor="inactive-tab-color">Inactive Tab Color</Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      id="inactive-tab-color"
-                      type="color"
-                      value={applicationTabsConfig.inactiveTabColor}
-                      onChange={(e) =>
-                        setApplicationTabsConfig((prev) => ({ ...prev, inactiveTabColor: e.target.value }))
-                      }
-                      className="w-16 h-10 p-1"
-                    />
-                    <Input
-                      type="text"
-                      value={applicationTabsConfig.inactiveTabColor}
-                      onChange={(e) =>
-                        setApplicationTabsConfig((prev) => ({ ...prev, inactiveTabColor: e.target.value }))
-                      }
-                      className="flex-1"
-                    />
+                {selectedTabForContent && (
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Title</Label>
+                      <Input
+                        value={applicationTabsConfig.content[selectedTabForContent]?.title || ""}
+                        onChange={(e) => updateTabContent(selectedTabForContent, "title", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label>Description</Label>
+                      <Textarea
+                        value={applicationTabsConfig.content[selectedTabForContent]?.description || ""}
+                        onChange={(e) => updateTabContent(selectedTabForContent, "description", e.target.value)}
+                        rows={3}
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
+              </div>
+            )}
 
-                <div>
-                  <Label htmlFor="active-text-color">Active Text Color</Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      id="active-text-color"
-                      type="color"
-                      value={applicationTabsConfig.activeTextColor}
-                      onChange={(e) =>
-                        setApplicationTabsConfig((prev) => ({ ...prev, activeTextColor: e.target.value }))
-                      }
-                      className="w-16 h-10 p-1"
-                    />
-                    <Input
-                      type="text"
-                      value={applicationTabsConfig.activeTextColor}
-                      onChange={(e) =>
-                        setApplicationTabsConfig((prev) => ({ ...prev, activeTextColor: e.target.value }))
-                      }
-                      className="flex-1"
-                    />
+            {applicationTabsDialogTab === "styling" && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Tab Colors</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Active Tab Color</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        type="color"
+                        value={applicationTabsConfig.activeTabColor}
+                        onChange={(e) => setApplicationTabsConfig(prev => ({ ...prev, activeTabColor: e.target.value }))}
+                        className="w-16 h-10 p-1"
+                      />
+                      <Input
+                        value={applicationTabsConfig.activeTabColor}
+                        onChange={(e) => setApplicationTabsConfig(prev => ({ ...prev, activeTabColor: e.target.value }))}
+                        className="flex-1"
+                      />
+                    </div>
                   </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="inactive-text-color">Inactive Text Color</Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      id="inactive-text-color"
-                      type="color"
-                      value={applicationTabsConfig.inactiveTextColor}
-                      onChange={(e) =>
-                        setApplicationTabsConfig((prev) => ({ ...prev, inactiveTextColor: e.target.value }))
-                      }
-                      className="w-16 h-10 p-1"
-                    />
-                    <Input
-                      type="text"
-                      value={applicationTabsConfig.inactiveTextColor}
-                      onChange={(e) =>
-                        setApplicationTabsConfig((prev) => ({ ...prev, inactiveTextColor: e.target.value }))
-                      }
-                      className="flex-1"
-                    />
+                  <div>
+                    <Label>Inactive Tab Color</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        type="color"
+                        value={applicationTabsConfig.inactiveTabColor}
+                        onChange={(e) => setApplicationTabsConfig(prev => ({ ...prev, inactiveTabColor: e.target.value }))}
+                        className="w-16 h-10 p-1"
+                      />
+                      <Input
+                        value={applicationTabsConfig.inactiveTabColor}
+                        onChange={(e) => setApplicationTabsConfig(prev => ({ ...prev, inactiveTabColor: e.target.value }))}
+                        className="flex-1"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-
-            {/* Tab Content */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Tab Content</h3>
-
-              <Label htmlFor="selected-tab">Select Tab</Label>
-              <select
-                id="selected-tab"
-                className="w-full p-2 border rounded-md"
-                value={selectedTabForContent}
-                onChange={(e) => setSelectedTabForContent(e.target.value)}
-              >
-                {applicationTabsConfig.tabs.map((tab) => (
-                  <option key={tab.id} value={tab.id}>
-                    {tab.label}
-                  </option>
-                ))}
-              </select>
-
-              {applicationTabsConfig.content && applicationTabsConfig.content[selectedTabForContent] && (
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="tab-title">Title</Label>
-                    <Input
-                      id="tab-title"
-                      value={applicationTabsConfig.content[selectedTabForContent].title}
-                      onChange={(e) => updateTabContent(selectedTabForContent, "title", e.target.value)}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="tab-description">Description</Label>
-                    <Textarea
-                      id="tab-description"
-                      value={applicationTabsConfig.content[selectedTabForContent].description}
-                      onChange={(e) => updateTabContent(selectedTabForContent, "description", e.target.value)}
-                      rows={3}
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Applications</Label>
-                    <div className="space-y-2">
-                      {(applicationTabsConfig.content[selectedTabForContent].applications || []).map(
-                        (application, index) => (
-                          <div key={index} className="border rounded-lg p-4">
-                            <div className="flex items-center justify-between mb-2">
-                              <h4 className="text-xl font-semibold">Application #{index + 1}</h4>
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => removeApplication(selectedTabForContent, index)}
-                              >
-                                Remove
-                              </Button>
-                            </div>
-
-                            <div>
-                              <Label htmlFor={`application-name-${index}`}>Name</Label>
-                              <Input
-                                id={`application-name-${index}`}
-                                value={application.name}
-                                onChange={(e) =>
-                                  updateApplication(selectedTabForContent, index, "name", e.target.value)
-                                }
-                              />
-                            </div>
-
-                            <div>
-                              <Label htmlFor={`application-image-${index}`}>Image</Label>
-                              <Input
-                                id={`application-image-${index}`}
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0]
-                                  if (file) {
-                                    handleApplicationImageUpload(selectedTabForContent, index, file)
-                                  }
-                                }}
-                              />
-                              {application.image && (
-                                <img
-                                  src={application.image || "/placeholder.svg"}
-                                  alt="Application"
-                                  className="w-full h-32 object-cover rounded-md mt-2"
-                                />
-                              )}
-                            </div>
-                          </div>
-                        ),
-                      )}
-                      <Button variant="outline" onClick={() => addApplication(selectedTabForContent)}>
-                        Add New Application
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="tab-image">Image</Label>
-                    <Input
-                      id="tab-image"
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file) {
-                          handleTabContentImageUpload(selectedTabForContent, file)
-                        }
-                      }}
-                    />
-                    {applicationTabsConfig.content[selectedTabForContent].image && (
-                      <img
-                        src={applicationTabsConfig.content[selectedTabForContent].image || "/placeholder.svg"}
-                        alt="Tab Content"
-                        className="w-full h-32 object-cover rounded-md mt-2"
-                      />
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowApplicationTabsDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={saveApplicationTabsConfig}>Save Changes</Button>
+            <Button onClick={saveApplicationTabsConfig}>
+              Save Changes
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* About Us Dialog */}
       <Dialog open={aboutUsDialogOpen} onOpenChange={setAboutUsDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Edit3 className="w-5 h-5" />
-              Edit About Us Section
-            </DialogTitle>
+            <DialogTitle>Edit About Us Section</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-6">
-            {/* Content */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Content</h3>
-
-              <div>
-                <Label htmlFor="about-us-subtitle">Subtitle</Label>
+          <div className="space-y-4">
+            <div>
+              <Label>Subtitle</Label>
+              <Input
+                value={aboutUsConfig.subtitle}
+                onChange={(e) => setAboutUsConfig(prev => ({ ...prev, subtitle: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea
+                value={aboutUsConfig.description}
+                onChange={(e) => setAboutUsConfig(prev => ({ ...prev, description: e.target.value }))}
+                rows={4}
+              />
+            </div>
+            <div>
+              <Label>Contact Phone</Label>
+              <Input
+                value={aboutUsConfig.contactPhone}
+                onChange={(e) => setAboutUsConfig(prev => ({ ...prev, contactPhone: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label>CTA Button Text</Label>
+              <Input
+                value={aboutUsConfig.ctaButton}
+                onChange={(e) => setAboutUsConfig(prev => ({ ...prev, ctaButton: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label>Background Color</Label>
+              <div className="flex gap-2">
                 <Input
-                  id="about-us-subtitle"
-                  value={aboutUsConfig.subtitle}
-                  onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, subtitle: e.target.value }))}
+                  type="color"
+                  value={aboutUsConfig.backgroundColor}
+                  onChange={(e) => setAboutUsConfig(prev => ({ ...prev, backgroundColor: e.target.value }))}
+                  className="w-16 h-10 p-1"
                 />
-              </div>
-
-              <div>
-                <Label htmlFor="about-us-description">Description</Label>
-                <Textarea
-                  id="about-us-description"
-                  value={aboutUsConfig.description}
-                  onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, description: e.target.value }))}
-                  rows={4}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="about-us-contact-phone">Contact Phone</Label>
                 <Input
-                  id="about-us-contact-phone"
-                  value={aboutUsConfig.contactPhone}
-                  onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, contactPhone: e.target.value }))}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="about-us-cta-button">CTA Button Text</Label>
-                <Input
-                  id="about-us-cta-button"
-                  value={aboutUsConfig.ctaButton}
-                  onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, ctaButton: e.target.value }))}
+                  value={aboutUsConfig.backgroundColor}
+                  onChange={(e) => setAboutUsConfig(prev => ({ ...prev, backgroundColor: e.target.value }))}
+                  className="flex-1"
                 />
               </div>
             </div>
-
-            {/* Styling */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Styling</h3>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="about-us-background-color">Background Color</Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      id="about-us-background-color"
-                      type="color"
-                      value={aboutUsConfig.backgroundColor}
-                      onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, backgroundColor: e.target.value }))}
-                      className="w-16 h-10 p-1"
-                    />
-                    <Input
-                      type="text"
-                      value={aboutUsConfig.backgroundColor}
-                      onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, backgroundColor: e.target.value }))}
-                      className="flex-1"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="about-us-text-color">Text Color</Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      id="about-us-text-color"
-                      type="color"
-                      value={aboutUsConfig.textColor}
-                      onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, textColor: e.target.value }))}
-                      className="w-16 h-10 p-1"
-                    />
-                    <Input
-                      type="text"
-                      value={aboutUsConfig.textColor}
-                      onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, textColor: e.target.value }))}
-                      className="flex-1"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="about-us-subtitle-color">Subtitle Color</Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      id="about-us-subtitle-color"
-                      type="color"
-                      value={aboutUsConfig.subtitleColor}
-                      onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, subtitleColor: e.target.value }))}
-                      className="w-16 h-10 p-1"
-                    />
-                    <Input
-                      type="text"
-                      value={aboutUsConfig.subtitleColor}
-                      onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, subtitleColor: e.target.value }))}
-                      className="flex-1"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="about-us-button-background-color">Button Background Color</Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      id="about-us-button-background-color"
-                      type="color"
-                      value={aboutUsConfig.buttonBackgroundColor}
-                      onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, buttonBackgroundColor: e.target.value }))}
-                      className="w-16 h-10 p-1"
-                    />
-                    <Input
-                      type="text"
-                      value={aboutUsConfig.buttonBackgroundColor}
-                      onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, buttonBackgroundColor: e.target.value }))}
-                      className="flex-1"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="about-us-button-text-color">Button Text Color</Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      id="about-us-button-text-color"
-                      type="color"
-                      value={aboutUsConfig.buttonTextColor}
-                      onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, buttonTextColor: e.target.value }))}
-                      className="w-16 h-10 p-1"
-                    />
-                    <Input
-                      type="text"
-                      value={aboutUsConfig.buttonTextColor}
-                      onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, buttonTextColor: e.target.value }))}
-                      className="flex-1"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Image */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Image</h3>
-
-              <div>
-                <Label htmlFor="about-us-image">Image Upload</Label>
+            <div>
+              <Label>Text Color</Label>
+              <div className="flex gap-2">
                 <Input
-                  id="about-us-image"
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0]
-                    if (file) {
-                      handleAboutUsImageUpload(file)
-                    }
-                  }}
+                  type="color"
+                  value={aboutUsConfig.textColor}
+                  onChange={(e) => setAboutUsConfig(prev => ({ ...prev, textColor: e.target.value }))}
+                  className="w-16 h-10 p-1"
                 />
-                {aboutUsConfig.image && (
-                  <img
-                    src={aboutUsConfig.image || "/placeholder.svg"}
-                    alt="About Us"
-                    className="w-full h-32 object-cover rounded-md mt-2"
-                  />
-                )}
+                <Input
+                  value={aboutUsConfig.textColor}
+                  onChange={(e) => setAboutUsConfig(prev => ({ ...prev, textColor: e.target.value }))}
+                  className="flex-1"
+                />
               </div>
             </div>
           </div>
@@ -3445,21 +3734,11 @@ export default function WebsiteEditPage() {
               Cancel
             </Button>
             <Button onClick={handleAboutUsSave} disabled={aboutUsSaving}>
-              {aboutUsSaving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  Save Changes
-                </>
-              )}
+              {aboutUsSaving ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
-  )
+  )\
 }
