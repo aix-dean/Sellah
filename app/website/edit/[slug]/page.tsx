@@ -2492,17 +2492,18 @@ export default function WebsiteEditPage() {
                       </div>
                     </div>
 
-                  {/* Copyright Section */}
-                  <div className="border-t pt-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Copyright Text</label>
-                      <input
-                        type="text"
-                        value={footerConfig.copyright}
-                        onChange={(e) => setFooterConfig((prev) => ({ ...prev, copyright: e.target.value }))}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Enter copyright text"
-                      />
+                    {/* Copyright Section */}
+                    <div className="border-t pt-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Copyright Text</label>
+                        <input
+                          type="text"
+                          value={footerConfig.copyright}
+                          onChange={(e) => setFooterConfig((prev) => ({ ...prev, copyright: e.target.value }))}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Enter copyright text"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -3343,13 +3344,13 @@ export default function WebsiteEditPage() {
                       id="button-color"
                       type="color"
                       value={carouselNavColors.buttonColor}
-                      onChange={(e) => setCarouselNavColors(prev => ({ ...prev, buttonColor: e.target.value }))}
+                      onChange={(e) => setCarouselNavColors((prev) => ({ ...prev, buttonColor: e.target.value }))}
                       className="w-16 h-10 p-1"
                     />
                     <Input
                       type="text"
                       value={carouselNavColors.buttonColor}
-                      onChange={(e) => setCarouselNavColors(prev => ({ ...prev, buttonColor: e.target.value }))}
+                      onChange={(e) => setCarouselNavColors((prev) => ({ ...prev, buttonColor: e.target.value }))}
                       className="flex-1"
                     />
                   </div>
@@ -3361,13 +3362,13 @@ export default function WebsiteEditPage() {
                       id="icon-color"
                       type="color"
                       value={carouselNavColors.iconColor}
-                      onChange={(e) => setCarouselNavColors(prev => ({ ...prev, iconColor: e.target.value }))}
+                      onChange={(e) => setCarouselNavColors((prev) => ({ ...prev, iconColor: e.target.value }))}
                       className="w-16 h-10 p-1"
                     />
                     <Input
                       type="text"
                       value={carouselNavColors.iconColor}
-                      onChange={(e) => setCarouselNavColors(prev => ({ ...prev, iconColor: e.target.value }))}
+                      onChange={(e) => setCarouselNavColors((prev) => ({ ...prev, iconColor: e.target.value }))}
                       className="flex-1"
                     />
                   </div>
@@ -3553,12 +3554,7 @@ export default function WebsiteEditPage() {
                         />
                         Enabled
                       </label>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeTab(tab.id)}
-                        className="text-red-600"
-                      >
+                      <Button variant="outline" size="sm" onClick={() => removeTab(tab.id)} className="text-red-600">
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
@@ -3616,12 +3612,16 @@ export default function WebsiteEditPage() {
                       <Input
                         type="color"
                         value={applicationTabsConfig.activeTabColor}
-                        onChange={(e) => setApplicationTabsConfig(prev => ({ ...prev, activeTabColor: e.target.value }))}
+                        onChange={(e) =>
+                          setApplicationTabsConfig((prev) => ({ ...prev, activeTabColor: e.target.value }))
+                        }
                         className="w-16 h-10 p-1"
                       />
                       <Input
                         value={applicationTabsConfig.activeTabColor}
-                        onChange={(e) => setApplicationTabsConfig(prev => ({ ...prev, activeTabColor: e.target.value }))}
+                        onChange={(e) =>
+                          setApplicationTabsConfig((prev) => ({ ...prev, activeTabColor: e.target.value }))
+                        }
                         className="flex-1"
                       />
                     </div>
@@ -3632,12 +3632,16 @@ export default function WebsiteEditPage() {
                       <Input
                         type="color"
                         value={applicationTabsConfig.inactiveTabColor}
-                        onChange={(e) => setApplicationTabsConfig(prev => ({ ...prev, inactiveTabColor: e.target.value }))}
+                        onChange={(e) =>
+                          setApplicationTabsConfig((prev) => ({ ...prev, inactiveTabColor: e.target.value }))
+                        }
                         className="w-16 h-10 p-1"
                       />
                       <Input
                         value={applicationTabsConfig.inactiveTabColor}
-                        onChange={(e) => setApplicationTabsConfig(prev => ({ ...prev, inactiveTabColor: e.target.value }))}
+                        onChange={(e) =>
+                          setApplicationTabsConfig((prev) => ({ ...prev, inactiveTabColor: e.target.value }))
+                        }
                         className="flex-1"
                       />
                     </div>
@@ -3651,9 +3655,7 @@ export default function WebsiteEditPage() {
             <Button variant="outline" onClick={() => setShowApplicationTabsDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={saveApplicationTabsConfig}>
-              Save Changes
-            </Button>
+            <Button onClick={saveApplicationTabsConfig}>Save Changes</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -3670,14 +3672,14 @@ export default function WebsiteEditPage() {
               <Label>Subtitle</Label>
               <Input
                 value={aboutUsConfig.subtitle}
-                onChange={(e) => setAboutUsConfig(prev => ({ ...prev, subtitle: e.target.value }))}
+                onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, subtitle: e.target.value }))}
               />
             </div>
             <div>
               <Label>Description</Label>
               <Textarea
                 value={aboutUsConfig.description}
-                onChange={(e) => setAboutUsConfig(prev => ({ ...prev, description: e.target.value }))}
+                onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, description: e.target.value }))}
                 rows={4}
               />
             </div>
@@ -3685,14 +3687,14 @@ export default function WebsiteEditPage() {
               <Label>Contact Phone</Label>
               <Input
                 value={aboutUsConfig.contactPhone}
-                onChange={(e) => setAboutUsConfig(prev => ({ ...prev, contactPhone: e.target.value }))}
+                onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, contactPhone: e.target.value }))}
               />
             </div>
             <div>
               <Label>CTA Button Text</Label>
               <Input
                 value={aboutUsConfig.ctaButton}
-                onChange={(e) => setAboutUsConfig(prev => ({ ...prev, ctaButton: e.target.value }))}
+                onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, ctaButton: e.target.value }))}
               />
             </div>
             <div>
@@ -3701,12 +3703,12 @@ export default function WebsiteEditPage() {
                 <Input
                   type="color"
                   value={aboutUsConfig.backgroundColor}
-                  onChange={(e) => setAboutUsConfig(prev => ({ ...prev, backgroundColor: e.target.value }))}
+                  onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, backgroundColor: e.target.value }))}
                   className="w-16 h-10 p-1"
                 />
                 <Input
                   value={aboutUsConfig.backgroundColor}
-                  onChange={(e) => setAboutUsConfig(prev => ({ ...prev, backgroundColor: e.target.value }))}
+                  onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, backgroundColor: e.target.value }))}
                   className="flex-1"
                 />
               </div>
@@ -3717,12 +3719,12 @@ export default function WebsiteEditPage() {
                 <Input
                   type="color"
                   value={aboutUsConfig.textColor}
-                  onChange={(e) => setAboutUsConfig(prev => ({ ...prev, textColor: e.target.value }))}
+                  onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, textColor: e.target.value }))}
                   className="w-16 h-10 p-1"
                 />
                 <Input
                   value={aboutUsConfig.textColor}
-                  onChange={(e) => setAboutUsConfig(prev => ({ ...prev, textColor: e.target.value }))}
+                  onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, textColor: e.target.value }))}
                   className="flex-1"
                 />
               </div>
@@ -3740,5 +3742,5 @@ export default function WebsiteEditPage() {
         </DialogContent>
       </Dialog>
     </div>
-  )\
+  )
 }
