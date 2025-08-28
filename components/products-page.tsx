@@ -409,6 +409,21 @@ export default function ProductsPage() {
           </TabsList>
 
           <TabsContent value="supplies" className="mt-6 space-y-6">
+            <div className="bg-white rounded-lg shadow-sm border p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Globe className="w-5 h-5 text-red-500" />
+                  <span className="text-sm text-gray-600">Need to manage your terminal?</span>
+                </div>
+                <a
+                  href="/dashboard/website"
+                  className="text-red-500 hover:text-red-600 text-sm font-medium hover:underline transition-colors"
+                >
+                  Go to Central Terminal →
+                </a>
+              </div>
+            </div>
+
             {/* Filters and Search */}
             {filteredItems.length > 0 && (
               <div className="bg-white rounded-lg shadow-sm border p-4 sm:p-6">

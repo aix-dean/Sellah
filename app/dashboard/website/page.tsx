@@ -1,6 +1,6 @@
 "use client"
 
-import { Globe, Settings, Eye, Edit3, ExternalLink, ArrowLeft, Palette, QrCode, Copy, Monitor } from "lucide-react"
+import { Eye, Edit3, Palette, Terminal, Copy, QrCode, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -13,57 +13,219 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import Link from "next/link"
 import { useUserData } from "@/hooks/use-user-data"
 import { useCompanyData } from "@/hooks/use-company-data"
 import { useState } from "react"
 import { doc, updateDoc, getDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
 
 export default function WebsitePage() {
   const { userData } = useUserData()
   const { company } = useCompanyData(userData?.company_id || null)
   const { toast } = useToast()
+  const router = useRouter()
 
   const [isThemeDialogOpen, setIsThemeDialogOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isLoadingTheme, setIsLoadingTheme] = useState(false)
+  const [showQRCode, setShowQRCode] = useState(false)
+  const [isPinDialogOpen, setIsPinDialogOpen] = useState(false)
+  const [pinInput, setPinInput] = useState("")
+  const [confirmPinInput, setConfirmPinInput] = useState("") // Added confirm PIN input state
+  const [isPinVerifying, setIsPinVerifying] = useState(false)
+  const [isCreatingPin, setIsCreatingPin] = useState(false) // Added PIN creation mode state
+  const [isCheckingPin, setIsCheckingPin] = useState(false) // Added PIN checking state
+
   const [themeColors, setThemeColors] = useState({
     primary: "#3b82f6",
     secondary: "#64748b",
     accent: "#f59e0b",
     button: "#3b82f6",
-    buttonText: "#ffffff", // Added button text color
+    buttonText: "#ffffff",
     header: "#1f2937",
     background: "#ffffff",
     text: "#1f2937",
     footerBackground: "#1f2937",
     footerText: "#ffffff",
   })
-  const [showQrCode, setShowQrCode] = useState(false)
-  const [copied, setCopied] = useState(false)
 
   const companyId = userData?.company_id || "company"
+  const terminalPortalLink = "https://sellah.ph/website/ZxWUmoFXCLnTXJVAOaAA"
 
-  const terminalPortalUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/website/ZxWUmoFXCLnTXJVAOaAA`
+  const checkUserHasPin = async (): Promise<boolean> => {
+    if (!userData?.uid) return false
 
-  const copyToClipboard = async () => {
     try {
-      await navigator.clipboard.writeText(terminalPortalUrl)
-      setCopied(true)
-      toast({
-        title: "Copied!",
-        description: "Terminal Portal URL copied to clipboard",
+      const userDocRef = doc(db, "iboard_users", userData.uid)
+      const userDoc = await getDoc(userDocRef)
+
+      if (userDoc.exists()) {
+        const data = userDoc.data()
+        return !!(data.pin && data.pin_enabled !== false)
+      }
+      return false
+    } catch (error) {
+      console.error("Error checking user PIN:", error)
+      return false
+    }
+  }
+
+  const createUserPin = async (pin: string): Promise<boolean> => {
+    if (!userData?.uid) return false
+
+    try {
+      const userDocRef = doc(db, "iboard_users", userData.uid)
+      await updateDoc(userDocRef, {
+        pin: pin, // In production, this should be hashed
+        pin_enabled: true,
+        pin_created_at: new Date(),
+        updated_at: new Date(),
       })
-      setTimeout(() => setCopied(false), 2000)
+      return true
+    } catch (error) {
+      console.error("Error creating user PIN:", error)
+      return false
+    }
+  }
+
+  const verifyUserPin = async (pin: string): Promise<boolean> => {
+    if (!userData?.uid) return false
+
+    try {
+      const userDocRef = doc(db, "iboard_users", userData.uid)
+      const userDoc = await getDoc(userDocRef)
+
+      if (userDoc.exists()) {
+        const data = userDoc.data()
+        return data.pin === pin && data.pin_enabled !== false
+      }
+      return false
+    } catch (error) {
+      console.error("Error verifying user PIN:", error)
+      return false
+    }
+  }
+
+  const handlePinSubmit = async () => {
+    if (!pinInput.trim()) {
+      toast({
+        title: "PIN Required",
+        description: isCreatingPin ? "Please enter a PIN to create" : "Please enter your PIN to continue",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (isCreatingPin) {
+      // PIN Creation Mode
+      if (pinInput.length < 4) {
+        toast({
+          title: "PIN Too Short",
+          description: "PIN must be at least 4 characters long",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (!confirmPinInput.trim()) {
+        toast({
+          title: "Confirm PIN Required",
+          description: "Please confirm your PIN",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (pinInput !== confirmPinInput) {
+        toast({
+          title: "PINs Don't Match",
+          description: "Please make sure both PINs match",
+          variant: "destructive",
+        })
+        return
+      }
+
+      setIsPinVerifying(true)
+
+      const success = await createUserPin(pinInput)
+
+      if (success) {
+        setIsPinDialogOpen(false)
+        setPinInput("")
+        setConfirmPinInput("")
+        setIsCreatingPin(false)
+        router.push(`/website/edit/${companyId}`)
+        toast({
+          title: "PIN Created Successfully",
+          description: "Your PIN has been created. Redirecting to content editor...",
+        })
+      } else {
+        toast({
+          title: "Error Creating PIN",
+          description: "Failed to create PIN. Please try again.",
+          variant: "destructive",
+        })
+      }
+
+      setIsPinVerifying(false)
+    } else {
+      // PIN Verification Mode
+      setIsPinVerifying(true)
+
+      const isValid = await verifyUserPin(pinInput)
+
+      if (isValid) {
+        setIsPinDialogOpen(false)
+        setPinInput("")
+        router.push(`/website/edit/${companyId}`)
+        toast({
+          title: "Access Granted",
+          description: "Redirecting to content editor...",
+        })
+      } else {
+        toast({
+          title: "Invalid PIN",
+          description: "Please check your PIN and try again",
+          variant: "destructive",
+        })
+      }
+
+      setIsPinVerifying(false)
+    }
+  }
+
+  const handleEditContentClick = async () => {
+    setIsCheckingPin(true)
+
+    const hasPin = await checkUserHasPin()
+
+    setIsCreatingPin(!hasPin)
+    setIsPinDialogOpen(true)
+    setPinInput("")
+    setConfirmPinInput("")
+    setIsCheckingPin(false)
+  }
+
+  const copyLinkToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(terminalPortalLink)
+      toast({
+        title: "Link Copied",
+        description: "Terminal Portal link has been copied to clipboard",
+      })
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to copy URL to clipboard",
+        description: "Failed to copy link to clipboard",
         variant: "destructive",
       })
     }
+  }
+
+  const generateQRCode = () => {
+    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(terminalPortalLink)}`
   }
 
   const loadExistingTheme = async () => {
@@ -168,160 +330,222 @@ export default function WebsitePage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <div className="flex items-center gap-4 mb-4">
-              <Link href="/dashboard/products">
-                <Button variant="ghost" size="sm" className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
-                  <ArrowLeft className="w-4 h-4" />
-                  Back to Products
-                </Button>
-              </Link>
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="mb-8">
+            <div className="bg-white rounded-lg p-6 shadow-sm border">
+              <h1 className="text-4xl font-bold text-gray-900 flex items-center gap-3 mb-2">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Terminal className="w-8 h-8 text-blue-600" />
+                </div>
+                Central Terminal
+              </h1>
+              <p className="text-gray-600 text-lg">Manage your online presence and terminal settings</p>
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-              <Globe className="w-8 h-8 text-blue-500" />
-              Terminal Management
-            </h1>
-            <p className="text-gray-600 mt-2">Manage your online presence and terminal settings</p>
           </div>
-        </div>
 
-        {/* Website Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Eye className="w-5 h-5 text-green-500" />
-                Terminal Status
-              </CardTitle>
-              <CardDescription>Your terminal is live and accessible</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <span className="text-sm font-medium text-green-600">Active</span>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Website Overview Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 mb-8">
+            <Card className="hover:shadow-md transition-shadow border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <div className="p-1.5 bg-green-100 rounded-md">
+                    <Eye className="w-4 h-4 text-green-600" />
+                  </div>
+                  Terminal Status
+                </CardTitle>
+                <CardDescription className="text-sm">Your terminal is live and accessible</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm font-semibold text-green-700">Active</span>
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="w-5 h-5 text-blue-500" />
-                Configuration
-              </CardTitle>
-              <CardDescription>Customize your terminal settings</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full bg-transparent opacity-50 cursor-not-allowed"
-                disabled
-              >
-                Configure Settings
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Edit3 className="w-5 h-5 text-purple-500" />
-                Content Editor
-              </CardTitle>
-              <CardDescription>Edit your terminal content</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Link href={`/website/edit/${companyId}`}>
-                <Button variant="outline" size="sm" className="w-full bg-transparent">
-                  Edit Content
+            <Card className="hover:shadow-md transition-shadow border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <div className="p-1.5 bg-purple-100 rounded-md">
+                    <Edit3 className="w-4 h-4 text-purple-600" />
+                  </div>
+                  Content Editor
+                </CardTitle>
+                <CardDescription className="text-sm">Edit your terminal content</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full hover:bg-purple-50 hover:border-purple-200 bg-transparent"
+                  onClick={handleEditContentClick}
+                  disabled={isCheckingPin}
+                >
+                  <Lock className="w-3 h-3 mr-2" />
+                  {isCheckingPin ? "Checking..." : "Edit Content"}
                 </Button>
-              </Link>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
 
-          {/* Terminal Portal Card */}
-          <Card>
+          {/* Terminal Portal */}
+          <Card className="shadow-sm border-0 mb-8">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Monitor className="w-5 h-5 text-orange-500" />
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <div className="p-2 bg-orange-100 rounded-lg">
+                  <Terminal className="w-6 h-6 text-orange-600" />
+                </div>
                 Terminal Portal
               </CardTitle>
-              <CardDescription>Access your public terminal portal</CardDescription>
+              <CardDescription>Access your terminal portal and share with others</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="p-2 bg-gray-50 rounded border text-xs font-mono break-all">{terminalPortalUrl}</div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={copyToClipboard}
-                  className="flex items-center gap-1 flex-1 bg-transparent"
-                >
-                  <Copy className="w-3 h-3" />
-                  {copied ? "Copied!" : "Copy"}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowQrCode(!showQrCode)}
-                  className="flex items-center gap-1 flex-1"
-                >
-                  <QrCode className="w-3 h-3" />
-                  QR Code
-                </Button>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="bg-gray-50 p-3 rounded-lg border max-w-md flex-shrink-0">
+                  <div className="text-sm text-gray-600 break-all font-mono">{terminalPortalLink}</div>
+                </div>
+                <div className="flex gap-3 flex-wrap">
+                  <Button
+                    variant="outline"
+                    onClick={copyLinkToClipboard}
+                    className="flex items-center gap-2 hover:bg-blue-50 bg-transparent"
+                  >
+                    <Copy className="w-4 h-4" />
+                    Copy Link
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowQRCode(!showQRCode)}
+                    className="flex items-center gap-2 hover:bg-orange-50"
+                  >
+                    <QrCode className="w-4 h-4" />
+                    {showQRCode ? "Hide QR Code" : "Show QR Code"}
+                  </Button>
+                </div>
               </div>
-              {showQrCode && (
-                <div className="flex justify-center p-4 bg-white border rounded">
-                  <div className="w-32 h-32 bg-gray-100 border-2 border-dashed border-gray-300 rounded flex items-center justify-center">
-                    <div className="text-center text-xs text-gray-500">
-                      <QrCode className="w-8 h-8 mx-auto mb-1" />
-                      QR Code
-                    </div>
+              {/* </CHANGE> */}
+              {showQRCode && (
+                <div className="flex justify-center pt-4">
+                  <div className="p-4 bg-white border-2 border-gray-200 rounded-xl shadow-sm">
+                    <img
+                      src={generateQRCode() || "/placeholder.svg"}
+                      alt="Terminal Portal QR Code"
+                      className="w-48 h-48 rounded-lg"
+                    />
+                    <p className="text-center text-sm text-gray-600 mt-3">Scan to access Terminal Portal</p>
                   </div>
                 </div>
               )}
             </CardContent>
           </Card>
-        </div>
 
-        {/* Quick Actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Common terminal management tasks</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Link href={`/website/${companyId}`} target="_blank">
-                <Button className="bg-blue-500 hover:bg-blue-600 text-white w-full flex items-center gap-2">
-                  <ExternalLink className="w-4 h-4" />
-                  View Terminal
+          {/* Quick Actions */}
+          <Card className="shadow-sm border-0">
+            <CardHeader>
+              <CardTitle className="text-xl">Quick Actions</CardTitle>
+              <CardDescription>Common terminal management tasks</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <Button
+                  variant="outline"
+                  onClick={handleOpenThemeDialog}
+                  className="flex items-center gap-2 h-11 hover:bg-purple-50 hover:border-purple-200 bg-transparent"
+                >
+                  <Palette className="w-4 h-4" />
+                  Update Terminal Theme
                 </Button>
-              </Link>
-              <Button
-                variant="outline"
-                onClick={handleOpenThemeDialog}
-                className="flex items-center gap-2 bg-transparent"
-              >
-                <Palette className="w-4 h-4" />
-                Update Terminal Theme
-              </Button>
-              <Button variant="outline" className="opacity-50 cursor-not-allowed bg-transparent" disabled>
-                Manage Pages
-              </Button>
-              <Button variant="outline" className="opacity-50 cursor-not-allowed bg-transparent" disabled>
-                Analytics
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+                <Button variant="outline" className="opacity-50 cursor-not-allowed h-11 bg-transparent" disabled>
+                  Manage Pages
+                </Button>
+                <Button variant="outline" className="opacity-50 cursor-not-allowed h-11 bg-transparent" disabled>
+                  Analytics
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
+      <Dialog open={isPinDialogOpen} onOpenChange={setIsPinDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="w-5 h-5 text-purple-600" />
+              {isCreatingPin ? "Create PIN" : "Enter PIN to Continue"}
+            </DialogTitle>
+            <DialogDescription>
+              {isCreatingPin
+                ? "Create a secure PIN to protect access to your content editor."
+                : "Please enter your PIN to access the content editor."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="pin">{isCreatingPin ? "New PIN" : "PIN"}</Label>
+              <Input
+                id="pin"
+                type="password"
+                placeholder={isCreatingPin ? "Create a PIN (min 4 characters)" : "Enter your PIN"}
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (!isCreatingPin || confirmPinInput)) {
+                    handlePinSubmit()
+                  }
+                }}
+                className="text-center text-lg tracking-widest"
+                maxLength={6}
+                autoFocus
+              />
+            </div>
+
+            {isCreatingPin && (
+              <div className="space-y-2">
+                <Label htmlFor="confirmPin">Confirm PIN</Label>
+                <Input
+                  id="confirmPin"
+                  type="password"
+                  placeholder="Confirm your PIN"
+                  value={confirmPinInput}
+                  onChange={(e) => setConfirmPinInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handlePinSubmit()
+                    }
+                  }}
+                  className="text-center text-lg tracking-widest"
+                  maxLength={6}
+                />
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPinDialogOpen(false)} disabled={isPinVerifying}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handlePinSubmit}
+              disabled={isPinVerifying || !pinInput.trim() || (isCreatingPin && !confirmPinInput.trim())}
+            >
+              {isPinVerifying
+                ? isCreatingPin
+                  ? "Creating..."
+                  : "Verifying..."
+                : isCreatingPin
+                  ? "Create PIN"
+                  : "Continue"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Theme Dialog */}
       <Dialog open={isThemeDialogOpen} onOpenChange={setIsThemeDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
