@@ -26,28 +26,28 @@ interface Product {
   views: number
   likes: number
   type: string
-  seller_id: string
+  company_id: string
   deleted: boolean
   photo_urls?: string[]
   variations?: ProductVariation[] // Add variations array
   created_at?: any
 }
 
-export function useProducts(userId: string | null) {
+export function useProducts(companyId: string | null) {
   const {
     data: products,
     loading,
     error,
     refetch,
   } = useFirestoreQuery<Product[]>(
-    `products_${userId}`,
+    `products_${companyId}`,
     async () => {
-      if (!userId) return []
+      if (!companyId) return []
 
       const productsRef = collection(db, "products")
       const q = query(
         productsRef,
-        where("seller_id", "==", userId),
+        where("company_id", "==", companyId),
         where("type", "in", ["MERCHANDISE", "Merchandise"]),
         where("active", "==", true),
       )
@@ -74,7 +74,7 @@ export function useProducts(userId: string | null) {
           views: data.views || 0,
           likes: data.likes || 0,
           type: data.type || "MERCHANDISE",
-          seller_id: data.seller_id || "",
+          company_id: data.company_id || "",
           deleted: data.deleted || false,
           photo_urls: mediaImages,
           variations: data.variations || [], // Map variations array
@@ -91,11 +91,11 @@ export function useProducts(userId: string | null) {
   )
 
   const invalidateProducts = () => {
-    firestoreCache.invalidate(`products_${userId}`)
+    firestoreCache.invalidate(`products_${companyId}`)
   }
 
   const forceRefetch = () => {
-    firestoreCache.invalidate(`products_${userId}`)
+    firestoreCache.invalidate(`products_${companyId}`)
     return refetch()
   }
 

@@ -45,7 +45,7 @@ export default function DashboardLayout({ children, activeItem, userName = "" }:
 
     if (pathname.startsWith("/dashboard/products")) return "inventory"
     if (pathname.startsWith("/dashboard/orders")) return "orders"
-    if (pathname.startsWith("/dashboard/website")) return "website"
+    if (pathname.startsWith("/dashboard/website") || pathname.startsWith("/dashboard/product-brief")) return "website"
     if (pathname.startsWith("/dashboard/account")) return "account"
 
     return "inventory" // default fallback

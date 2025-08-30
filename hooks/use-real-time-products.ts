@@ -49,7 +49,7 @@ interface Product {
   imageUrls?: string[]
 }
 
-export function useRealTimeProducts(userId: string | null) {
+export function useRealTimeProducts(companyId: string | null) {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -60,7 +60,7 @@ export function useRealTimeProducts(userId: string | null) {
   }
 
   useEffect(() => {
-    if (!userId) {
+    if (!companyId) {
       setProducts([])
       setLoading(false)
       return () => {}
@@ -73,7 +73,7 @@ export function useRealTimeProducts(userId: string | null) {
       const productsRef = collection(db, "products")
       const q = query(
         productsRef,
-        where("seller_id", "==", userId),
+        where("company_id", "==", companyId),
         where("active", "==", true),
         where("deleted", "==", false),
       )
@@ -179,7 +179,7 @@ export function useRealTimeProducts(userId: string | null) {
       setLoading(false)
       return () => {}
     }
-  }, [userId])
+  }, [companyId])
 
   return { products, loading, error, forceRefetch }
 }

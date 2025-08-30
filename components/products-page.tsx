@@ -61,7 +61,7 @@ export default function ProductsPage() {
   })
 
   const { currentUser, userData, loading: userLoading } = useUserData()
-  const { products = [], loading, error, forceRefetch } = useRealTimeProducts(currentUser?.uid)
+  const { products = [], loading, error, forceRefetch } = useRealTimeProducts(userData?.company_id || null)
 
   // Filter products and services based on active tab
   const filteredItems = useMemo(() => {

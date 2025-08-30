@@ -16,26 +16,26 @@ interface Product {
   views: number
   likes: number
   type: string
-  seller_id: string
+  company_id: string
   deleted: boolean
   photo_urls?: string[]
   created_at?: any
 }
 
-export function useProductsPaginated(userId: string | null, pageSize = 12) {
+export function useProductsPaginated(companyId: string | null, pageSize = 12) {
   const baseQuery = useMemo(() => {
-    if (!userId) return null
+    if (!companyId) return null
 
     const productsRef = collection(db, "products")
     return query(
       productsRef,
-      where("seller_id", "==", userId),
+      where("company_id", "==", companyId),
       where("type", "in", ["MERCHANDISE", "Merchandise"]),
       where("active", "==", true),
       where("deleted", "==", false),
       orderBy("created_at", "desc"),
     )
-  }, [userId])
+  }, [companyId])
 
   const transform = (doc: any): Product => {
     const data = doc.data()
@@ -56,7 +56,7 @@ export function useProductsPaginated(userId: string | null, pageSize = 12) {
       views: data.views || 0,
       likes: data.likes || 0,
       type: data.type || "MERCHANDISE",
-      seller_id: data.seller_id || "",
+      company_id: data.company_id || "",
       deleted: data.deleted || false,
       photo_urls: mediaImages,
       created_at: data.created_at,

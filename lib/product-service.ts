@@ -13,7 +13,6 @@ import {
   startAfter,
   serverTimestamp,
   writeBatch,
-  increment,
   type QueryDocumentSnapshot,
 } from "firebase/firestore"
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"
@@ -52,6 +51,7 @@ export interface Product {
   featured: boolean
   condition: "new" | "used" | "refurbished"
   userId: string
+  company_id: string
   createdAt?: any
   updatedAt?: any
   // Additional fields for soft delete
@@ -238,14 +238,12 @@ export async function deleteProduct(productId: string, userId: string): Promise<
 
     const productData = productDoc.data() as Product
 
-
     // Soft delete: set active=false and deleted=true
     await updateDoc(productRef, {
       active: false,
       deleted: true,
       updatedAt: serverTimestamp(),
     })
-
   } catch (error) {
     throw error
   }
@@ -391,7 +389,7 @@ export async function getProducts(
 }
 
 export async function getUserProducts(
-  userId: string,
+  companyId: string,
   filters: ProductFilter = {},
   pageSize = 20,
   lastDoc?: QueryDocumentSnapshot,
@@ -399,18 +397,38 @@ export async function getUserProducts(
   try {
     let q = query(
       collection(db, "products"),
-      where("userId", "==", userId),
+      where("company_id", "==", companyId),
       where("active", "==", true),
       where("deleted", "==", false),
     )
 
-    // Apply additional filters
+    // Apply filters
+    if (filters.category) {
+      q = query(q, where("category", "==", filters.category))
+    }
+
+    if (filters.brand) {
+      q = query(q, where("brand", "==", filters.brand))
+    }
+
     if (filters.status) {
       q = query(q, where("status", "==", filters.status))
     }
 
-    if (filters.category) {
-      q = query(q, where("category", "==", filters.category))
+    if (filters.visibility) {
+      q = query(q, where("visibility", "==", filters.visibility))
+    }
+
+    if (filters.featured !== undefined) {
+      q = query(q, where("featured", "==", filters.featured))
+    }
+
+    if (filters.condition) {
+      q = query(q, where("condition", "==", filters.condition))
+    }
+
+    if (filters.inStock) {
+      q = query(q, where("stock", ">", 0))
     }
 
     // Add ordering
@@ -421,7 +439,7 @@ export async function getUserProducts(
       q = query(q, startAfter(lastDoc))
     }
 
-    q = query(q, limit(pageSize + 1))
+    q = query(q, limit(pageSize + 1)) // Get one extra to check if there are more
 
     const querySnapshot = await getDocs(q)
     const docs = querySnapshot.docs
@@ -432,9 +450,30 @@ export async function getUserProducts(
       ...doc.data(),
     })) as Product[]
 
+    // Apply client-side filters that can't be done in Firestore
+    let filteredProducts = products
+
+    if (filters.search) {
+      const searchTerm = filters.search.toLowerCase()
+      filteredProducts = products.filter(
+        (product) =>
+          product.name.toLowerCase().includes(searchTerm) ||
+          product.description.toLowerCase().includes(searchTerm) ||
+          product.tags.some((tag) => tag.toLowerCase().includes(searchTerm)),
+      )
+    }
+
+    if (filters.priceMin !== undefined) {
+      filteredProducts = filteredProducts.filter((product) => product.price >= filters.priceMin!)
+    }
+
+    if (filters.priceMax !== undefined) {
+      filteredProducts = filteredProducts.filter((product) => product.price <= filters.priceMax!)
+    }
+
     return {
-      products,
-      total: products.length,
+      products: filteredProducts,
+      total: filteredProducts.length,
       hasMore,
       lastDoc: hasMore ? docs[pageSize - 1] : undefined,
     }
@@ -480,11 +519,11 @@ export async function deleteProductImages(imageUrls: string[]): Promise<void> {
 }
 
 // Stock management
-export async function getLowStockProducts(userId: string): Promise<Product[]> {
+export async function getLowStockProducts(companyId: string): Promise<Product[]> {
   try {
     const q = query(
       collection(db, "products"),
-      where("userId", "==", userId),
+      where("company_id", "==", companyId),
       where("trackQuantity", "==", true),
       where("active", "==", true),
       where("deleted", "==", false),
@@ -509,7 +548,6 @@ export async function getLowStockProducts(userId: string): Promise<Product[]> {
 }
 
 // Utility function to update user's product count
-
 
 export async function getProductCategories(): Promise<string[]> {
   try {
@@ -627,7 +665,7 @@ export async function bulkDeleteProducts(productIds: string[], userId: string): 
 }
 
 // Get user's product statistics
-export async function getUserProductStats(userId: string): Promise<{
+export async function getUserProductStats(companyId: string): Promise<{
   totalProducts: number
   activeProducts: number
   draftProducts: number
@@ -639,17 +677,14 @@ export async function getUserProductStats(userId: string): Promise<{
   canAddMore: boolean
 }> {
   try {
-    // Get user status and limits
-    const limitCheck = await canUserAddProduct(userId)
-
     // Get all user products (including deleted for total count)
-    const allProductsQuery = query(collection(db, "products"), where("userId", "==", userId))
+    const allProductsQuery = query(collection(db, "products"), where("company_id", "==", companyId))
     const allProductsSnapshot = await getDocs(allProductsQuery)
 
     // Get active products only
     const activeProductsQuery = query(
       collection(db, "products"),
-      where("userId", "==", userId),
+      where("company_id", "==", companyId),
       where("active", "==", true),
       where("deleted", "==", false),
     )
@@ -675,7 +710,7 @@ export async function getUserProductStats(userId: string): Promise<{
     })
 
     // Get low stock products
-    const lowStockProducts = await getLowStockProducts(userId)
+    const lowStockProducts = await getLowStockProducts(companyId)
 
     return {
       totalProducts: allProductsSnapshot.size,
@@ -683,10 +718,10 @@ export async function getUserProductStats(userId: string): Promise<{
       draftProducts,
       archivedProducts,
       lowStockProducts: lowStockProducts.length,
-      currentCount: limitCheck.currentCount,
-      limit: limitCheck.limit,
-      status: limitCheck.status,
-      canAddMore: limitCheck.canAdd,
+      currentCount: allProductsSnapshot.size, // Use actual count from company_id query
+      limit: 999999, // Set high limit for now since we're using company_id
+      status: "VERIFIED", // Default status for company-based queries
+      canAddMore: true, // Allow adding for company-based queries
     }
   } catch (error) {
     console.error("Error getting user product stats:", error)
@@ -694,12 +729,11 @@ export async function getUserProductStats(userId: string): Promise<{
   }
 }
 
-
 // Product Stock
 export async function updateProductStock(
   productId: string,
   variationId: string,
-  quantityToDecrease: number
+  quantityToDecrease: number,
 ): Promise<void> {
   try {
     const productRef = doc(db, "products", productId)
@@ -738,8 +772,8 @@ export async function updateProductStock(
 // 🔁 Function to loop through order items and decrease stock for each
 export async function decreaseStockForOrder(order: {
   items: {
-    product_id: string,
-    quantity: number,
+    product_id: string
+    quantity: number
     variation_data: { id: string }
   }[]
 }): Promise<void> {
@@ -747,7 +781,7 @@ export async function decreaseStockForOrder(order: {
     for (const item of order.items) {
       const { product_id, quantity, variation_data } = item
 
-      if (!product_id || !variation_data?.id || typeof quantity !== 'number') {
+      if (!product_id || !variation_data?.id || typeof quantity !== "number") {
         console.warn("⚠️ Skipping invalid item:", item)
         continue
       }

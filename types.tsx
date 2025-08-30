@@ -161,3 +161,57 @@ export interface FilterParams {
   priceMin?: number
   priceMax?: number
 }
+
+// Comprehensive ProductBriefResponse interface for better data structure
+export interface ProductBriefResponse {
+  id: string
+  formId: string
+  companyId: string
+
+  // User tracking
+  userId?: string // Firebase Auth user ID if logged in
+  userEmail?: string // Email from form or auth
+  userName?: string // Name from form or auth
+
+  // Structured responses with readable format
+  responses: {
+    [questionId: string]: {
+      questionText: string // The actual question text for readability
+      questionType: string // Type of question (text, multiple_choice, etc.)
+      value: string | string[] | number | boolean
+      displayValue?: string // Formatted display value
+      pageTitle?: string // Which page this question belongs to
+    }
+  }
+
+  // Enhanced metadata
+  submittedAt: any // Placeholder for Timestamp, please import or declare it
+  ipAddress?: string
+  userAgent?: string
+  source: "web" | "typeform" | "api" // Track submission source
+
+  // Contact information extracted from responses
+  contactInfo?: {
+    email?: string
+    phone?: string
+    company?: string
+    name?: string
+  }
+
+  // Status tracking for workflow management
+  status: "new" | "reviewed" | "responded" | "archived"
+  reviewedBy?: string
+  reviewedAt?: any // Placeholder for Timestamp, please import or declare it
+  notes?: string
+}
+
+export interface Response {
+  id: string
+  formId: string
+  companyId: string
+  responses: Record<string, any>
+  submittedAt: any // Placeholder for Timestamp, please import or declare it
+  ipAddress?: string
+  userAgent?: string
+  // Legacy interface - use ProductBriefResponse for new implementations
+}

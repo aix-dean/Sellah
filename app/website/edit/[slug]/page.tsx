@@ -101,6 +101,8 @@ interface CompanyData {
       title: string
       subtitle: string
       buttonText: string
+      backgroundColor: string // Default slate-900
+      textColor: string // Default white text
       aboutUs: {
         title: string
         links: string[]
@@ -313,6 +315,8 @@ export default function WebsiteEditPage() {
     title: "How Can We Help You?",
     subtitle: "Feel free to let us know.",
     buttonText: "contact us",
+    backgroundColor: "#0f172a", // Default slate-900
+    textColor: "#ffffff", // Default white text
     aboutUs: {
       title: "About Us",
       links: ["About Unilumin", "Joint-Stock Company", "U-Green"],
@@ -347,6 +351,8 @@ export default function WebsiteEditPage() {
       title: existingConfig.title || "How Can We Help You?",
       subtitle: existingConfig.subtitle || "Feel free to let us know.",
       buttonText: existingConfig.buttonText || "contact us",
+      backgroundColor: existingConfig.backgroundColor || companyData?.theme?.footerBackgroundColor || "#0f172a",
+      textColor: existingConfig.textColor || companyData?.theme?.footerTextColor || "#ffffff",
       aboutUs: {
         title: existingConfig.aboutUs?.title || "About Us",
         links: existingConfig.aboutUs?.links || ["About Unilumin", "Joint-Stock Company", "U-Green"],
@@ -1980,9 +1986,7 @@ export default function WebsiteEditPage() {
 
                   <div className="mb-8">
                     <h3 className="font-semibold mb-2 text-sm">Contact Us</h3>
-                    <p className="text-sm">
-                      📞 {companyData?.web_config?.aboutUs?.contactPhone || "+63 (2) 8123-4567"}
-                    </p>
+                    <p className="text-sm">{companyData?.web_config?.aboutUs?.contactPhone || "+63 (2) 8123-4567"}</p>
                   </div>
 
                   <Button
@@ -2367,6 +2371,74 @@ export default function WebsiteEditPage() {
                           placeholder="Enter button text"
                         />
                       </div>
+
+                      {/* Color Controls */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
+                          <div className="flex gap-2">
+                            <input
+                              type="color"
+                              value={footerConfig.backgroundColor}
+                              onChange={(e) =>
+                                setFooterConfig((prev) => ({ ...prev, backgroundColor: e.target.value }))
+                              }
+                              className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
+                            />
+                            <input
+                              type="text"
+                              value={footerConfig.backgroundColor}
+                              onChange={(e) =>
+                                setFooterConfig((prev) => ({ ...prev, backgroundColor: e.target.value }))
+                              }
+                              className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                              placeholder="#ffffff"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Text Color</label>
+                          <div className="flex gap-2">
+                            <input
+                              type="color"
+                              value={footerConfig.textColor}
+                              onChange={(e) => setFooterConfig((prev) => ({ ...prev, textColor: e.target.value }))}
+                              className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
+                            />
+                            <input
+                              type="text"
+                              value={footerConfig.textColor}
+                              onChange={(e) => setFooterConfig((prev) => ({ ...prev, textColor: e.target.value }))}
+                              className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                              placeholder="#ffffff"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/*  Added section title color control */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Section Title Color</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="color"
+                            value={footerConfig.sectionTitleColor || footerConfig.textColor}
+                            onChange={(e) =>
+                              setFooterConfig((prev) => ({ ...prev, sectionTitleColor: e.target.value }))
+                            }
+                            className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={footerConfig.sectionTitleColor || footerConfig.textColor}
+                            onChange={(e) =>
+                              setFooterConfig((prev) => ({ ...prev, sectionTitleColor: e.target.value }))
+                            }
+                            className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                            placeholder="#ffffff"
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -2575,21 +2647,33 @@ export default function WebsiteEditPage() {
                 <div className="space-y-6">
                   <div className="sticky top-6">
                     <h3 className="text-xl font-semibold text-gray-900 mb-4">Live Preview</h3>
-                    <div className="border-2 border-gray-200 rounded-xl overflow-hidden bg-slate-900 text-white">
+                    <div
+                      className="border-2 border-gray-200 rounded-xl overflow-hidden"
+                      style={{
+                        backgroundColor: footerConfig.backgroundColor,
+                        color: footerConfig.textColor,
+                      }}
+                    >
                       <div className="py-8 text-center px-4">
                         <h2 className="text-2xl font-bold mb-2">{footerConfig.title}</h2>
-                        <p className="text-gray-300 mb-4 text-sm">{footerConfig.subtitle}</p>
+                        <p className="mb-4 text-sm opacity-75">{footerConfig.subtitle}</p>
                         <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-semibold transition-colors">
                           {footerConfig.buttonText}
                         </button>
                       </div>
 
-                      <div className="border-t border-slate-800 p-4">
+                      <div className="border-t border-opacity-20 p-4" style={{ borderColor: footerConfig.textColor }}>
                         <div className="grid grid-cols-1 gap-4 mb-4 text-xs">
                           {/* About Us Preview */}
                           <div>
-                            <h3 className="text-white font-semibold mb-2">{footerConfig.aboutUs.title}</h3>
-                            <div className="text-gray-400 space-y-1">
+                            {/*  Applied section title color to preview */}
+                            <h3
+                              className="font-semibold mb-2"
+                              style={{ color: footerConfig.sectionTitleColor || footerConfig.textColor }}
+                            >
+                              {footerConfig.aboutUs.title}
+                            </h3>
+                            <div className="opacity-75 space-y-1">
                               {footerConfig.aboutUs.links.map((link, index) => (
                                 <p key={index}>{link}</p>
                               ))}
@@ -2598,8 +2682,14 @@ export default function WebsiteEditPage() {
 
                           {/* Address Preview */}
                           <div>
-                            <h3 className="text-white font-semibold mb-2">{footerConfig.address.title}</h3>
-                            <div className="text-gray-400 space-y-1">
+                            {/*  Applied section title color to preview */}
+                            <h3
+                              className="font-semibold mb-2"
+                              style={{ color: footerConfig.sectionTitleColor || footerConfig.textColor }}
+                            >
+                              {footerConfig.address.title}
+                            </h3>
+                            <div className="opacity-75 space-y-1">
                               {footerConfig.address.lines.map((line, index) => (
                                 <p key={index}>{line}</p>
                               ))}
@@ -2608,17 +2698,30 @@ export default function WebsiteEditPage() {
 
                           {/* Social Media Preview */}
                           <div>
-                            <h3 className="text-white font-semibold mb-2">{footerConfig.followUs.title}</h3>
+                            {/*  Applied section title color to preview */}
+                            <h3
+                              className="font-semibold mb-2"
+                              style={{ color: footerConfig.sectionTitleColor || footerConfig.textColor }}
+                            >
+                              {footerConfig.followUs.title}
+                            </h3>
                             <div className="flex flex-wrap gap-2">
                               {footerConfig.followUs.socialLinks.map((social, index) => (
-                                <div key={index} className="w-5 h-5 bg-gray-400 rounded"></div>
+                                <div
+                                  key={index}
+                                  className="w-5 h-5 opacity-60 rounded"
+                                  style={{ backgroundColor: footerConfig.textColor }}
+                                ></div>
                               ))}
                             </div>
                           </div>
                         </div>
 
-                        <div className="border-t border-slate-800 pt-4 text-center">
-                          <p className="text-gray-400 text-xs">{footerConfig.copyright}</p>
+                        <div
+                          className="border-t border-opacity-20 pt-4 text-center"
+                          style={{ borderColor: footerConfig.textColor }}
+                        >
+                          <p className="opacity-75 text-xs">{footerConfig.copyright}</p>
                         </div>
                       </div>
                     </div>
@@ -2652,6 +2755,13 @@ export default function WebsiteEditPage() {
           <div
             className="relative group cursor-pointer hover:ring-2 hover:ring-blue-400 hover:ring-opacity-50 rounded-lg transition-all"
             onClick={handleFooterClick}
+            style={{
+              backgroundColor:
+                companyData?.web_config?.footer?.backgroundColor ||
+                companyData?.theme?.footerBackgroundColor ||
+                "#0f172a",
+              color: companyData?.web_config?.footer?.textColor || companyData?.theme?.footerTextColor || "#ffffff",
+            }}
           >
             <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity z-10">
               <div className="bg-blue-500 text-white px-3 py-1 rounded text-sm flex items-center gap-2">
@@ -2665,7 +2775,7 @@ export default function WebsiteEditPage() {
                 {companyData?.web_config?.footer?.title || "How Can We Help You?"}
               </h2>
 
-              <p className="text-lg mb-8 text-gray-300">
+              <p className="text-lg mb-8 opacity-75">
                 {companyData?.web_config?.footer?.subtitle || "Feel free to let us know."}
               </p>
 
@@ -2679,28 +2789,55 @@ export default function WebsiteEditPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
                   {/* About Us Section */}
                   <div className="text-left">
-                    <h3 className="text-white font-semibold mb-4">
+                    {/*  Applied section title color to live footer */}
+                    <h3
+                      className="font-semibold mb-4"
+                      style={{
+                        color:
+                          companyData?.web_config?.footer?.sectionTitleColor ||
+                          companyData?.web_config?.footer?.textColor ||
+                          "#ffffff",
+                      }}
+                    >
                       {companyData?.web_config?.footer?.aboutUs?.title || "About Us"}
                     </h3>
-                    <div className="text-gray-400 space-y-2">
+                    <div
+                      className="space-y-2"
+                      style={{ color: companyData?.web_config?.footer?.textColor || "#ffffff" }}
+                    >
                       {(
                         companyData?.web_config?.footer?.aboutUs?.links || [
-                          "About Unilumin",
-                          "Joint-Stock Company",
-                          "U-Green",
+                          "About Display Options Solution",
+                          "Careers",
+                          "News & Events",
+                          "Investor Relations",
                         ]
                       ).map((link, index) => (
-                        <p key={index}>{link}</p>
+                        <p key={index} className="opacity-75 hover:opacity-100 cursor-pointer transition-opacity">
+                          {link}
+                        </p>
                       ))}
                     </div>
                   </div>
 
                   {/* Address Section */}
                   <div className="text-left">
-                    <h3 className="text-white font-semibold mb-4">
+                    {/*  Applied section title color to live footer */}
+                    <h3
+                      className="font-semibold mb-4"
+                      style={{
+                        color:
+                          companyData?.web_config?.footer?.sectionTitleColor ||
+                          companyData?.web_config?.footer?.textColor ||
+                          "#ffffff",
+                      }}
+                    >
                       {companyData?.web_config?.footer?.address?.title || "Address"}
                     </h3>
-                    <div className="text-gray-400 space-y-2">
+                    <div
+                      className="space-y-2"
+                      style={{ color: companyData?.web_config?.footer?.textColor || "#ffffff" }}
+                    >
                       {(
                         companyData?.web_config?.footer?.address?.lines || [
                           "No. 18 Haoye Road, Fuhai Sub-district, Bao'an District",
@@ -2709,14 +2846,25 @@ export default function WebsiteEditPage() {
                           "+86-755-29019999",
                         ]
                       ).map((line, index) => (
-                        <p key={index}>{line}</p>
+                        <p key={index} className="opacity-75">
+                          {line}
+                        </p>
                       ))}
                     </div>
                   </div>
 
                   {/* Follow Us Section */}
                   <div className="text-left">
-                    <h3 className="text-white font-semibold mb-4">
+                    {/*  Applied section title color to live footer */}
+                    <h3
+                      className="font-semibold mb-4"
+                      style={{
+                        color:
+                          companyData?.web_config?.footer?.sectionTitleColor ||
+                          companyData?.web_config?.footer?.textColor ||
+                          "#ffffff",
+                      }}
+                    >
                       {companyData?.web_config?.footer?.followUs?.title || "Follow Us"}
                     </h3>
                     <div className="flex space-x-4">
