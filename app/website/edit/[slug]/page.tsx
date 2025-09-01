@@ -1,6 +1,6 @@
 "use client"
 
-import { DialogFooter } from "@/components/ui/dialog"
+import { DialogDescription } from "@/components/ui/dialog"
 
 import type React from "react"
 
@@ -10,11 +10,18 @@ import { doc, updateDoc, getDoc, collection, query, where, getDocs } from "fireb
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import { db, storage } from "@/lib/firebase"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { ArrowLeft, Edit3, ImageIcon, Palette, Trash2, Plus } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
+import { DialogFooter } from "@/components/ui/dialog"
+import { ArrowLeft, Edit3, ImageIcon, Palette, Loader2, Trash2, Plus } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
-import { Badge } from "@/components/ui/badge"
 
 import ApplicationTabs from "@/components/ApplicationTabs"
 
@@ -120,6 +127,9 @@ interface CompanyData {
       mainTitle: string
       subtitle: string
       technologies?: { name: string; image: string }[]
+    }
+    products?: {
+      section_description: string
     }
   }
 }
@@ -939,9 +949,9 @@ export default function WebsiteEditPage() {
 
       // Get the download URL
       const downloadURL = await getDownloadURL(snapshot.ref)
-      console.log("[v0] Download URL:",:", downloadURL)
+      console.log("[v0] Download URL:", downloadURL)
 
-      // Update the company's web_config with the video URL\
+      // Update the company's web_config with the video URL
       const companyDocRef = doc(db, "companies", companyId)
       await updateDoc(companyDocRef, {
         "web_config.heroVideoUrl": downloadURL,
@@ -1837,160 +1847,411 @@ export default function WebsiteEditPage() {
         </section>
 
         {/* Recent Works Section */}
-        <section
-          id="recent-works"
-          className="w-full aspect-video relative overflow-hidden cursor-pointer"
-          onClick={handleRecentWorksClick}
-          onMouseEnter={() => setCurrentSlideIndex(currentSlideIndex)}
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent z-20"></div>
-          {/* <img
-            src={
-              companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.backgroundImage ||
-              "/placeholder.svg?height=720&width=1280" ||
-              "/placeholder.svg" ||
-              "/placeholder.svg" ||
-              "/placeholder.svg" ||
-              "/placeholder.svg" ||
-              "/placeholder.svg" ||
-              "/placeholder.svg" ||
-              "/placeholder.svg" ||
-              "/placeholder.svg" ||
-              "/placeholder.svg" ||
-              "/placeholder.svg" ||
-              "/placeholder.svg" ||
-              "/placeholder.svg"
-             || "/placeholder.svg"}
-            alt="Recent Works Background"
-            className="w-full h-full object-cover transition-all duration-500"
-          /> */}
-          {/* Preview either image or video based on media type */}
-          {companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.mediaType === "video" ? (
-            <video
-              src={
-                companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.backgroundImage || "/placeholder.svg"
-              }
-              className="w-full h-full object-cover transition-all duration-500"
-              muted
-              loop
-              autoPlay
-            />
-          ) : (
-            <img
-              src={
-                companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.backgroundImage || "/placeholder.svg"
-              }
-              alt="Recent Works Background"
-              className="w-full h-full object-cover transition-all duration-500"
-            />
-          )}
-
-          <div className="absolute inset-0 z-30 flex items-end">
-            <div className="p-8 lg:p-16 max-w-2xl">
-              <h2 className="text-4xl lg:text-5xl font-bold text-white mb-4 transition-all duration-500">
-                {companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.sectionTitle || "Our Recent Works"}
-              </h2>
-
-              <h3 className="text-2xl lg:text-3xl font-semibold text-white mb-6 transition-all duration-500">
-                {companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.projectTitle || "Comcast Lobby"}
-              </h3>
-
-              <p className="text-lg text-white/90 leading-relaxed transition-all duration-500">
-                {companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.projectDescription ||
-                  "Comcast lobby project built one of the world's most iconic LED walls and it is a major tourist attraction in Philadelphia. The update of the Unilumin's LED wall and the re-rendering of the content have attracted a lot of attention."}
-              </p>
+        <section id="recent-works" className="py-16 bg-gray-50">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold text-gray-800">Our Recent Works</h2>
+              <p className="text-gray-600">Showcase your best projects and achievements.</p>
             </div>
-          </div>
 
-          <div className="absolute bottom-8 right-8 z-30 flex items-center space-x-4">
-            <div className="flex space-x-2">
-              {(companyData?.web_config?.recentWorksItems || [{ id: 1 }]).map((_, index) => (
-                <div
-                  key={index}
-                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                    index === currentSlideIndex ? "bg-white" : "bg-white/50"
-                  }`}
-                ></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {recentWorksItems.map((item, index) => (
+                <div key={item.id} className="relative group">
+                  <img
+                    src={item.backgroundImage || "/placeholder.svg"}
+                    alt={item.projectTitle}
+                    className="w-full h-64 object-cover rounded-lg shadow-md"
+                  />
+                  <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-70 transition-opacity duration-300 rounded-lg"></div>
+                  <div className="absolute bottom-0 left-0 p-4 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <h3 className="text-xl font-semibold">{item.projectTitle}</h3>
+                    <p className="text-sm">{item.projectDescription}</p>
+                  </div>
+                </div>
               ))}
-            </div>
-            <div className="flex space-x-2">
-              <button
-                className="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
-                style={{
-                  backgroundColor: carouselNavColors.buttonColor,
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = carouselNavColors.buttonHoverColor
-                  const svg = e.currentTarget.querySelector("svg")
-                  if (svg) svg.style.color = carouselNavColors.iconHoverColor
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = carouselNavColors.buttonColor
-                  const svg = e.currentTarget.querySelector("svg")
-                  if (svg) svg.style.color = carouselNavColors.iconColor
-                }}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (autoSwipeInterval) {
-                    clearInterval(autoSwipeInterval)
-                    setAutoSwipeInterval(null)
-                  }
-                  const itemsLength = (companyData?.web_config?.recentWorksItems || [{ id: 1 }]).length
-                  setCurrentSlideIndex((prev) => (prev - 1 + itemsLength) % itemsLength)
-                }}
-              >
-                <svg
-                  className="w-5 h-5 transition-colors"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  style={{ color: carouselNavColors.iconColor }}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <button
-                className="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
-                style={{
-                  backgroundColor: carouselNavColors.buttonColor,
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = carouselNavColors.buttonHoverColor
-                  const svg = e.currentTarget.querySelector("svg")
-                  if (svg) svg.style.color = carouselNavColors.iconHoverColor
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = carouselNavColors.buttonColor
-                  const svg = e.currentTarget.querySelector("svg")
-                  if (svg) svg.style.color = carouselNavColors.iconColor
-                }}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (autoSwipeInterval) {
-                    clearInterval(autoSwipeInterval)
-                    setAutoSwipeInterval(null)
-                  }
-                  const itemsLength = (companyData?.web_config?.recentWorksItems || [{ id: 1 }]).length
-                  setCurrentSlideIndex((prev) => (prev + 1) % itemsLength)
-                }}
-              >
-                <svg
-                  className="w-5 h-5 transition-colors"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  style={{ color: carouselNavColors.iconColor }}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
             </div>
           </div>
         </section>
 
+        {/* About Us Section */}
+        <section id="about-us" className="bg-background">
+          <div className="w-full">
+            <div
+              className="flex flex-col lg:flex-row min-h-[600px] relative group cursor-pointer hover:ring-2 hover:ring-blue-400 hover:ring-opacity-50 rounded transition-all"
+              onClick={handleAboutUsClick}
+            >
+              <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                <div className="bg-blue-500 text-white px-3 py-2 rounded flex items-center gap-2">
+                  <Edit3 className="w-4 h-4" />
+                  Edit About Us
+                </div>
+              </div>
+
+              <div
+                className="w-full lg:w-1/2 text-white flex items-center p-8 lg:p-16"
+                style={{
+                  backgroundColor: companyData?.web_config?.aboutUs?.backgroundColor || "#111827",
+                  color: companyData?.web_config?.aboutUs?.textColor || "#ffffff",
+                }}
+              >
+                <div className="max-w-xl">
+                  <h2 className="text-4xl lg:text-5xl font-bold mb-4">
+                    {/* Removed title from editable config, keeping it fixed as "About Us" */}About Us
+                  </h2>
+
+                  <h3
+                    className="text-xl lg:text-2xl mb-8"
+                    style={{ color: companyData?.web_config?.aboutUs?.subtitleColor || "#d1d5db" }}
+                  >
+                    {companyData?.web_config?.aboutUs?.subtitle || "Consectetur Adipiscing Elit"}
+                  </h3>
+
+                  <p className="mb-8 text-sm leading-relaxed">
+                    {companyData?.web_config?.aboutUs?.description ||
+                      "Professional LED solutions for businesses worldwide. Quality, innovation, and reliability in every product."}
+                  </p>
+
+                  <div className="mb-8">
+                    <h3 className="font-semibold mb-2 text-sm">Contact Us</h3>
+                    <p className="text-sm">{companyData?.web_config?.aboutUs?.contactPhone || "+63 (2) 8123-4567"}</p>
+                  </div>
+
+                  <Button
+                    onClick={handleAboutUsSave}
+                    disabled={aboutUsSaving}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    {aboutUsSaving ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Changes"
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="w-full lg:w-1/2 relative">
+                <img
+                  src={companyData?.web_config?.aboutUs?.image || "/placeholder.svg?height=600&width=800"}
+                  alt="About Us"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Why Us Section */}
+        <section id="why-us" className="py-16 bg-white">
+          <div className="container mx-auto px-4">
+            <Dialog open={whyUsDialog} onOpenChange={setWhyUsDialog}>
+              <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
+                <DialogHeader className="pb-6">
+                  <DialogTitle className="text-2xl font-bold">Edit Why Us Section</DialogTitle>
+                  <p className="text-gray-600 mt-2">
+                    Manage your bullet points and upload a video to showcase your company's strengths
+                  </p>
+                </DialogHeader>
+
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                  {/* Left Column - Bullet Points Management */}
+                  <div className="xl:col-span-2 space-y-6">
+                    <div>
+                      <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-xl font-semibold text-gray-900">Bullet Points</h3>
+                        <span className="text-sm text-gray-500">{whyUsConfig.bulletPoints.length} points</span>
+                      </div>
+
+                      <div className="space-y-4">
+                        {whyUsConfig.bulletPoints.map((point, index) => (
+                          <div key={index} className="group relative">
+                            <div className="flex items-start gap-4 p-4 border-2 border-gray-200 rounded-xl hover:border-blue-300 transition-all duration-200 bg-white">
+                              <div className="flex items-center justify-center w-8 h-8 bg-green-100 text-green-600 rounded-full font-semibold text-sm flex-shrink-0 mt-1">
+                                {index + 1}
+                              </div>
+                              <textarea
+                                value={point}
+                                onChange={(e) => updateBulletPoint(index, e.target.value)}
+                                className="flex-1 p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-800"
+                                rows={3}
+                                placeholder="Enter your bullet point text here..."
+                              />
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeBulletPoint(index)}
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all duration-200 flex-shrink-0"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+
+                        <Button
+                          variant="outline"
+                          onClick={addBulletPoint}
+                          className="w-full h-16 border-2 border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50 transition-all duration-200 text-gray-600 hover:text-blue-600 bg-transparent"
+                        >
+                          <Plus className="w-5 h-5 mr-3" />
+                          Add New Bullet Point
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Video Upload Section */}
+                    <div className="border-t pt-6">
+                      <h3 className="text-xl font-semibold text-gray-900 mb-6">Video Content</h3>
+                      <div className="space-y-4">
+                        {!whyUsConfig.videoUrl ? (
+                          <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-400 hover:bg-blue-50 transition-all duration-200">
+                            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                              <svg
+                                className="w-8 h-8 text-blue-600"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                />
+                              </svg>
+                            </div>
+                            <h4 className="text-lg font-semibold text-gray-900 mb-2">Upload Your Video</h4>
+                            <p className="text-gray-600 mb-4">
+                              Add a compelling video to showcase your company's strengths
+                            </p>
+                            <label className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer">
+                              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                                />
+                              </svg>
+                              Choose Video File
+                              <input
+                                type="file"
+                                accept="video/*"
+                                onChange={handleWhyUsVideoUpload}
+                                className="hidden"
+                              />
+                            </label>
+                          </div>
+                        ) : (
+                          <div className="relative rounded-xl overflow-hidden border-2 border-gray-200">
+                            <video src={whyUsConfig.videoUrl} className="w-full h-48 object-cover" controls />
+                            <div className="absolute top-3 right-3">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => setWhyUsConfig((prev) => ({ ...prev, videoUrl: "" }))}
+                                className="bg-red-500 hover:bg-red-600 text-white border-0"
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Remove
+                              </Button>
+                            </div>
+                            <div className="p-4 bg-white border-t">
+                              <p className="text-sm text-gray-600">Video uploaded successfully</p>
+                              <label className="inline-flex items-center mt-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer text-sm">
+                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                                  />
+                                </svg>
+                                Replace Video
+                                <input
+                                  type="file"
+                                  accept="video/*"
+                                  onChange={handleWhyUsVideoUpload}
+                                  className="hidden"
+                                />
+                              </label>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column - Live Preview */}
+                  <div className="space-y-6">
+                    <div className="sticky top-6">
+                      <h3 className="text-xl font-semibold text-gray-900 mb-4">Live Preview</h3>
+                      <div className="border-2 border-gray-200 rounded-xl p-6 bg-gray-50">
+                        <h4 className="text-2xl font-bold text-black mb-6">
+                          WHY {companyData?.name?.toUpperCase() || "CHOOSE US"}?
+                        </h4>
+
+                        <div className="space-y-4 mb-6">
+                          {whyUsConfig.bulletPoints.map((point, index) => (
+                            <div key={index} className="flex items-start gap-3">
+                              <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <svg
+                                  className="w-3 h-3 text-white"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={3}
+                                    d="M5 13l4 4L19 7"
+                                  />
+                                </svg>
+                              </div>
+                              <p className="text-sm text-gray-800 leading-relaxed">{point}</p>
+                            </div>
+                          ))}
+                        </div>
+
+                        {whyUsConfig.videoUrl && (
+                          <div className="aspect-video rounded-lg overflow-hidden bg-gray-200">
+                            <video
+                              src={whyUsConfig.videoUrl}
+                              className="w-full h-full object-cover"
+                              controls
+                              autoPlay
+                              muted
+                              loop
+                            />
+                          </div>
+                        )}
+
+                        {!whyUsConfig.videoUrl && (
+                          <div className="aspect-video rounded-lg bg-gray-200 flex items-center justify-center">
+                            <div className="text-center text-gray-500">
+                              <svg
+                                className="w-12 h-12 mx-auto mb-2 opacity-50"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={1}
+                                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                />
+                              </svg>
+                              <p className="text-sm">Video will appear here</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <DialogFooter className="pt-6 border-t">
+                  <Button variant="outline" onClick={() => setWhyUsDialog(false)} className="px-6">
+                    Cancel
+                  </Button>
+                  <Button onClick={handleWhyUsSave} disabled={whyUsLoading} className="px-6">
+                    {whyUsLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Saving Changes...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Save Changes
+                      </>
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <div
+              className="flex flex-col lg:flex-row items-center gap-12 relative group cursor-pointer hover:ring-2 hover:ring-blue-400 hover:ring-opacity-50 rounded-lg p-4 transition-all"
+              onClick={handleWhyUsClick}
+            >
+              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                <div className="bg-blue-500 text-white px-3 py-1 rounded text-sm flex items-center gap-2">
+                  <Edit3 className="w-4 h-4" />
+                  Edit Why Us Section
+                </div>
+              </div>
+
+              <div className="w-full lg:w-1/2">
+                <h2 className="text-4xl lg:text-5xl font-bold text-black mb-8">
+                  WHY {companyData?.name?.toUpperCase() || "CHOOSE US"}?
+                </h2>
+
+                <div className="space-y-6">
+                  {(
+                    companyData?.web_config?.whyUs?.bulletPoints || [
+                      "We create LED displays with a focus on quality and usability.",
+                      "Our products are conceived, designed, tested, and supported in-house to ensure quality control.",
+                      `${companyData?.name || "We"} provide world-class support with our five-year product warranty, 10-year parts availability guarantee, and white glove service style.`,
+                      "Since our founding, our company has relied on a tireless work ethic to outperform the competition.",
+                      `Thousands of businesses nationwide have trusted ${companyData?.name || "us"} as their LED display manufacturer.`,
+                    ]
+                  ).map((text, index) => (
+                    <div key={index} className="flex items-start gap-4">
+                      <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <p
+                        className="text-lg text-gray-800"
+                        dangerouslySetInnerHTML={{ __html: text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="w-full lg:w-1/2">
+                <div className="relative aspect-video rounded-lg overflow-hidden shadow-lg">
+                  {companyData?.web_config?.whyUs?.videoUrl ? (
+                    <video
+                      src={companyData.web_config.whyUs.videoUrl}
+                      className="w-full h-full object-cover"
+                      controls
+                      poster="/placeholder.svg?height=400&width=600"
+                    />
+                  ) : (
+                    <>
+                      <img
+                        src="/placeholder.svg?height=400&width=600"
+                        alt="Company facility aerial view"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <button className="w-16 h-16 bg-red-600 rounded-lg flex items-center justify-center hover:bg-red-700 transition-colors shadow-lg">
+                          <svg className="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* Footer Section */}
-        <footer className="bg-gray-900 text-white py-16">
+        <footer className="bg-slate-900 text-white">
           <Dialog open={footerDialog} onOpenChange={setFooterDialog}>
             <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
               <DialogHeader className="pb-6">
@@ -2546,4 +2807,807 @@ export default function WebsiteEditPage() {
                         <a key={index} href={social.url} className="text-gray-400 hover:text-white transition-colors">
                           <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                             {social.icon === "twitter" && (
-                              <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-1.98.366 4.924 4.924 0 004.6 3.417A9.867 9.867 0 010 19.54a13.94 13.94 0 007.548 2.212c9.142 0 14.307-7.721 13.995-14.646A10.025 10.025 0 0024 4.59z" />\
+                              <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z" />
+                            )}
+                            {social.icon === "youtube" && (
+                              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                            )}
+                            {social.icon === "linkedin" && (
+                              <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                            )}
+                            {social.icon === "pinterest" && (
+                              <path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.174-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.099.12.112.225.085.347-.09.375-.293 1.199-.334 1.363-.053.225-.172.271-.402.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.92-7.252 4.158 0 7.392 2.967 7.392 6.923 0 4.135-2.607 7.462-6.233 7.462-1.214 0-2.357-.629-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24.009 12.017 24.009c6.624 0 11.99-5.367 11.99-11.988C24.007 5.367 18.641.001.012.001z" />
+                            )}
+                            {social.icon === "tiktok" && (
+                              <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36.71-.21 1.37-.5 1.88-.91.01 2.78-.01 5.56 0 8.34 0 .78.19 1.55.54 2.28.91 1.55 2.18 3.34 3.48 5.21 3.52.08 0 .16 0 .24 0 2.42-.15 4.37-1.91 4.49-4.34.06-1.25-.42-2.48-1.25-3.49-.83-1.01-2.19-1.62-3.59-1.63v-3.74c1.56.18 3.06.7 4.19 1.77 1.09 1.07 1.79 2.69 1.85 4.28z" />
+                            )}
+                            {social.icon === "facebook" && (
+                              <path d="M18 2.4H3.98C2.85 2.4 2 3.24 2 4.37v15.26c0 1.14.85 1.97 1.98 1.97H18c1.13 0 1.98-.84 1.98-1.97V4.37c0-1.13-.85-1.97-1.98-1.97zM15.72 9.84h-1.41c-.73 0-.88.35-.88.86v1.17h2.28l-.29 2.36h-2v6.1h-2.34v-6.1H9.43v-2.36h2v-1.46c0-2.06 1.23-3.18 3.01-3.18h2.08v2.4z" />
+                            )}
+                            {social.icon === "instagram" && (
+                              <path d="M12 0C8.74 0 8.33.01 4.94.13 1.64.27.27 1.64.13 4.94.01 8.33 0 8.74 0 12c0 3.26.01 3.67.13 6.97.14 3.3 1.51 4.67 4.81 4.81 3.31.12 3.69.13 6.97.13 3.26 0 3.67-.01 6.97-.13 3.3-.14 4.67-1.51 4.81-4.81.12-3.31.13-3.69.13-6.97 0-3.26-.01-3.67-.13-6.97-.14-3.3-1.51-4.67-4.81-4.81-3.31-.12-3.69-.13-6.97-.13zm0 5.83c-3.41 0-6.17 2.76-6.17 6.17 0 3.41 2.76 6.17 6.17 6.17 3.41 0 6.17-2.76 6.17-6.17 0-3.41-2.76-6.17-6.17-6.17zm0 7.67c-.82 0-1.5-.68-1.5-1.5 0-.82.68-1.5 1.5-1.5.82 0 1.5.68 1.5 1.5 0 .82-.68 1.5-1.5 1.5zm4.14-5.32c0-.56-.45-1.02-1.02-1.02-.56 0-1.02.45-1.02 1.02 0 .56.45 1.02 1.02 1.02.56 0 1.02-.45 1.02-1.02z" />
+                            )}
+                          </svg>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-800 py-4 text-center opacity-75">
+                  {companyData?.web_config?.footer?.copyright || "copyright © 2025 DOS"}
+                </div>
+              </div>
+            </div>
+          </div>
+        </footer>
+      </div>
+
+      {/* Edit Content Dialog */}
+      <Dialog open={editDialog.open} onOpenChange={(open) => setEditDialog({ ...editDialog, open })}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Content</DialogTitle>
+            <DialogDescription>
+              Make changes to the selected content. Click <code>Save</code> when you're done.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">
+                Content
+              </Label>
+              <Textarea
+                id="content"
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="submit" onClick={handleSaveEdit}>
+              Save changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Logo Upload Dialog */}
+      <Dialog open={logoDialog} onOpenChange={setLogoDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Update Company Logo</DialogTitle>
+            <DialogDescription>Upload a new logo for your company.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="logo" className="text-right">
+                Logo File
+              </Label>
+              <Input type="file" id="logo" onChange={handleFileChange} className="col-span-3" accept="image/*" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="submit" onClick={handleLogoUpload} disabled={logoUploading}>
+              {logoUploading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                "Upload Logo"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Header Color Dialog */}
+      <Dialog open={headerColorDialog} onOpenChange={setHeaderColorDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Update Header Colors</DialogTitle>
+            <DialogDescription>Choose new colors for your header and navigation.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="headerColor" className="text-right">
+                Header Color
+              </Label>
+              <Input
+                type="color"
+                id="headerColor"
+                value={headerColor}
+                onChange={(e) => setHeaderColor(e.target.value)}
+                className="col-span-3 h-10"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="navColor" className="text-right">
+                Navigation Color
+              </Label>
+              <Input
+                type="color"
+                id="navColor"
+                value={navColor}
+                onChange={(e) => setNavColor(e.target.value)}
+                className="col-span-3 h-10"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="submit" onClick={handleSaveHeaderColor} disabled={headerColorSaving}>
+              {headerColorSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Colors"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Nav Color Dialog */}
+      <Dialog open={navColorDialog} onOpenChange={setNavColorDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Update Navigation Text Color</DialogTitle>
+            <DialogDescription>Choose a new color for your navigation text.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="navColor" className="text-right">
+                Navigation Color
+              </Label>
+              <Input
+                type="color"
+                id="navColor"
+                value={navColor}
+                onChange={(e) => setNavColor(e.target.value)}
+                className="col-span-3 h-10"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="submit" onClick={handleSaveNavColor} disabled={navColorSaving}>
+              {navColorSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Color"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Hero Section Edit Dialog */}
+      <Dialog open={heroEditDialog} onOpenChange={setHeroEditDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Hero Section</DialogTitle>
+            <DialogDescription>
+              Customize the main heading, subtitle, and button colors for your hero section.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="mainHeading" className="text-right">
+                Main Heading
+              </Label>
+              <Input
+                type="text"
+                id="mainHeading"
+                value={heroEditData.mainHeading}
+                onChange={(e) => setHeroEditData({ ...heroEditData, mainHeading: e.target.value })}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="subtitle" className="text-right">
+                Subtitle
+              </Label>
+              <Textarea
+                id="subtitle"
+                value={heroEditData.subtitle}
+                onChange={(e) => setHeroEditData({ ...heroEditData, subtitle: e.target.value })}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="mainHeadingColor" className="text-right">
+                Main Heading Color
+              </Label>
+              <Input
+                type="color"
+                id="mainHeadingColor"
+                value={heroEditData.mainHeadingColor}
+                onChange={(e) => setHeroEditData({ ...heroEditData, mainHeadingColor: e.target.value })}
+                className="col-span-3 h-10"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="subtitleColor" className="text-right">
+                Subtitle Color
+              </Label>
+              <Input
+                type="color"
+                id="subtitleColor"
+                value={heroEditData.subtitleColor}
+                onChange={(e) => setHeroEditData({ ...heroEditData, subtitleColor: e.target.value })}
+                className="col-span-3 h-10"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="buttonColor" className="text-right">
+                Button Color
+              </Label>
+              <Input
+                type="color"
+                id="buttonColor"
+                value={heroEditData.buttonColor}
+                onChange={(e) => setHeroEditData({ ...heroEditData, buttonColor: e.target.value })}
+                className="col-span-3 h-10"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="buttonTextColor" className="text-right">
+                Button Text Color
+              </Label>
+              <Input
+                type="color"
+                id="buttonTextColor"
+                value={heroEditData.buttonTextColor}
+                onChange={(e) => setHeroEditData({ ...heroEditData, buttonTextColor: e.target.value })}
+                className="col-span-3 h-10"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="categoryButtonColor" className="text-right">
+                Category Button Color
+              </Label>
+              <Input
+                type="color"
+                id="categoryButtonColor"
+                value={heroEditData.categoryButtonColor}
+                onChange={(e) => setHeroEditData({ ...heroEditData, categoryButtonColor: e.target.value })}
+                className="col-span-3 h-10"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="categoryButtonTextColor" className="text-right">
+                Category Button Text Color
+              </Label>
+              <Input
+                type="color"
+                id="categoryButtonTextColor"
+                value={heroEditData.categoryButtonTextColor}
+                onChange={(e) => setHeroEditData({ ...heroEditData, categoryButtonTextColor: e.target.value })}
+                className="col-span-3 h-10"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="submit" onClick={handleSaveHeroEdit} disabled={heroEditSaving}>
+              {heroEditSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Hero Video Upload Dialog */}
+      <Dialog open={heroVideoDialog} onOpenChange={setHeroVideoDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Update Hero Background Video</DialogTitle>
+            <DialogDescription>Upload a new video for your hero section background.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="heroVideo" className="text-right">
+                Video File
+              </Label>
+              <Input
+                type="file"
+                id="heroVideo"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file && file.type.startsWith("video/")) {
+                    setHeroVideoFile(file)
+                  } else {
+                    toast({
+                      title: "Invalid File",
+                      description: "Please select a valid video file.",
+                      variant: "destructive",
+                    })
+                  }
+                }}
+                className="col-span-3"
+                accept="video/*"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="submit" onClick={handleVideoUpload} disabled={heroVideoUploading}>
+              {heroVideoUploading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                "Upload Video"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Recent Works Dialog */}
+      <Dialog open={recentWorksDialog} onOpenChange={setRecentWorksDialog}>
+        <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Recent Works Section</DialogTitle>
+            <DialogDescription>Manage your recent works items and their details.</DialogDescription>
+          </DialogHeader>
+
+          <div className="flex gap-4">
+            {/* List of Items */}
+            <div className="w-1/4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Works Items</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {recentWorksItems.map((item, index) => (
+                    <div
+                      key={item.id}
+                      className={`p-2 rounded-md cursor-pointer hover:bg-gray-100 ${
+                        index === currentItemIndex ? "bg-gray-100" : ""
+                      }`}
+                      onClick={() => setCurrentItemIndex(index)}
+                    >
+                      {item.projectTitle}
+                    </div>
+                  ))}
+                  <Button variant="outline" onClick={addRecentWorksItem}>
+                    Add Item
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Item Details */}
+            <div className="w-3/4">
+              {recentWorksItems.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Item Details</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="sectionTitle">Section Title</Label>
+                        <Input
+                          type="text"
+                          id="sectionTitle"
+                          value={recentWorksItems[currentItemIndex].sectionTitle}
+                          onChange={(e) => updateRecentWorksItem(currentItemIndex, "sectionTitle", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="projectTitle">Project Title</Label>
+                        <Input
+                          type="text"
+                          id="projectTitle"
+                          value={recentWorksItems[currentItemIndex].projectTitle}
+                          onChange={(e) => updateRecentWorksItem(currentItemIndex, "projectTitle", e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="projectDescription">Project Description</Label>
+                      <Textarea
+                        id="projectDescription"
+                        value={recentWorksItems[currentItemIndex].projectDescription}
+                        onChange={(e) => updateRecentWorksItem(currentItemIndex, "projectDescription", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="backgroundImage">Background Image/Video</Label>
+                      <Input
+                        type="file"
+                        id="backgroundImage"
+                        accept="image/*, video/*"
+                        onChange={(e) => handleRecentWorksImageUpload(e, currentItemIndex)}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Button variant="destructive" onClick={() => removeRecentWorksItem(currentItemIndex)}>
+                        Remove Item
+                      </Button>
+                      {recentWorksItems.length > 1 && (
+                        <div className="flex items-center gap-2">
+                          <Label>Auto Swipe</Label>
+                          <Switch />
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button type="submit" onClick={handleSaveRecentWorks} disabled={recentWorksUploading}>
+              {recentWorksUploading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Application Tabs Dialog */}
+      <Dialog open={showApplicationTabsDialog} onOpenChange={setShowApplicationTabsDialog}>
+        <DialogContent className="sm:max-w-[90%] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Application Tabs Section</DialogTitle>
+            <DialogDescription>Manage your application tabs, their content, and appearance.</DialogDescription>
+          </DialogHeader>
+
+          <Tabs defaultValue="manage" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="manage">Manage Tabs</TabsTrigger>
+              {applicationTabsConfig.tabs.map((tab) => (
+                <TabsTrigger key={tab.id} value={tab.id}>
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+
+            <TabsContent value="manage">
+              <div className="space-y-4">
+                <h3 className="text-xl font-semibold">Tabs Management</h3>
+                <p>Add, remove, and reorder your application tabs.</p>
+                <div className="space-y-2">
+                  {applicationTabsConfig.tabs.map((tab) => (
+                    <div key={tab.id} className="flex items-center justify-between p-2 border rounded-md">
+                      <Input
+                        type="text"
+                        value={tab.label}
+                        onChange={(e) => updateTab(tab.id, { label: e.target.value })}
+                        className="w-1/2"
+                      />
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor={`enabled-${tab.id}`}>Enabled</Label>
+                        <Switch
+                          id={`enabled-${tab.id}`}
+                          checked={tab.enabled}
+                          onCheckedChange={(checked) => updateTab(tab.id, { enabled: checked })}
+                        />
+                        <Button variant="destructive" size="sm" onClick={() => removeTab(tab.id)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  <Button variant="outline" onClick={addNewTab}>
+                    Add New Tab
+                  </Button>
+                </div>
+
+                <h3 className="text-xl font-semibold">Appearance</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Active Tab Color</Label>
+                    <Input
+                      type="color"
+                      value={applicationTabsConfig.activeTabColor}
+                      onChange={(e) =>
+                        setApplicationTabsConfig({ ...applicationTabsConfig, activeTabColor: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Inactive Tab Color</Label>
+                    <Input
+                      type="color"
+                      value={applicationTabsConfig.inactiveTabColor}
+                      onChange={(e) =>
+                        setApplicationTabsConfig({ ...applicationTabsConfig, inactiveTabColor: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Active Text Color</Label>
+                    <Input
+                      type="color"
+                      value={applicationTabsConfig.activeTextColor}
+                      onChange={(e) =>
+                        setApplicationTabsConfig({ ...applicationTabsConfig, activeTextColor: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Inactive Text Color</Label>
+                    <Input
+                      type="color"
+                      value={applicationTabsConfig.inactiveTextColor}
+                      onChange={(e) =>
+                        setApplicationTabsConfig({ ...applicationTabsConfig, inactiveTextColor: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            {applicationTabsConfig.tabs.map((tab) => (
+              <TabsContent key={tab.id} value={tab.id}>
+                <div className="space-y-4">
+                  <h3 className="text-xl font-semibold">Content for {tab.label} Tab</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor={`title-${tab.id}`}>Title</Label>
+                      <Input
+                        type="text"
+                        id={`title-${tab.id}`}
+                        value={applicationTabsConfig.content[tab.id]?.title || ""}
+                        onChange={(e) => updateTabContent(tab.id, "title", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor={`description-${tab.id}`}>Description</Label>
+                      <Textarea
+                        id={`description-${tab.id}`}
+                        value={applicationTabsConfig.content[tab.id]?.description || ""}
+                        onChange={(e) => updateTabContent(tab.id, "description", e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor={`image-${tab.id}`}>Image</Label>
+                    <Input
+                      type="file"
+                      id={`image-${tab.id}`}
+                      accept="image/*"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          await handleTabContentImageUpload(tab.id, file)
+                        }
+                      }}
+                    />
+                    {applicationTabsConfig.content[tab.id]?.image && (
+                      <img
+                        src={applicationTabsConfig.content[tab.id].image || "/placeholder.svg"}
+                        alt="Tab Content"
+                        className="mt-2 max-h-40 object-cover rounded-md"
+                      />
+                    )}
+                  </div>
+
+                  <div>
+                    <h4 className="text-lg font-semibold">Applications</h4>
+                    <p>Manage applications for this tab.</p>
+                    <div className="space-y-2">
+                      {(applicationTabsConfig.content[tab.id]?.applications || []).map((app, index) => (
+                        <div key={index} className="flex items-center justify-between p-2 border rounded-md">
+                          <div className="flex-1 grid grid-cols-2 gap-2">
+                            <Input
+                              type="text"
+                              value={app.name}
+                              onChange={(e) => updateApplication(tab.id, index, "name", e.target.value)}
+                              placeholder="Application Name"
+                            />
+                            <Input
+                              type="file"
+                              accept="image/*"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0]
+                                if (file) {
+                                  await handleApplicationImageUpload(tab.id, index, file)
+                                }
+                              }}
+                            />
+                          </div>
+                          <Button variant="destructive" size="sm" onClick={() => removeApplication(tab.id, index)}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button variant="outline" onClick={() => addApplication(tab.id)}>
+                        Add Application
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+            ))}
+          </Tabs>
+
+          <DialogFooter>
+            <Button type="submit" onClick={saveApplicationTabsConfig}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* About Us Dialog */}
+      <Dialog open={aboutUsDialogOpen} onOpenChange={setAboutUsDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Edit About Us Section</DialogTitle>
+            <DialogDescription>Customize the content and appearance of your About Us section.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="subtitle" className="text-right">
+                Subtitle
+              </Label>
+              <Input
+                type="text"
+                id="subtitle"
+                value={aboutUsConfig.subtitle}
+                onChange={(e) => setAboutUsConfig({ ...aboutUsConfig, subtitle: e.target.value })}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="description" className="text-right">
+                Description
+              </Label>
+              <Textarea
+                id="description"
+                value={aboutUsConfig.description}
+                onChange={(e) => setAboutUsConfig({ ...aboutUsConfig, description: e.target.value })}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="contactPhone" className="text-right">
+                Contact Phone
+              </Label>
+              <Input
+                type="text"
+                id="contactPhone"
+                value={aboutUsConfig.contactPhone}
+                onChange={(e) => setAboutUsConfig({ ...aboutUsConfig, contactPhone: e.target.value })}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="ctaButton" className="text-right">
+                CTA Button Text
+              </Label>
+              <Input
+                type="text"
+                id="ctaButton"
+                value={aboutUsConfig.ctaButton}
+                onChange={(e) => setAboutUsConfig({ ...aboutUsConfig, ctaButton: e.target.value })}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="backgroundColor" className="text-right">
+                Background Color
+              </Label>
+              <Input
+                type="color"
+                id="backgroundColor"
+                value={aboutUsConfig.backgroundColor}
+                onChange={(e) => setAboutUsConfig({ ...aboutUsConfig, backgroundColor: e.target.value })}
+                className="col-span-3 h-10"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="textColor" className="text-right">
+                Text Color
+              </Label>
+              <Input
+                type="color"
+                id="textColor"
+                value={aboutUsConfig.textColor}
+                onChange={(e) => setAboutUsConfig({ ...aboutUsConfig, textColor: e.target.value })}
+                className="col-span-3 h-10"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="subtitleColor" className="text-right">
+                Subtitle Color
+              </Label>
+              <Input
+                type="color"
+                id="subtitleColor"
+                value={aboutUsConfig.subtitleColor}
+                onChange={(e) => setAboutUsConfig({ ...aboutUsConfig, subtitleColor: e.target.value })}
+                className="col-span-3 h-10"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="buttonBackgroundColor" className="text-right">
+                Button Background Color
+              </Label>
+              <Input
+                type="color"
+                id="buttonBackgroundColor"
+                value={aboutUsConfig.buttonBackgroundColor}
+                onChange={(e) => setAboutUsConfig({ ...aboutUsConfig, buttonBackgroundColor: e.target.value })}
+                className="col-span-3 h-10"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="buttonTextColor" className="text-right">
+                Button Text Color
+              </Label>
+              <Input
+                type="color"
+                id="buttonTextColor"
+                value={aboutUsConfig.buttonTextColor}
+                onChange={(e) => setAboutUsConfig({ ...aboutUsConfig, buttonTextColor: e.target.value })}
+                className="col-span-3 h-10"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="image" className="text-right">
+                Image
+              </Label>
+              <Input
+                type="file"
+                id="image"
+                accept="image/*"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (file) {
+                    await handleAboutUsImageUpload(file)
+                  }
+                }}
+                className="col-span-3"
+              />
+              {aboutUsConfig.image && (
+                <img
+                  src={aboutUsConfig.image || "/placeholder.svg"}
+                  alt="About Us"
+                  className="col-span-4 max-h-40 object-cover rounded-md"
+                />
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="submit" onClick={handleAboutUsSave} disabled={aboutUsSaving}>
+              {aboutUsSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
