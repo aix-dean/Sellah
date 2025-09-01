@@ -358,7 +358,7 @@ export default function WebsitePage() {
                 </CardTitle>
                 <CardDescription className="text-sm">Your terminal is live and accessible</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-4">
                 <div className="flex items-center gap-2">
                   <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></div>
                   <span className="text-sm font-semibold text-green-700">Active</span>
@@ -385,7 +385,8 @@ export default function WebsitePage() {
                 </CardTitle>
                 <CardDescription className="text-sm">Edit your terminal content</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                <div className="h-6"></div>
                 <Button
                   variant="outline"
                   size="sm"
@@ -409,7 +410,8 @@ export default function WebsitePage() {
                 </CardTitle>
                 <CardDescription className="text-sm">Create and manage product brief forms</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                <div className="h-6"></div>
                 <Button
                   variant="outline"
                   size="sm"
