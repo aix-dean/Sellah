@@ -432,6 +432,14 @@ export default function WebsitePage() {
                 </div>
                 <div className="flex gap-3 flex-wrap">
                   <Button
+                    variant="default"
+                    onClick={() => window.open(terminalPortalLink, "_blank")}
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Eye className="w-4 h-4" />
+                    Visit Website
+                  </Button>
+                  <Button
                     variant="outline"
                     onClick={copyLinkToClipboard}
                     className="flex items-center gap-2 hover:bg-blue-50 bg-transparent"
