@@ -1754,108 +1754,110 @@ export default function WebsiteEditPage() {
               </EditableElement>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 px-4 place-items-center mx-auto">
-              {productsLoading
-                ? // Show loading placeholders
-                  Array.from({ length: 12 }).map((_, index) => (
-                    <div key={index} className="relative aspect-square overflow-hidden group cursor-pointer">
-                      <div className="w-full h-full bg-gray-200 animate-pulse"></div>
-                      <div className="absolute inset-0 bg-black/40"></div>
-                      <div className="absolute inset-0 flex items-center justify-center p-4">
-                        <div className="w-20 h-4 bg-gray-300 animate-pulse rounded"></div>
+            <div className="flex justify-center">
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 place-items-center max-w-fit">
+                {productsLoading
+                  ? // Show loading placeholders
+                    Array.from({ length: 12 }).map((_, index) => (
+                      <div key={index} className="relative aspect-square overflow-hidden group cursor-pointer">
+                        <div className="w-full h-full bg-gray-200 animate-pulse"></div>
+                        <div className="absolute inset-0 bg-black/40"></div>
+                        <div className="absolute inset-0 flex items-center justify-center p-4">
+                          <div className="w-20 h-4 bg-gray-300 animate-pulse rounded"></div>
+                        </div>
                       </div>
-                    </div>
-                  ))
-                : products.length > 0
-                  ? // Show real products data
-                    products
-                      .slice(0, 12)
-                      .map((product, index) => (
+                    ))
+                  : products.length > 0
+                    ? // Show real products data
+                      products
+                        .slice(0, 12)
+                        .map((product, index) => (
+                          <EditableElement
+                            key={product.id}
+                            content={{
+                              type: "technology-card",
+                              content: product.name,
+                              section: "ourTechnology",
+                              field: `technology_${index}`,
+                            }}
+                          >
+                            <div className="relative aspect-square overflow-hidden group cursor-pointer hover:scale-105 transition-transform duration-300">
+                              <img
+                                src={
+                                  product.media?.[0]?.url ||
+                                  product.photo_urls?.[0] ||
+                                  `/placeholder.svg?height=400&width=400&text=${encodeURIComponent(product.name) || "/placeholder.svg"}`
+                                }
+                                alt={product.name}
+                                className="w-full h-full object-cover"
+                              />
+                              <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors duration-300"></div>
+                              <div className="absolute inset-0 flex items-center justify-center p-4">
+                                <h3 className="text-white font-semibold text-center text-sm md:text-base leading-tight">
+                                  {product.name}
+                                </h3>
+                              </div>
+                            </div>
+                          </EditableElement>
+                        ))
+                    : // Show fallback placeholders when no products
+                      [
+                        { name: "Indoor LCD", image: "/placeholder.svg?height=400&width=400&text=Indoor+LCD" },
+                        {
+                          name: "Digital Billboards",
+                          image: "/placeholder.svg?height=400&width=400&text=Digital+Billboards",
+                        },
+                        { name: "LED Signs", image: "/placeholder.svg?height=400&width=400&text=LED+Signs" },
+                        { name: "Scoreboards", image: "/placeholder.svg?height=400&width=400&text=Scoreboards" },
+                        { name: "Video Walls", image: "/placeholder.svg?height=400&width=400&text=Video+Walls" },
+                        {
+                          name: "Software & Controllers",
+                          image: "/placeholder.svg?height=400&width=400&text=Software+Controllers",
+                        },
+                        {
+                          name: "ITS Dynamic Message Displays",
+                          image: "/placeholder.svg?height=400&width=400&text=ITS+Dynamic+Message",
+                        },
+                        {
+                          name: "Digital Street Furniture",
+                          image: "/placeholder.svg?height=400&width=400&text=Digital+Street+Furniture",
+                        },
+                        {
+                          name: "Digit & Price Display",
+                          image: "/placeholder.svg?height=400&width=400&text=Digit+Price+Display",
+                        },
+                        { name: "Video Displays", image: "/placeholder.svg?height=400&width=400&text=Video+Displays" },
+                        { name: "Sound Systems", image: "/placeholder.svg?height=400&width=400&text=Sound+Systems" },
+                        {
+                          name: "Freeform Elements",
+                          image: "/placeholder.svg?height=400&width=400&text=Freeform+Elements",
+                        },
+                      ].map((tech, index) => (
                         <EditableElement
-                          key={product.id}
+                          key={tech.name}
                           content={{
                             type: "technology-card",
-                            content: product.name,
+                            content: tech.name,
                             section: "ourTechnology",
                             field: `technology_${index}`,
                           }}
                         >
                           <div className="relative aspect-square overflow-hidden group cursor-pointer hover:scale-105 transition-transform duration-300">
                             <img
-                              src={
-                                product.media?.[0]?.url ||
-                                product.photo_urls?.[0] ||
-                                `/placeholder.svg?height=400&width=400&text=${encodeURIComponent(product.name) || "/placeholder.svg"}`
-                              }
-                              alt={product.name}
+                              src={companyData?.web_config?.ourTechnology?.technologies?.[index]?.image || tech.image}
+                              alt={tech.name}
                               className="w-full h-full object-cover"
                             />
                             <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors duration-300"></div>
                             <div className="absolute inset-0 flex items-center justify-center p-4">
                               <h3 className="text-white font-semibold text-center text-sm md:text-base leading-tight">
-                                {product.name}
+                                {companyData?.web_config?.ourTechnology?.technologies?.[index]?.name || tech.name}
                               </h3>
                             </div>
                           </div>
                         </EditableElement>
-                      ))
-                  : // Show fallback placeholders when no products
-                    [
-                      { name: "Indoor LCD", image: "/placeholder.svg?height=400&width=400&text=Indoor+LCD" },
-                      {
-                        name: "Digital Billboards",
-                        image: "/placeholder.svg?height=400&width=400&text=Digital+Billboards",
-                      },
-                      { name: "LED Signs", image: "/placeholder.svg?height=400&width=400&text=LED+Signs" },
-                      { name: "Scoreboards", image: "/placeholder.svg?height=400&width=400&text=Scoreboards" },
-                      { name: "Video Walls", image: "/placeholder.svg?height=400&width=400&text=Video+Walls" },
-                      {
-                        name: "Software & Controllers",
-                        image: "/placeholder.svg?height=400&width=400&text=Software+Controllers",
-                      },
-                      {
-                        name: "ITS Dynamic Message Displays",
-                        image: "/placeholder.svg?height=400&width=400&text=ITS+Dynamic+Message",
-                      },
-                      {
-                        name: "Digital Street Furniture",
-                        image: "/placeholder.svg?height=400&width=400&text=Digital+Street+Furniture",
-                      },
-                      {
-                        name: "Digit & Price Display",
-                        image: "/placeholder.svg?height=400&width=400&text=Digit+Price+Display",
-                      },
-                      { name: "Video Displays", image: "/placeholder.svg?height=400&width=400&text=Video+Displays" },
-                      { name: "Sound Systems", image: "/placeholder.svg?height=400&width=400&text=Sound+Systems" },
-                      {
-                        name: "Freeform Elements",
-                        image: "/placeholder.svg?height=400&width=400&text=Freeform+Elements",
-                      },
-                    ].map((tech, index) => (
-                      <EditableElement
-                        key={tech.name}
-                        content={{
-                          type: "technology-card",
-                          content: tech.name,
-                          section: "ourTechnology",
-                          field: `technology_${index}`,
-                        }}
-                      >
-                        <div className="relative aspect-square overflow-hidden group cursor-pointer hover:scale-105 transition-transform duration-300">
-                          <img
-                            src={companyData?.web_config?.ourTechnology?.technologies?.[index]?.image || tech.image}
-                            alt={tech.name}
-                            className="w-full h-full object-cover"
-                          />
-                          <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors duration-300"></div>
-                          <div className="absolute inset-0 flex items-center justify-center p-4">
-                            <h3 className="text-white font-semibold text-center text-sm md:text-base leading-tight">
-                              {companyData?.web_config?.ourTechnology?.technologies?.[index]?.name || tech.name}
-                            </h3>
-                          </div>
-                        </div>
-                      </EditableElement>
-                    ))}
+                      ))}
+              </div>
             </div>
           </div>
         </section>
