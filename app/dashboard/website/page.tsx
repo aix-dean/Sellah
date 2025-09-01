@@ -367,7 +367,7 @@ export default function WebsitePage() {
                   variant="outline"
                   size="sm"
                   className="w-full hover:bg-green-50 hover:border-green-200 bg-transparent"
-                  onClick={() => router.push("/dashboard/website")}
+                  onClick={() => router.push("/website/ZxWUmoFXCLnTXJVAOaAA")}
                 >
                   <Globe className="w-3 h-3 mr-2" />
                   Visit Website
