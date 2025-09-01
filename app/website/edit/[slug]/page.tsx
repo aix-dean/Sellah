@@ -1754,7 +1754,7 @@ export default function WebsiteEditPage() {
               </EditableElement>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 px-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 px-4 justify-items-center">
               {productsLoading
                 ? // Show loading placeholders
                   Array.from({ length: 12 }).map((_, index) => (
