@@ -1,6 +1,6 @@
 "use client"
 
-import { Eye, Edit3, Palette, Terminal, Copy, QrCode, Lock, FileText } from "lucide-react"
+import { Eye, Edit3, Palette, Terminal, Copy, QrCode, Lock, FileText, Globe } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -358,11 +358,20 @@ export default function WebsitePage() {
                 </CardTitle>
                 <CardDescription className="text-sm">Your terminal is live and accessible</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-3">
                 <div className="flex items-center gap-2">
                   <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></div>
                   <span className="text-sm font-semibold text-green-700">Active</span>
                 </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full hover:bg-green-50 hover:border-green-200 bg-transparent"
+                  onClick={() => window.open(terminalPortalLink, "_blank")}
+                >
+                  <Globe className="w-3 h-3 mr-2" />
+                  Visit Website
+                </Button>
               </CardContent>
             </Card>
 
@@ -431,14 +440,6 @@ export default function WebsitePage() {
                   <div className="text-sm text-gray-600 break-all font-mono">{terminalPortalLink}</div>
                 </div>
                 <div className="flex gap-3 flex-wrap">
-                  <Button
-                    variant="default"
-                    onClick={() => window.open(terminalPortalLink, "_blank")}
-                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    <Eye className="w-4 h-4" />
-                    Visit Website
-                  </Button>
                   <Button
                     variant="outline"
                     onClick={copyLinkToClipboard}

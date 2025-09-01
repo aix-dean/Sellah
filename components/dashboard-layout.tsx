@@ -35,7 +35,7 @@ export default function DashboardLayout({ children, activeItem, userName = "" }:
   const menuItems = [
     { id: "inventory", label: "Inventory", icon: Package, href: "/dashboard/products" },
     { id: "orders", label: "Orders", icon: ShoppingCart, href: "/dashboard/orders" },
-    { id: "website", label: "Central Terminal", icon: Globe, href: "/dashboard/website" },
+    { id: "website", label: "Central Terminal", icon: Globe, href: "/dashboard/website" }, // Updated label from "Terminal" to "Central Terminal"
     { id: "account", label: "Account", icon: Users, href: "/dashboard/account" },
   ]
 
