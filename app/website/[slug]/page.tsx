@@ -1152,8 +1152,8 @@ export default function WebsitePage() {
             </p>
           </div>
 
-          <div className="flex justify-center">
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 place-items-center max-w-fit">
+          <div className="flex justify-center items-center px-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 place-items-center mx-auto max-w-fit">
               {products.length > 0
                 ? // Show real products data
                   products
