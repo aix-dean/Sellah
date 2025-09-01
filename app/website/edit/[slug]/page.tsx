@@ -1,5 +1,7 @@
 "use client"
 
+import { DialogDescription } from "@/components/ui/dialog"
+
 import type React from "react"
 
 import { useState, useEffect } from "react"
@@ -15,7 +17,6 @@ import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
 
 import ApplicationTabs from "@/components/ApplicationTabs"
-import FeaturedProductsEditDialog from "@/components/featured-products-edit-dialog"
 
 interface Product {
   id: string
@@ -1987,108 +1988,6 @@ export default function WebsiteEditPage() {
           </div>
         </section>
 
-        {/* Featured Products Section */}
-        <FeaturedProductsEditDialog>
-          <section id="products" className="py-16 bg-white">
-            <div className="w-full">
-              <div className="text-center mb-12">
-                <h2 className="text-4xl font-bold mb-4 text-gray-900">Featured Products</h2>
-
-                <div>
-                  <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-                    {companyData?.web_config?.products?.section_description ||
-                      "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."}
-                  </p>
-                </div>
-              </div>
-
-              {productsLoading ? (
-                <div className="flex justify-center items-center min-h-[400px]">
-                  <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-                  <span className="ml-2 text-gray-600">Loading products...</span>
-                </div>
-              ) : products.length > 0 ? (
-                <div className="flex flex-col lg:flex-row min-h-[600px]">
-                  <div className="w-full lg:w-1/2 flex items-center p-8 lg:p-16">
-                    <div className="w-full h-full flex flex-col justify-center space-y-8">
-                      <div>
-                        <div>
-                          <h3 className="text-4xl lg:text-5xl font-bold mb-6 text-gray-900">
-                            {products[0]?.name || "Featured Product"}
-                          </h3>
-                        </div>
-
-                        <div>
-                          <p className="text-lg text-gray-600 mb-8">
-                            {products[0]?.description || "Professional LED solution for your business needs."}
-                          </p>
-                        </div>
-
-                        <div>
-                          <button className="bg-blue-600 text-white px-8 py-3 rounded-full font-semibold mb-8">
-                            View More
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-4 flex-wrap">
-                        {products.slice(0, 4).map((product, index) => (
-                          <div key={product.id} className="text-center">
-                            <div
-                              className={`w-20 h-16 rounded-lg mb-2 flex items-center justify-center ${
-                                index === 0 ? "bg-blue-600" : "bg-gray-200"
-                              }`}
-                            >
-                              {product.media?.[0]?.url ? (
-                                <img
-                                  src={product.media[0].url || "/placeholder.svg"}
-                                  alt={product.name}
-                                  className="w-12 h-12 object-cover rounded"
-                                />
-                              ) : (
-                                <div className="w-12 h-12 bg-gray-300 rounded flex items-center justify-center">
-                                  <span className="text-xs font-bold text-gray-600">{product.name.charAt(0)}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="w-full lg:w-1/2 relative p-8 lg:p-16">
-                    <div className="w-full mx-auto aspect-square bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg overflow-hidden mb-6 flex items-center justify-center">
-                      {products[0]?.media?.[0]?.url ? (
-                        <img
-                          src={products[0].media[0].url || "/placeholder.svg"}
-                          alt={products[0].name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <img
-                          src="/placeholder.svg?height=400&width=400"
-                          alt="Product Display"
-                          className="w-full h-full object-cover"
-                        />
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
-                  <div className="text-gray-400 mb-4">
-                    <ImageIcon className="h-16 w-16 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold mb-2">No Products Found</h3>
-                    <p className="text-gray-500">
-                      No products have been added for this company yet. Add products to display them here.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </section>
-        </FeaturedProductsEditDialog>
 
         {/* About Us Section */}
         <section id="about-us" className="bg-background">
@@ -3037,5 +2936,807 @@ export default function WebsiteEditPage() {
                             )}
                             {social.icon === "tiktok" && (
                               <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z" />
-                            )}\
-                          </svg
+                            )}
+                          </svg>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-center opacity-75">
+                {companyData?.web_config?.footer?.copyright || "copyright © 2025 DOS"}
+              </div>
+            </div>
+          </div>
+        </footer>
+      </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialog.open} onOpenChange={(open) => setEditDialog({ open, content: null })}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Content</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label htmlFor="name" className="text-right text-sm font-medium leading-none text-gray-800">
+                Content
+              </label>
+              <div className="col-span-3">
+                <input
+                  type="text"
+                  id="name"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-950 disabled:cursor-not-allowed disabled:opacity-50 text-gray-800"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="submit" onClick={handleSaveEdit}>
+              Save changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Logo Upload Dialog */}
+      <Dialog open={logoDialog} onOpenChange={setLogoDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Update Company Logo</DialogTitle>
+            <DialogDescription>Upload a new logo for your company.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label htmlFor="logo" className="text-right text-sm font-medium leading-none text-gray-800">
+                Logo File
+              </label>
+              <div className="col-span-3">
+                <input
+                  type="file"
+                  id="logo"
+                  onChange={handleFileChange}
+                  accept="image/*"
+                  className="flex h-10 w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-950 disabled:cursor-not-allowed disabled:opacity-50 text-gray-800"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" onClick={handleLogoUpload} disabled={logoUploading}>
+              {logoUploading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                "Upload Logo"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Header Color Dialog */}
+      <Dialog open={headerColorDialog} onOpenChange={setHeaderColorDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Header Colors</DialogTitle>
+            <DialogDescription>Choose the colors for your header and navigation.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label htmlFor="headerColor" className="text-right text-sm font-medium leading-none text-gray-800">
+                Header Color
+              </label>
+              <div className="col-span-3 flex items-center gap-2">
+                <input
+                  type="color"
+                  id="headerColor"
+                  value={headerColor}
+                  onChange={(e) => setHeaderColor(e.target.value)}
+                  className="h-8 w-8 rounded-full border-none shadow-sm cursor-pointer"
+                />
+                <input
+                  type="text"
+                  value={headerColor}
+                  onChange={(e) => setHeaderColor(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-950 disabled:cursor-not-allowed disabled:opacity-50 text-gray-800"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label htmlFor="navColor" className="text-right text-sm font-medium leading-none text-gray-800">
+                Navigation Color
+              </label>
+              <div className="col-span-3 flex items-center gap-2">
+                <input
+                  type="color"
+                  id="navColor"
+                  value={navColor}
+                  onChange={(e) => setNavColor(e.target.value)}
+                  className="h-8 w-8 rounded-full border-none shadow-sm cursor-pointer"
+                />
+                <input
+                  type="text"
+                  value={navColor}
+                  onChange={(e) => setNavColor(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-950 disabled:cursor-not-allowed disabled:opacity-50 text-gray-800"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" onClick={handleSaveHeaderColor} disabled={headerColorSaving}>
+              {headerColorSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Colors"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Nav Color Dialog */}
+      <Dialog open={navColorDialog} onOpenChange={setNavColorDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Navigation Text Color</DialogTitle>
+            <DialogDescription>Choose the text color for your navigation.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label htmlFor="navColor" className="text-right text-sm font-medium leading-none text-gray-800">
+                Navigation Text Color
+              </label>
+              <div className="col-span-3 flex items-center gap-2">
+                <input
+                  type="color"
+                  id="navColor"
+                  value={navColor}
+                  onChange={(e) => setNavColor(e.target.value)}
+                  className="h-8 w-8 rounded-full border-none shadow-sm cursor-pointer"
+                />
+                <input
+                  type="text"
+                  value={navColor}
+                  onChange={(e) => setNavColor(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-950 disabled:cursor-not-allowed disabled:opacity-50 text-gray-800"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" onClick={handleSaveNavColor} disabled={navColorSaving}>
+              {navColorSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Color"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Hero Edit Dialog */}
+      <Dialog open={heroEditDialog} onOpenChange={setHeroEditDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Hero Section</DialogTitle>
+            <DialogDescription>Customize the content and colors of your hero section.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-3 items-center gap-4">
+              <label htmlFor="mainHeading" className="text-right text-sm font-medium leading-none text-gray-800">
+                Main Heading
+              </label>
+              <div className="col-span-2">
+                <input
+                  type="text"
+                  id="mainHeading"
+                  value={heroEditData.mainHeading}
+                  onChange={(e) => setHeroEditData({ ...heroEditData, mainHeading: e.target.value })}
+                  className="flex h-10 w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-950 disabled:cursor-not-allowed disabled:opacity-50 text-gray-800"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 items-center gap-4">
+              <label htmlFor="subtitle" className="text-right text-sm font-medium leading-none text-gray-800">
+                Subtitle
+              </label>
+              <div className="col-span-2">
+                <input
+                  type="text"
+                  id="subtitle"
+                  value={heroEditData.subtitle}
+                  onChange={(e) => setHeroEditData({ ...heroEditData, subtitle: e.target.value })}
+                  className="flex h-10 w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-950 disabled:cursor-not-allowed disabled:opacity-50 text-gray-800"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 items-center gap-4">
+              <label htmlFor="mainHeadingColor" className="text-right text-sm font-medium leading-none text-gray-800">
+                Main Heading Color
+              </label>
+              <div className="col-span-2 flex items-center gap-2">
+                <input
+                  type="color"
+                  id="mainHeadingColor"
+                  value={heroEditData.mainHeadingColor}
+                  onChange={(e) => setHeroEditData({ ...heroEditData, mainHeadingColor: e.target.value })}
+                  className="h-8 w-8 rounded-full border-none shadow-sm cursor-pointer"
+                />
+                <input
+                  type="text"
+                  value={heroEditData.mainHeadingColor}
+                  onChange={(e) => setHeroEditData({ ...heroEditData, mainHeadingColor: e.target.value })}
+                  className="flex h-10 w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-950 disabled:cursor-not-allowed disabled:opacity-50 text-gray-800"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 items-center gap-4">
+              <label htmlFor="subtitleColor" className="text-right text-sm font-medium leading-none text-gray-800">
+                Subtitle Color
+              </label>
+              <div className="col-span-2 flex items-center gap-2">
+                <input
+                  type="color"
+                  id="subtitleColor"
+                  value={heroEditData.subtitleColor}
+                  onChange={(e) => setHeroEditData({ ...heroEditData, subtitleColor: e.target.value })}
+                  className="h-8 w-8 rounded-full border-none shadow-sm cursor-pointer"
+                />
+                <input
+                  type="text"
+                  value={heroEditData.subtitleColor}
+                  onChange={(e) => setHeroEditData({ ...heroEditData, subtitleColor: e.target.value })}
+                  className="flex h-10 w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-950 disabled:cursor-not-allowed disabled:opacity-50 text-gray-800"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 items-center gap-4">
+              <label htmlFor="buttonColor" className="text-right text-sm font-medium leading-none text-gray-800">
+                Button Color
+              </label>
+              <div className="col-span-2 flex items-center gap-2">
+                <input
+                  type="color"
+                  id="buttonColor"
+                  value={heroEditData.buttonColor}
+                  onChange={(e) => setHeroEditData({ ...heroEditData, buttonColor: e.target.value })}
+                  className="h-8 w-8 rounded-full border-none shadow-sm cursor-pointer"
+                />
+                <input
+                  type="text"
+                  value={heroEditData.buttonColor}
+                  onChange={(e) => setHeroEditData({ ...heroEditData, buttonColor: e.target.value })}
+                  className="flex h-10 w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-950 disabled:cursor-not-allowed disabled:opacity-50 text-gray-800"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 items-center gap-4">
+              <label htmlFor="buttonTextColor" className="text-right text-sm font-medium leading-none text-gray-800">
+                Button Text Color
+              </label>
+              <div className="col-span-2 flex items-center gap-2">
+                <input
+                  type="color"
+                  id="buttonTextColor"
+                  value={heroEditData.buttonTextColor}
+                  onChange={(e) => setHeroEditData({ ...heroEditData, buttonTextColor: e.target.value })}
+                  className="h-8 w-8 rounded-full border-none shadow-sm cursor-pointer"
+                />
+                <input
+                  type="text"
+                  value={heroEditData.buttonTextColor}
+                  onChange={(e) => setHeroEditData({ ...heroEditData, buttonTextColor: e.target.value })}
+                  className="flex h-10 w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-950 disabled:cursor-not-allowed disabled:opacity-50 text-gray-800"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 items-center gap-4">
+              <label htmlFor="categoryButtonColor" className="text-right text-sm font-medium leading-none text-gray-800">
+                Category Button Color
+              </label>
+              <div className="col-span-2 flex items-center gap-2">
+                <input
+                  type="color"
+                  id="categoryButtonColor"
+                  value={heroEditData.categoryButtonColor}
+                  onChange={(e) => setHeroEditData({ ...heroEditData, categoryButtonColor: e.target.value })}
+                  className="h-8 w-8 rounded-full border-none shadow-sm cursor-pointer"
+                />
+                <input
+                  type="text"
+                  value={heroEditData.categoryButtonColor}
+                  onChange={(e) => setHeroEditData({ ...heroEditData, categoryButtonColor: e.target.value })}
+                  className="flex h-10 w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-950 disabled:cursor-not-allowed disabled:opacity-50 text-gray-800"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 items-center gap-4">
+              <label htmlFor="categoryButtonTextColor" className="text-right text-sm font-medium leading-none text-gray-800">
+                Category Button Text Color
+              </label>
+              <div className="col-span-2 flex items-center gap-2">
+                <input
+                  type="color"
+                  id="categoryButtonTextColor"
+                  value={heroEditData.categoryButtonTextColor}
+                  onChange={(e) => setHeroEditData({ ...heroEditData, categoryButtonTextColor: e.target.value })}
+                  className="h-8 w-8 rounded-full border-none shadow-sm cursor-pointer"
+                />
+                <input
+                  type="text"
+                  value={heroEditData.categoryButtonTextColor}
+                  onChange={(e) => setHeroEditData({ ...heroEditData, categoryButtonTextColor: e.target.value })}
+                  className="flex h-10 w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-950 disabled:cursor-not-allowed disabled:opacity-50 text-gray-800"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" onClick={handleSaveHeroEdit} disabled={heroEditSaving}>
+              {heroEditSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Hero Video Upload Dialog */}
+      <Dialog open={heroVideoDialog} onOpenChange={setHeroVideoDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Update Hero Background Video</DialogTitle>
+            <DialogDescription>Upload a new video for your hero section background.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label htmlFor="heroVideo" className="text-right text-sm font-medium leading-none text-gray-800">
+                Video File
+              </label>
+              <div className="col-span-3">
+                <input
+                  type="file"
+                  id="heroVideo"
+                  onChange={(e) => setHeroVideoFile(e.target.files?.[0] || null)}
+                  accept="video/*"
+                  className="flex h-10 w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-950 disabled:cursor-not-allowed disabled:opacity-50 text-gray-800"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" onClick={handleVideoUpload} disabled={heroVideoUploading}>
+              {heroVideoUploading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                "Upload Video"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Recent Works Dialog */}
+      <Dialog open={recentWorksDialog} onOpenChange={setRecentWorksDialog}>
+        <DialogContent className="max-w-5xl">
+          <DialogHeader>
+            <DialogTitle>Edit Recent Works Section</DialogTitle>
+            <DialogDescription>Manage your recent works items and carousel settings.</DialogDescription>
+          </DialogHeader>
+
+          <div className="flex gap-8">
+            {/* Carousel Item Editor */}
+            <div className="w-1/2">
+              <h3 className="text-lg font-semibold mb-4">Edit Item</h3>
+              {recentWorksItems.length > 0 ? (
+                <>
+                  <div className="mb-4">
+                    <label htmlFor="backgroundImage" className="block text-sm font-medium text-gray-700">
+                      Background Image/Video
+                    </label>
+                    <input
+                      type="file"
+                      id="backgroundImage"
+                      onChange={(e) => handleRecentWorksImageUpload(e, currentItemIndex)}
+                      accept="image/*, video/*"
+                      className="mt-1 block w-full"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label htmlFor="sectionTitle" className="block text-sm font-medium text-gray-700">
+                      Section Title
+                    </label>
+                    <input
+                      type="text"
+                      id="sectionTitle"
+                      value={recentWorksItems[currentItemIndex]?.sectionTitle || ""}
+                      onChange={(e) => updateRecentWorksItem(currentItemIndex, "sectionTitle", e.target.value)}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label htmlFor="projectTitle" className="block text-sm font-medium text-gray-700">
+                      Project Title
+                    </label>
+                    <input
+                      type="text"
+                      id="projectTitle"
+                      value={recentWorksItems[currentItemIndex]?.projectTitle || ""}
+                      onChange={(e) => updateRecentWorksItem(currentItemIndex, "projectTitle", e.target.value)}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label htmlFor="projectDescription" className="block text-sm font-medium text-gray-700">
+                      Project Description
+                    </label>
+                    <textarea
+                      id="projectDescription"
+                      value={recentWorksItems[currentItemIndex]?.projectDescription || ""}
+                      onChange={(e) => updateRecentWorksItem(currentItemIndex, "projectDescription", e.target.value)}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    />
+                  </div>
+                </>
+              ) : (
+                <p>No items to edit.</p>
+              )}
+            </div>
+
+            {/* Carousel Navigation Settings */}
+            <div className="w-1/2">
+              <h3 className="text-lg font-semibold mb-4">Carousel Settings</h3>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700">Navigation Button Color</label>
+                <input
+                  type="color"
+                  value={carouselNavColors.buttonColor}
+                  onChange={(e) => setCarouselNavColors({ ...carouselNavColors, buttonColor: e.target.value })}
+                  className="mt-1 w-full h-10 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700">Navigation Button Hover Color</label>
+                <input
+                  type="color"
+                  value={carouselNavColors.buttonHoverColor}
+                  onChange={(e) => setCarouselNavColors({ ...carouselNavColors, buttonHoverColor: e.target.value })}
+                  className="mt-1 w-full h-10 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700">Navigation Icon Color</label>
+                <input
+                  type="color"
+                  value={carouselNavColors.iconColor}
+                  onChange={(e) => setCarouselNavColors({ ...carouselNavColors, iconColor: e.target.value })}
+                  className="mt-1 w-full h-10 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700">Navigation Icon Hover Color</label>
+                <input
+                  type="color"
+                  value={carouselNavColors.iconHoverColor}
+                  onChange={(e) => setCarouselNavColors({ ...carouselNavColors, iconHoverColor: e.target.value })}
+                  className="mt-1 w-full h-10 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Item List and Navigation */}
+          <div className="flex justify-between items-center mt-6">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => {
+                  if (currentItemIndex > 0) {
+                    setCurrentItemIndex(currentItemIndex - 1)
+                  }
+                }}
+                disabled={currentItemIndex === 0}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => {
+                  if (currentItemIndex < recentWorksItems.length - 1) {
+                    setCurrentItemIndex(currentItemIndex + 1)
+                  }
+                }}
+                disabled={currentItemIndex === recentWorksItems.length - 1}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <button
+                onClick={addRecentWorksItem}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+              >
+                Add Item
+              </button>
+              <button
+                onClick={() => removeRecentWorksItem(currentItemIndex)}
+                disabled={recentWorksItems.length <= 1}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Remove Item
+              </button>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button type="button" onClick={handleSaveRecentWorks} disabled={recentWorksUploading}>
+              {recentWorksUploading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Application Tabs Dialog */}
+      <Dialog open={showApplicationTabsDialog} onOpenChange={setShowApplicationTabsDialog}>
+        <DialogContent className="max-w-5xl">
+          <DialogHeader>
+            <DialogTitle>Edit Application Tabs Section</DialogTitle>
+            <DialogDescription>Manage your application tabs and their content.</DialogDescription>
+          </DialogHeader>
+
+          <div className="flex gap-8">
+            {/* Tab Management */}
+            <div className="w-1/3">
+              <h3 className="text-lg font-semibold mb-4">Manage Tabs</h3>
+              <div className="space-y-2">
+                {applicationTabsConfig.tabs.map((tab) => (
+                  <div key={tab.id} className="flex items-center justify-between p-2 border rounded-md">
+                    <input
+                      type="text"
+                      value={tab.label}
+                      onChange={(e) => updateTab(tab.id, { label: e.target.value })}
+                      className="w-1/2 p-1 border rounded-md"
+                    />
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm">Enabled</label>
+                      <input
+                        type="checkbox"
+                        checked={tab.enabled}
+                        onChange={(e) => updateTab(tab.id, { enabled: e.target.checked })}
+                        className="h-5 w-5"
+                      />
+                      <Button variant="ghost" size="sm" onClick={() => removeTab(tab.id)}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                <Button variant="outline" onClick={addNewTab}>
+                  Add New Tab
+                </Button>
+              </div>
+
+              <h3 className="text-lg font-semibold mt-6 mb-4">Tab Colors</h3>
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Active Tab Color</label>
+                  <input
+                    type="color"
+                    value={applicationTabsConfig.activeTabColor}
+                    onChange={(e) =>
+                      setApplicationTabsConfig({ ...applicationTabsConfig, activeTabColor: e.target.value })
+                    }
+                    className="mt-1 w-full h-10 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Inactive Tab Color</label>
+                  <input
+                    type="color"
+                    value={applicationTabsConfig.inactiveTabColor}
+                    onChange={(e) =>
+                      setApplicationTabsConfig({ ...applicationTabsConfig, inactiveTabColor: e.target.value })
+                    }
+                    className="mt-1 w-full h-10 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Active Text Color</label>
+                  <input
+                    type="color"
+                    value={applicationTabsConfig.activeTextColor}
+                    onChange={(e) =>
+                      setApplicationTabsConfig({ ...applicationTabsConfig, activeTextColor: e.target.value })
+                    }
+                    className="mt-1 w-full h-10 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Inactive Text Color</label>
+                  <input
+                    type="color"
+                    value={applicationTabsConfig.inactiveTextColor}
+                    onChange={(e) =>
+                      setApplicationTabsConfig({ ...applicationTabsConfig, inactiveTextColor: e.target.value })
+                    }
+                    className="mt-1 w-full h-10 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Tab Content Editor */}
+            <div className="w-2/3">
+              <h3 className="text-lg font-semibold mb-4">Edit Tab Content</h3>
+              <select
+                value={selectedTabForContent}
+                onChange={(e) => setSelectedTabForContent(e.target.value)}
+                className="w-full p-2 border rounded-md mb-4"
+              >
+                {applicationTabsConfig.tabs.map((tab) => (
+                  <option key={tab.id} value={tab.id}>
+                    {tab.label}
+                  </option>
+                ))}
+              </select>
+
+              {applicationTabsConfig.content && applicationTabsConfig.content[selectedTabForContent] ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Title</label>
+                    <input
+                      type="text"
+                      value={applicationTabsConfig.content[selectedTabForContent].title}
+                      onChange={(e) => updateTabContent(selectedTabForContent, "title", e.target.value)}
+                      className="w-full p-2 border rounded-md"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Description</label>
+                    <textarea
+                      value={applicationTabsConfig.content[selectedTabForContent].description}
+                      onChange={(e) => updateTabContent(selectedTabForContent, "description", e.target.value)}
+                      className="w-full p-2 border rounded-md"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Image</label>
+                    <input
+                      type="file"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          await handleTabContentImageUpload(selectedTabForContent, file)
+                        }
+                      }}
+                      className="w-full p-2 border rounded-md"
+                    />
+                    {applicationTabsConfig.content[selectedTabForContent].image && (
+                      <img
+                        src={applicationTabsConfig.content[selectedTabForContent].image || "/placeholder.svg"}
+                        alt="Tab Content"
+                        className="mt-2 max-h-40"
+                      />
+                    )}
+                  </div>
+
+                  <div>
+                    <h4 className="text-md font-semibold mb-2">Applications</h4>
+                    <div className="space-y-2">
+                      {(applicationTabsConfig.content[selectedTabForContent].applications || []).map((app, index) => (
+                        <div key={index} className="flex items-center gap-2 p-2 border rounded-md">
+                          <input
+                            type="text"
+                            value={app.name}
+                            onChange={(e) =>
+                              updateApplication(selectedTabForContent, index, "name", e.target.value)
+                            }
+                            className="w-1/3 p-1 border rounded-md"
+                          />
+                          <input
+                            type="file"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0]
+                              if (file) {
+                                await handleApplicationImageUpload(selectedTabForContent, index, file)
+                              }
+                            }}
+                            className="w-1/3 p-1 border rounded-md"
+                          />
+                          {app.image && <img src={app.image || "/placeholder.svg"} alt="Application" className="max-h-20" />}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeApplication(selectedTabForContent, index)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button variant="outline" onClick={() => addApplication(selectedTabForContent)}>
+                        Add Application
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p>No content for this tab.</p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowApplicationTabsDialog(false)} className="px-6">
+              Cancel
+            </Button>
+            <Button onClick={saveApplicationTabsConfig} className="px-6">
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* About Us Dialog */}
+      <Dialog open={aboutUsDialogOpen} onOpenChange={setAboutUsDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Edit About Us Section</DialogTitle>
+            <DialogDescription>Customize the content and appearance of your About Us section.</DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Left Column - Content */}
+            <div>
+              <div className="mb-4">
+                <label htmlFor="subtitle" className="block text-sm font-medium text-gray-700">
+                  Subtitle
+                </label>
+                <input
+                  type="text"
+                  id="subtitle"
+                  value={aboutUsConfig.subtitle}
+                  onChange={(e) => setAboutUsConfig({ ...aboutUsConfig, subtitle: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                />
+              </div>
+
+              <div className="mb-4">
+                <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                  Description
+                </label>
+                <textarea
+                  id="description"
+                  value={aboutUsConfig.description}
+                  onChange={(e) => setAboutUsConfig({ ...aboutUsConfig, description: e.target.value })}
+                  className=\"mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:
