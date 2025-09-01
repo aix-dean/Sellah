@@ -15,6 +15,8 @@ import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
 
 import ApplicationTabs from "@/components/ApplicationTabs"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 
 interface Product {
   id: string
@@ -345,6 +347,77 @@ export default function WebsiteEditPage() {
     copyright: "copyright © 2025 DOS",
   })
   const [footerLoading, setFooterLoading] = useState(false)
+
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editingSection, setEditingSection] = useState<{ title: string; subtitle: string } | null>(null)
+  const [logoUploadOpen, setLogoUploadOpen] = useState(false)
+  const [headerColorOpen, setHeaderColorOpen] = useState(false)
+  const [heroVideoOpen, setHeroVideoOpen] = useState(false)
+  const [heroEditOpen, setHeroEditOpen] = useState(false)
+  const [recentWorksOpen, setRecentWorksOpen] = useState(false)
+  const [applicationTabsOpen, setApplicationTabsOpen] = useState(false)
+  const [aboutUsOpen, setAboutUsOpen] = useState(false)
+
+  const [heroTitle, setHeroTitle] = useState("")
+  const [heroSubtitle, setHeroSubtitle] = useState("")
+  const [recentWorksTitle, setRecentWorksTitle] = useState("")
+  const [recentWorksSubtitle, setRecentWorksSubtitle] = useState("")
+  const [applicationTabsTitle, setApplicationTabsTitle] = useState("")
+  const [applicationTabsSubtitle, setApplicationTabsSubtitle] = useState("")
+  const [aboutUsSubtitle, setAboutUsSubtitle] = useState("")
+  const [aboutUsDescription, setAboutUsDescription] = useState("")
+  const [aboutUsPhone, setAboutUsPhone] = useState("")
+  const [aboutUsPrimaryColor, setAboutUsPrimaryColor] = useState("")
+  const [aboutUsSecondaryColor, setAboutUsSecondaryColor] = useState("")
+
+  const handleTabImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      // TODO: Implement tab image upload functionality
+      console.log("Tab image uploaded:", file)
+    }
+  }
+
+  const handleHeroVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      // TODO: Implement hero video upload functionality
+      console.log("Hero video uploaded:", file)
+    }
+  }
+
+  const handleSaveHeroEdit = async () => {
+    // TODO: Implement save hero edit functionality
+    console.log("Hero section saved")
+  }
+
+  const handleSaveRecentWorks = async () => {
+    // TODO: Implement save recent works functionality
+    console.log("Recent works saved")
+  }
+
+  const handleSaveApplicationTabs = async () => {
+    // TODO: Implement save application tabs functionality
+    console.log("Application tabs saved")
+  }
+
+  const handleSaveAboutUs = async () => {
+    // TODO: Implement save about us functionality
+    console.log("About us saved")
+  }
+
+  const handleSaveHeaderColor = async () => {
+    // TODO: Implement save header color functionality
+    console.log("Header color saved")
+  }
+
+  const handleLogoUploadInner = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      // TODO: Implement logo upload functionality
+      console.log("Logo uploaded:", file)
+    }
+  }
 
   const handleFooterClick = () => {
     // Load existing config from database
@@ -732,7 +805,7 @@ export default function WebsiteEditPage() {
     }
   }
 
-  const handleSaveHeaderColor = async () => {
+  const handleSaveHeaderColorInner = async () => {
     if (!slug) return
 
     setHeaderColorSaving(true)
@@ -854,7 +927,7 @@ export default function WebsiteEditPage() {
     }
   }
 
-  const handleSaveHeroEdit = async () => {
+  const handleSaveHeroEditInner = async () => {
     if (!slug) {
       console.log("[v0] No company ID found in slug parameter")
       return
@@ -1029,7 +1102,7 @@ export default function WebsiteEditPage() {
     }
   }
 
-  const handleSaveRecentWorks = async () => {
+  const handleSaveRecentWorksInner = async () => {
     try {
       setRecentWorksUploading(true)
       console.log("[v0] Saving recent works items:", recentWorksItems)
@@ -1986,7 +2059,6 @@ export default function WebsiteEditPage() {
           </div>
         </section>
 
-
         {/* About Us Section */}
         <section id="about-us" className="bg-background">
           <div className="w-full">
@@ -2934,4 +3006,273 @@ export default function WebsiteEditPage() {
                             )}
                             {social.icon === "tiktok" && (
                               <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z" />
-\
+                            )}
+                          </svg>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </footer>
+
+        {/* Edit Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Section</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit-title">Title</Label>
+                <Input
+                  id="edit-title"
+                  value={editingSection?.title || ""}
+                  onChange={(e) => setEditingSection((prev) => (prev ? { ...prev, title: e.target.value } : null))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-subtitle">Subtitle</Label>
+                <Input
+                  id="edit-subtitle"
+                  value={editingSection?.subtitle || ""}
+                  onChange={(e) => setEditingSection((prev) => (prev ? { ...prev, subtitle: e.target.value } : null))}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveEdit}>Save Changes</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Logo Upload Dialog */}
+        <Dialog open={logoUploadOpen} onOpenChange={setLogoUploadOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Upload Logo</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="logo-upload">Choose Logo Image</Label>
+                <Input id="logo-upload" type="file" accept="image/*" onChange={handleLogoUploadInner} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setLogoUploadOpen(false)}>
+                Cancel
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Header Color Dialog */}
+        <Dialog open={headerColorOpen} onOpenChange={setHeaderColorOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Change Header Color</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="header-color">Header Background Color</Label>
+                <Input
+                  id="header-color"
+                  type="color"
+                  value={headerColor}
+                  onChange={(e) => setHeaderColor(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setHeaderColorOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveHeaderColorInner}>Save Color</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Hero Video Dialog */}
+        <Dialog open={heroVideoOpen} onOpenChange={setHeroVideoOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Upload Hero Video</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="hero-video">Choose Video File</Label>
+                <Input id="hero-video" type="file" accept="video/*" onChange={handleHeroVideoUpload} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setHeroVideoOpen(false)}>
+                Cancel
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Hero Edit Dialog */}
+        <Dialog open={heroEditOpen} onOpenChange={setHeroEditOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Hero Section</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="hero-title">Hero Title</Label>
+                <Input id="hero-title" value={heroTitle} onChange={(e) => setHeroTitle(e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="hero-subtitle">Hero Subtitle</Label>
+                <Input id="hero-subtitle" value={heroSubtitle} onChange={(e) => setHeroSubtitle(e.target.value)} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setHeroEditOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveHeroEditInner}>Save Changes</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Recent Works Dialog */}
+        <Dialog open={recentWorksOpen} onOpenChange={setRecentWorksOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Manage Recent Works</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="works-title">Section Title</Label>
+                <Input
+                  id="works-title"
+                  value={recentWorksTitle}
+                  onChange={(e) => setRecentWorksTitle(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="works-subtitle">Section Subtitle</Label>
+                <Input
+                  id="works-subtitle"
+                  value={recentWorksSubtitle}
+                  onChange={(e) => setRecentWorksSubtitle(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRecentWorksOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveRecentWorksInner}>Save Changes</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Application Tabs Dialog */}
+        <Dialog open={applicationTabsOpen} onOpenChange={setApplicationTabsOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Manage Application Tabs</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="tabs-title">Section Title</Label>
+                <Input
+                  id="tabs-title"
+                  value={applicationTabsTitle}
+                  onChange={(e) => setApplicationTabsTitle(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="tabs-subtitle">Section Subtitle</Label>
+                <Input
+                  id="tabs-subtitle"
+                  value={applicationTabsSubtitle}
+                  onChange={(e) => setApplicationTabsSubtitle(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="tab-image">Tab Image</Label>
+                <Input id="tab-image" type="file" accept="image/*" onChange={handleTabImageUpload} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setApplicationTabsOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveApplicationTabs}>Save Changes</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* About Us Dialog */}
+        <Dialog open={aboutUsOpen} onOpenChange={setAboutUsOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit About Us</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="about-subtitle">Subtitle</Label>
+                <Input
+                  id="about-subtitle"
+                  value={aboutUsSubtitle}
+                  onChange={(e) => setAboutUsSubtitle(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="about-description">Description</Label>
+                <textarea
+                  id="about-description"
+                  className="w-full p-2 border rounded-md"
+                  rows={4}
+                  value={aboutUsDescription}
+                  onChange={(e) => setAboutUsDescription(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="about-phone">Contact Phone</Label>
+                <Input id="about-phone" value={aboutUsPhone} onChange={(e) => setAboutUsPhone(e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="about-primary-color">Primary Color</Label>
+                <Input
+                  id="about-primary-color"
+                  type="color"
+                  value={aboutUsPrimaryColor}
+                  onChange={(e) => setAboutUsPrimaryColor(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="about-secondary-color">Secondary Color</Label>
+                <Input
+                  id="about-secondary-color"
+                  type="color"
+                  value={aboutUsSecondaryColor}
+                  onChange={(e) => setAboutUsSecondaryColor(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="about-image">About Us Image</Label>
+                <Input id="about-image" type="file" accept="image/*" onChange={handleAboutUsImageUpload} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setAboutUsOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveAboutUs}>Save Changes</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </div>
+  )
+}
