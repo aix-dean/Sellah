@@ -10,6 +10,9 @@ import { useParams } from "next/navigation"
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import ApplicationTabs from "@/components/ApplicationTabs" // Import ApplicationTabs component
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import Link from "next/link"
 
 export default function WebsitePage() {
@@ -1183,7 +1186,6 @@ export default function WebsitePage() {
               "/placeholder.svg" ||
               "/placeholder.svg" ||
               "/placeholder.svg" ||
-              "/placeholder.svg" ||
               "/placeholder.svg"
             }
             alt={companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.projectTitle || "Recent Work"}
@@ -1419,75 +1421,102 @@ export default function WebsitePage() {
         </div>
       </section>
 
-      {/* Our Technology Section */}
-      <section id="our-technology" className="w-full" style={{ backgroundColor: theme?.backgroundColor || "#ffffff" }}>
-        <div className="w-full">
-          <div className="text-center py-16 px-4">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4" style={{ color: theme?.textColor || "#1f2937" }}>
-              {companyData?.web_config?.ourTechnology?.mainTitle || "Our Technology, Your Way"}
-            </h2>
-            <p className="text-xl md:text-2xl max-w-3xl mx-auto" style={{ color: theme?.secondaryColor || "#6b7280" }}>
-              {companyData?.web_config?.ourTechnology?.subtitle || "Digital Products for Any Space, Any Application"}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-            {products.slice(0, 12).map((product, index) => (
-              <div
-                key={product.id}
-                className="relative aspect-square overflow-hidden group cursor-pointer hover:scale-105 transition-transform duration-300"
-              >
-                {product.photo_urls && product.photo_urls.length > 0 ? (
-                  <img
-                    src={product.photo_urls[0] || "/placeholder.svg"}
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : product.media && product.media.length > 0 ? (
-                  <img
-                    src={product.media[0].url || "/placeholder.svg?height=400&width=400"}
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <img
-                    src={`/ceholder-svg-key-ddvxm-height-400-width-400-text-.png?key=ddvxm&height=400&width=400&text=${encodeURIComponent(product.name || "Product")}`}
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                  />
-                )}
-                <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors duration-300"></div>
-                <div className="absolute inset-0 flex items-center justify-center p-4">
-                  <h3 className="text-white font-semibold text-center text-sm md:text-base leading-tight">
-                    {product.name}
-                  </h3>
-                </div>
+      <Dialog open={featuredProductsEditDialog} onOpenChange={setFeaturedProductsEditDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Featured Products Section</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Section Title</label>
+              <Input
+                value={featuredProductsEditData.sectionTitle}
+                onChange={(e) =>
+                  setFeaturedProductsEditData({ ...featuredProductsEditData, sectionTitle: e.target.value })
+                }
+                placeholder="Featured Products"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Section Description</label>
+              <Textarea
+                value={featuredProductsEditData.sectionDescription}
+                onChange={(e) =>
+                  setFeaturedProductsEditData({ ...featuredProductsEditData, sectionDescription: e.target.value })
+                }
+                placeholder="Lorem ipsum dolor sit amet..."
+                rows={3}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Product Title</label>
+              <Input
+                value={featuredProductsEditData.productTitle}
+                onChange={(e) =>
+                  setFeaturedProductsEditData({ ...featuredProductsEditData, productTitle: e.target.value })
+                }
+                placeholder="Classic Products"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Product Description</label>
+              <Textarea
+                value={featuredProductsEditData.productDescription}
+                onChange={(e) =>
+                  setFeaturedProductsEditData({ ...featuredProductsEditData, productDescription: e.target.value })
+                }
+                placeholder="LED signage that provides exceptional image..."
+                rows={3}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Button Text</label>
+              <Input
+                value={featuredProductsEditData.buttonText}
+                onChange={(e) =>
+                  setFeaturedProductsEditData({ ...featuredProductsEditData, buttonText: e.target.value })
+                }
+                placeholder="View More"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Background Color</label>
+                <Input
+                  type="color"
+                  value={featuredProductsEditData.backgroundColor}
+                  onChange={(e) =>
+                    setFeaturedProductsEditData({ ...featuredProductsEditData, backgroundColor: e.target.value })
+                  }
+                />
               </div>
-            ))}
-
-            {/* Fill remaining slots with placeholder if less than 12 products */}
-            {products.length < 12 &&
-              Array.from({ length: 12 - products.length }).map((_, index) => (
-                <div
-                  key={`placeholder-${index}`}
-                  className="relative aspect-square overflow-hidden group cursor-pointer hover:scale-105 transition-transform duration-300"
-                >
-                  <img
-                    src={`/ceholder-svg-key-nhy40.png?key=nhy40&height=400&width=400&text=Coming+Soon`}
-                    alt="Coming Soon"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors duration-300"></div>
-                  <div className="absolute inset-0 flex items-center justify-center p-4">
-                    <h3 className="text-white font-semibold text-center text-sm md:text-base leading-tight">
-                      Coming Soon
-                    </h3>
-                  </div>
-                </div>
-              ))}
+              <div>
+                <label className="block text-sm font-medium mb-2">Text Color</label>
+                <Input
+                  type="color"
+                  value={featuredProductsEditData.textColor}
+                  onChange={(e) =>
+                    setFeaturedProductsEditData({ ...featuredProductsEditData, textColor: e.target.value })
+                  }
+                />
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
+          <div className="flex justify-end gap-2 mt-6">
+            <Button variant="outline" onClick={() => setFeaturedProductsEditDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                console.log("[v0] Featured products data to save:", featuredProductsEditData)
+                setFeaturedProductsEditDialog(false)
+              }}
+            >
+              Save Changes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <section id="about-us" className="bg-background">
         <div className="w-full">

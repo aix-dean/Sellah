@@ -1681,44 +1681,82 @@ export default function WebsiteEditPage() {
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-              {[
-                { name: "Indoor LCD", image: "/placeholder.svg?height=400&width=400&text=Indoor+LCD" },
-                { name: "Digital Billboards", image: "/placeholder.svg?height=400&width=400&text=Digital+Billboards" },
-                { name: "LED Signs", image: "/placeholder.svg?height=400&width=400&text=LED+Signs" },
-                { name: "Scoreboards", image: "/placeholder.svg?height=400&width=400&text=Scoreboards" },
-                { name: "Video Walls", image: "/placeholder.svg?height=400&width=400&text=Video+Walls" },
-                { name: "Software & Controllers", image: "/placeholder.svg?height=400&width=400&text=Software+Controllers" },
-                { name: "ITS Dynamic Message Displays", image: "/placeholder.svg?height=400&width=400&text=ITS+Dynamic+Message" },
-                { name: "Digital Street Furniture", image: "/placeholder.svg?height=400&width=400&text=Digital+Street+Furniture" },
-                { name: "Digit & Price Display", image: "/placeholder.svg?height=400&width=400&text=Digit+Price+Display" },
-                { name: "Video Displays", image: "/placeholder.svg?height=400&width=400&text=Video+Displays" },
-                { name: "Sound Systems", image: "/placeholder.svg?height=400&width=400&text=Sound+Systems" },
-                { name: "Freeform Elements", image: "/placeholder.svg?height=400&width=400&text=Freeform+Elements" },
-              ].map((tech, index) => (
-                <EditableElement
-                  key={tech.name}
-                  content={{
-                    type: "technology-card",
-                    content: tech.name,
-                    section: "ourTechnology",
-                    field: `technology_${index}`,
-                  }}
-                >
-                  <div className="relative aspect-square overflow-hidden group cursor-pointer hover:scale-105 transition-transform duration-300">
-                    <img
-                      src={companyData?.web_config?.ourTechnology?.technologies?.[index]?.image || tech.image}
-                      alt={tech.name}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors duration-300"></div>
+              {productsLoading ? (
+                // Show loading placeholders
+                Array.from({ length: 12 }).map((_, index) => (
+                  <div key={index} className="relative aspect-square overflow-hidden">
+                    <div className="w-full h-full bg-gray-200 animate-pulse"></div>
+                    <div className="absolute inset-0 bg-black/40"></div>
                     <div className="absolute inset-0 flex items-center justify-center p-4">
-                      <h3 className="text-white font-semibold text-center text-sm md:text-base leading-tight">
-                        {companyData?.web_config?.ourTechnology?.technologies?.[index]?.name || tech.name}
-                      </h3>
+                      <div className="w-20 h-4 bg-gray-300 animate-pulse rounded"></div>
                     </div>
                   </div>
-                </EditableElement>
-              ))}
+                ))
+              ) : products.length > 0 ? (
+                // Show actual products data
+                products.slice(0, 12).map((product, index) => (
+                  <EditableElement
+                    key={product.id}
+                    content={{
+                      type: "technology-card",
+                      content: product.name,
+                      section: "ourTechnology",
+                      field: `technology_${index}`,
+                    }}
+                  >
+                    <div className="relative aspect-square overflow-hidden group cursor-pointer hover:scale-105 transition-transform duration-300">
+                      <img
+                        src={product.media?.[0]?.url || product.image_url || "/placeholder.svg?height=400&width=400&text=" + encodeURIComponent(product.name)}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors duration-300"></div>
+                      <div className="absolute inset-0 flex items-center justify-center p-4">
+                        <h3 className="text-white font-semibold text-center text-sm md:text-base leading-tight">
+                          {product.name}
+                        </h3>
+                      </div>
+                    </div>
+                  </EditableElement>
+                ))
+              ) : (
+                // Show placeholder when no products available
+                Array.from({ length: 12 }).map((_, index) => {
+                  const placeholderNames = [
+                    "Indoor LCD", "Digital Billboards", "LED Signs", "Scoreboards", 
+                    "Video Walls", "Software & Controllers", "ITS Dynamic Message Displays", 
+                    "Digital Street Furniture", "Digit & Price Display", "Video Displays", 
+                    "Sound Systems", "Freeform Elements"
+                  ];
+                  const placeholderName = placeholderNames[index] || `Product ${index + 1}`;
+                  
+                  return (
+                    <EditableElement
+                      key={index}
+                      content={{
+                        type: "technology-card",
+                        content: placeholderName,
+                        section: "ourTechnology",
+                        field: `technology_${index}`,
+                      }}
+                    >
+                      <div className="relative aspect-square overflow-hidden group cursor-pointer hover:scale-105 transition-transform duration-300">
+                        <img
+                          src={`/placeholder-8dpri.png?key=kw5r5&height=400&width=400&text=${encodeURIComponent(placeholderName)}`}
+                          alt={placeholderName}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors duration-300"></div>
+                        <div className="absolute inset-0 flex items-center justify-center p-4">
+                          <h3 className="text-white font-semibold text-center text-sm md:text-base leading-tight">
+                            {placeholderName}
+                          </h3>
+                        </div>
+                      </div>
+                    </EditableElement>
+                  );
+                })
+              )}
             </div>
           </div>
         </section>
@@ -3277,7 +3315,7 @@ export default function WebsiteEditPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Select Video File</label>
+              <label className="block text-sm font-medium mb-2">Select Video File</Label>
               <input
                 type="file"
                 accept="video/*"
@@ -3967,22 +4005,4 @@ export default function WebsiteEditPage() {
             </div>
             <div>
               <Label>Description</Label>
-              <Textarea
-                value={aboutUsConfig.description}
-                onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, description: e.target.value }))}
-                rows={4}
-              />
-            </div>
-            <div>
-              <Label>Contact Phone</Label>
-              <Input
-                value={aboutUsConfig.contactPhone}
-                onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, contactPhone: e.target.value }))}
-              />
-            </div>
-
-            <div>
-              <Label>CTA Button</Label>
-              <Input
-                value={aboutUsConfig.ctaButton}
-                onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, ctaButton: e.target.value
+              <\
