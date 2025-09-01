@@ -117,6 +117,11 @@ interface CompanyData {
       }
       copyright: string
     }
+    ourTechnology?: {
+      mainTitle: string
+      subtitle: string
+      technologies?: { name: string; image: string }[]
+    }
   }
 }
 
@@ -1640,6 +1645,80 @@ export default function WebsiteEditPage() {
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
               </svg>
+            </div>
+          </div>
+        </section>
+
+        {/* Our Technology Section */}
+        <section id="our-technology" className="w-full" style={{ backgroundColor: theme.backgroundColor }}>
+          <div className="w-full">
+            <div className="text-center py-16 px-4">
+              <EditableElement
+                content={{
+                  type: "heading",
+                  content: companyData?.web_config?.ourTechnology?.mainTitle || "Our Technology, Your Way",
+                  section: "ourTechnology",
+                  field: "mainTitle",
+                }}
+              >
+                <h2 className="text-4xl md:text-5xl font-bold mb-4" style={{ color: theme.textColor }}>
+                  {companyData?.web_config?.ourTechnology?.mainTitle || "Our Technology, Your Way"}
+                </h2>
+              </EditableElement>
+
+              <EditableElement
+                content={{
+                  type: "description",
+                  content: companyData?.web_config?.ourTechnology?.subtitle || "Digital Products for Any Space, Any Application",
+                  section: "ourTechnology",
+                  field: "subtitle",
+                }}
+              >
+                <p className="text-xl md:text-2xl max-w-3xl mx-auto" style={{ color: theme.secondaryColor }}>
+                  {companyData?.web_config?.ourTechnology?.subtitle || "Digital Products for Any Space, Any Application"}
+                </p>
+              </EditableElement>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+              {[
+                { name: "Indoor LCD", image: "/placeholder.svg?height=400&width=400&text=Indoor+LCD" },
+                { name: "Digital Billboards", image: "/placeholder.svg?height=400&width=400&text=Digital+Billboards" },
+                { name: "LED Signs", image: "/placeholder.svg?height=400&width=400&text=LED+Signs" },
+                { name: "Scoreboards", image: "/placeholder.svg?height=400&width=400&text=Scoreboards" },
+                { name: "Video Walls", image: "/placeholder.svg?height=400&width=400&text=Video+Walls" },
+                { name: "Software & Controllers", image: "/placeholder.svg?height=400&width=400&text=Software+Controllers" },
+                { name: "ITS Dynamic Message Displays", image: "/placeholder.svg?height=400&width=400&text=ITS+Dynamic+Message" },
+                { name: "Digital Street Furniture", image: "/placeholder.svg?height=400&width=400&text=Digital+Street+Furniture" },
+                { name: "Digit & Price Display", image: "/placeholder.svg?height=400&width=400&text=Digit+Price+Display" },
+                { name: "Video Displays", image: "/placeholder.svg?height=400&width=400&text=Video+Displays" },
+                { name: "Sound Systems", image: "/placeholder.svg?height=400&width=400&text=Sound+Systems" },
+                { name: "Freeform Elements", image: "/placeholder.svg?height=400&width=400&text=Freeform+Elements" },
+              ].map((tech, index) => (
+                <EditableElement
+                  key={tech.name}
+                  content={{
+                    type: "technology-card",
+                    content: tech.name,
+                    section: "ourTechnology",
+                    field: `technology_${index}`,
+                  }}
+                >
+                  <div className="relative aspect-square overflow-hidden group cursor-pointer hover:scale-105 transition-transform duration-300">
+                    <img
+                      src={companyData?.web_config?.ourTechnology?.technologies?.[index]?.image || tech.image}
+                      alt={tech.name}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors duration-300"></div>
+                    <div className="absolute inset-0 flex items-center justify-center p-4">
+                      <h3 className="text-white font-semibold text-center text-sm md:text-base leading-tight">
+                        {companyData?.web_config?.ourTechnology?.technologies?.[index]?.name || tech.name}
+                      </h3>
+                    </div>
+                  </div>
+                </EditableElement>
+              ))}
             </div>
           </div>
         </section>
@@ -3901,102 +3980,9 @@ export default function WebsiteEditPage() {
                 onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, contactPhone: e.target.value }))}
               />
             </div>
+
             <div>
-              <Label>CTA Button Text</Label>
+              <Label>CTA Button</Label>
               <Input
                 value={aboutUsConfig.ctaButton}
-                onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, ctaButton: e.target.value }))}
-              />
-            </div>
-            <div>
-              <Label>About Us Image</Label>
-              <div className="space-y-3">
-                {aboutUsConfig.image && (
-                  <div className="relative group inline-block">
-                    <img
-                      src={aboutUsConfig.image || "/placeholder.svg"}
-                      alt="About Us"
-                      className="w-full h-32 object-cover rounded border"
-                      onError={(e) => {
-                        e.currentTarget.src = "/placeholder.svg?height=128&width=200"
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => setAboutUsConfig((prev) => ({ ...prev, image: "" }))}
-                      className="absolute -top-1 -right-1 w-6 h-6 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
-                  </div>
-                )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0]
-                    if (file) handleAboutUsImageUpload(file)
-                  }}
-                  className="hidden"
-                  id="about-us-image-upload"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => document.getElementById("about-us-image-upload")?.click()}
-                  className="w-full"
-                >
-                  <Upload className="w-4 h-4 mr-2" />
-                  {aboutUsConfig.image ? "Replace Image" : "Upload Image"}
-                </Button>
-              </div>
-            </div>
-            <div>
-              <Label>Background Color</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="color"
-                  value={aboutUsConfig.backgroundColor}
-                  onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, backgroundColor: e.target.value }))}
-                  className="w-16 h-10 p-1"
-                />
-                <Input
-                  value={aboutUsConfig.backgroundColor}
-                  onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, backgroundColor: e.target.value }))}
-                  className="flex-1"
-                />
-              </div>
-            </div>
-            <div>
-              <Label>Text Color</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="color"
-                  value={aboutUsConfig.textColor}
-                  onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, textColor: e.target.value }))}
-                  className="w-16 h-10 p-1"
-                />
-                <Input
-                  value={aboutUsConfig.textColor}
-                  onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, textColor: e.target.value }))}
-                  className="flex-1"
-                />
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAboutUsDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAboutUsSave} disabled={aboutUsSaving}>
-              {aboutUsSaving ? "Saving..." : "Save Changes"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  )
-}
+                onChange={(e) => setAboutUsConfig((prev) => ({ ...prev, ctaButton: e.target.value

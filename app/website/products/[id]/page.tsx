@@ -281,6 +281,13 @@ export default function ProductDetailPage() {
               })()}
             </div>
 
+            {product.stock !== undefined && (
+              <div>
+                <div className="text-gray-600 mb-1">Stock</div>
+                <div className="text-gray-900 font-medium">{product.stock} available</div>
+              </div>
+            )}
+
             <div>
               <div className="text-gray-600 mb-1">Shipping</div>
               <div className="text-blue-600">Standard Shipping Available</div>
@@ -378,23 +385,16 @@ export default function ProductDetailPage() {
         )}
       </div>
 
-      <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40">
-        {productBriefId ? (
+      {!briefLoading && productBriefId && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40">
           <Link
             href={`/website/product-brief/${productBriefId}/typeform`}
             className="bg-blue-600 text-white py-3 px-8 rounded-full font-medium hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl flex items-center justify-center"
           >
             Product Brief
           </Link>
-        ) : (
-          <button
-            disabled
-            className="bg-gray-400 text-gray-200 py-3 px-8 rounded-full font-medium cursor-not-allowed shadow-lg flex items-center justify-center"
-          >
-            {briefLoading ? "Loading..." : "Product Brief Unavailable"}
-          </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {isGalleryOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">

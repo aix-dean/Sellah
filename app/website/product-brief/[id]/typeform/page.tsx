@@ -49,11 +49,21 @@ interface FormData {
   }
 }
 
+interface CompanyData {
+  id: string
+  name: string
+  logo?: string
+  web_config?: {
+    company_name?: string
+  }
+}
+
 export default function TypeformStylePage() {
   const params = useParams()
   const { toast } = useToast()
 
   const [formData, setFormData] = useState<FormData | null>(null)
+  const [companyData, setCompanyData] = useState<CompanyData | null>(null)
   const [responses, setResponses] = useState<Record<string, any>>({})
   const [currentPageIndex, setCurrentPageIndex] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
@@ -66,6 +76,25 @@ export default function TypeformStylePage() {
       fetchFormData()
     }
   }, [params.id])
+
+  const fetchCompanyData = async (companyId: string) => {
+    try {
+      const companyRef = doc(db, "companies", companyId)
+      const companySnap = await getDoc(companyRef)
+
+      if (companySnap.exists()) {
+        const data = companySnap.data()
+        setCompanyData({
+          id: companySnap.id,
+          name: data.name || "",
+          logo: data.logo || "",
+          web_config: data.web_config || {},
+        })
+      }
+    } catch (error) {
+      console.error("Error fetching company data:", error)
+    }
+  }
 
   const fetchFormData = async () => {
     try {
@@ -117,7 +146,7 @@ export default function TypeformStylePage() {
           pages.map((p) => p.questions.length),
         )
 
-        setFormData({
+        const formDataObj = {
           id: docSnap.id,
           title: data.title || "",
           description: data.description || "",
@@ -130,7 +159,13 @@ export default function TypeformStylePage() {
             secondaryColor: "#3b82f6",
             accentColor: "#1d4ed8",
           },
-        })
+        }
+
+        setFormData(formDataObj)
+
+        if (formDataObj.companyId) {
+          await fetchCompanyData(formDataObj.companyId)
+        }
       } else {
         toast({
           title: "Form Not Found",
@@ -515,6 +550,21 @@ export default function TypeformStylePage() {
 
       <div className="container mx-auto px-4 py-8 pt-12">
         <div className="max-w-3xl mx-auto">
+          {companyData?.logo && (
+            <div className="text-center mb-8">
+              <Link
+                href={`/website/${formData.companyId}`}
+                className="inline-block hover:opacity-80 transition-opacity"
+              >
+                <img
+                  src={companyData.logo || "/placeholder.svg"}
+                  alt={companyData.web_config?.company_name || companyData.name || "Company Logo"}
+                  className="h-16 w-auto mx-auto object-contain cursor-pointer"
+                />
+              </Link>
+            </div>
+          )}
+
           {!isSubmitted && currentPage && (
             <Card className="shadow-lg border-0 bg-white/80 backdrop-blur">
               <CardContent className="p-12">
