@@ -1141,603 +1141,384 @@ export default function WebsitePage() {
         </section>
       </div>
 
-      <section id="applications" className="py-16 bg-muted/30">
+      <section id="our-technology" className="w-full" style={{ backgroundColor: theme.backgroundColor }}>
         <div className="w-full">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold mb-4 text-foreground">Application</h2>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              {companyData?.web_config?.applications?.section_description ||
-                "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."}
+          <div className="text-center py-16 px-4">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4" style={{ color: theme.textColor }}>
+              {companyData?.web_config?.ourTechnology?.mainTitle || "Our Technology, Your Way"}
+            </h2>
+            <p className="text-xl md:text-2xl max-w-3xl mx-auto" style={{ color: theme.secondaryColor }}>
+              {companyData?.web_config?.ourTechnology?.subtitle || "Digital Products for Any Space, Any Application"}
             </p>
           </div>
 
-          <ApplicationTabs
-            theme={theme}
-            config={companyData?.web_config?.applicationTabs}
-            content={companyData?.web_config?.applicationTabs?.content}
-          />
+          <div className="flex justify-center">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 place-items-center max-w-fit">
+              {products.length > 0
+                ? // Show real products data
+                  products
+                    .slice(0, 12)
+                    .map((product, index) => (
+                      <div
+                        key={product.id}
+                        className="relative aspect-square overflow-hidden group cursor-pointer hover:scale-105 transition-transform duration-300"
+                      >
+                        <img
+                          src={
+                            product.media?.[0]?.url ||
+                            product.photo_urls?.[0] ||
+                            `/placeholder.svg?height=400&width=400&text=${encodeURIComponent(product.name) || "/placeholder.svg"}`
+                          }
+                          alt={product.name}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors duration-300"></div>
+                        <div className="absolute inset-0 flex items-center justify-center p-4">
+                          <h3 className="text-white font-semibold text-center text-sm md:text-base leading-tight">
+                            {product.name}
+                          </h3>
+                        </div>
+                      </div>
+                    ))
+                : // Show fallback placeholders when no products
+                  [
+                    { name: "Indoor LCD", image: "/placeholder.svg?height=400&width=400&text=Indoor+LCD" },
+                    {
+                      name: "Digital Billboards",
+                      image: "/placeholder.svg?height=400&width=400&text=Digital+Billboards",
+                    },
+                    { name: "LED Signs", image: "/placeholder.svg?height=400&width=400&text=LED+Signs" },
+                    { name: "Scoreboards", image: "/placeholder.svg?height=400&width=400&text=Scoreboards" },
+                    { name: "Video Walls", image: "/placeholder.svg?height=400&width=400&text=Video+Walls" },
+                    {
+                      name: "Software & Controllers",
+                      image: "/placeholder.svg?height=400&width=400&text=Software+Controllers",
+                    },
+                    {
+                      name: "ITS Dynamic Message Displays",
+                      image: "/placeholder.svg?height=400&width=400&text=ITS+Dynamic+Message",
+                    },
+                    {
+                      name: "Digital Street Furniture",
+                      image: "/placeholder.svg?height=400&width=400&text=Digital+Street+Furniture",
+                    },
+                    {
+                      name: "Digit & Price Display",
+                      image: "/placeholder.svg?height=400&width=400&text=Digit+Price+Display",
+                    },
+                    { name: "Video Displays", image: "/placeholder.svg?height=400&width=400&text=Video+Displays" },
+                    { name: "Sound Systems", image: "/placeholder.svg?height=400&width=400&text=Sound+Systems" },
+                    {
+                      name: "Freeform Elements",
+                      image: "/placeholder.svg?height=400&width=400&text=Freeform+Elements",
+                    },
+                  ].map((tech, index) => (
+                    <div
+                      key={tech.name}
+                      className="relative aspect-square overflow-hidden group cursor-pointer hover:scale-105 transition-transform duration-300"
+                    >
+                      <img
+                        src={companyData?.web_config?.ourTechnology?.technologies?.[index]?.image || tech.image}
+                        alt={tech.name}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors duration-300"></div>
+                      <div className="absolute inset-0 flex items-center justify-center p-4">
+                        <h3 className="text-white font-semibold text-center text-sm md:text-base leading-tight">
+                          {companyData?.web_config?.ourTechnology?.technologies?.[index]?.name || tech.name}
+                        </h3>
+                      </div>
+                    </div>
+                  ))}
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* Our Recent Works Section */}
-      <section
-        id="recent-works"
-        className="w-full aspect-video relative overflow-hidden"
-        onMouseEnter={() => setCurrentSlideIndex(currentSlideIndex)} // Pause on hover
-      >
-        <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent z-20"></div>
-        {companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.mediaType === "video" ? (
-          <video
-            src={
-              companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.backgroundImage ||
-              "/placeholder.svg?height=720&width=1280"
-            }
-            className="w-full h-full object-cover transition-all duration-500"
-            muted
-            loop
-            autoPlay
-            playsInline
-          />
-        ) : (
-          <img
-            src={
-              companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.backgroundImage ||
-              "/placeholder.svg?height=720&width=1280" ||
-              "/placeholder.svg" ||
-              "/placeholder.svg" ||
-              "/placeholder.svg" ||
-              "/placeholder.svg"
-            }
-            alt={companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.projectTitle || "Recent Work"}
-            className="w-full h-full object-cover transition-all duration-500"
-          />
-        )}
-
-        {/* Content Overlay */}
-        <div className="absolute inset-0 z-30 flex items-end">
-          <div className="p-8 lg:p-16 max-w-2xl">
-            <h2 className="text-4xl lg:text-5xl font-bold text-white mb-4 transition-all duration-500">
-              {companyData?.web_config?.recentWorksItems?.[0]?.sectionTitle || "Our Recent Works"}
+      <section id="applications" className="py-16 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold mb-4" style={{ color: theme.textColor }}>
+              {companyData?.web_config?.applicationTabs?.sectionTitle || "Applications"}
             </h2>
-            <h3 className="text-2xl lg:text-3xl font-semibold text-white mb-6 transition-all duration-500">
-              {companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.projectTitle || "Project Title"}
-            </h3>
-            <p className="text-lg text-white/90 leading-relaxed transition-all duration-500">
-              {companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.projectDescription ||
-                "Project description will appear here."}
+            <p className="text-gray-600 max-w-2xl mx-auto" style={{ color: theme.secondaryColor }}>
+              {companyData?.web_config?.applicationTabs?.sectionDescription ||
+                "Explore the diverse applications of our LED solutions across various industries."}
             </p>
           </div>
-        </div>
 
-        <div className="absolute bottom-8 right-8 z-30 flex items-center space-x-4">
-          <div className="flex space-x-2">
-            {(companyData?.web_config?.recentWorksItems || []).map((_, index) => (
-              <div
-                key={index}
-                className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                  index === currentSlideIndex ? "bg-white" : "bg-white/50"
-                }`}
-              ></div>
+          <ApplicationTabs companyData={companyData} theme={theme} />
+        </div>
+      </section>
+
+      <section id="recent-works" className="py-16" style={{ backgroundColor: theme.backgroundColor }}>
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold mb-4" style={{ color: theme.textColor }}>
+              {companyData?.web_config?.recentWorks?.sectionTitle || "Recent Works"}
+            </h2>
+            <p className="text-gray-600 max-w-2xl mx-auto" style={{ color: theme.secondaryColor }}>
+              {companyData?.web_config?.recentWorks?.sectionDescription ||
+                "Showcasing our latest projects and installations."}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[1, 2, 3, 4, 5, 6].map((index) => (
+              <div key={index} className="relative aspect-video overflow-hidden rounded-lg shadow-md">
+                <img
+                  src={`/project_text.png?height=400&width=600&text=Project ${index}`}
+                  alt={`Project ${index}`}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-black/30 hover:bg-black/50 transition-colors duration-300"></div>
+                <div className="absolute bottom-4 left-4 text-white">
+                  <h3 className="font-semibold text-lg">Project {index}</h3>
+                  <p className="text-sm">Brief description of the project</p>
+                </div>
+              </div>
             ))}
           </div>
-          <div className="flex space-x-2">
-            <button
-              className="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
-              style={{
-                backgroundColor:
-                  companyData?.web_config?.recentWorksSettings?.carouselNavColors?.buttonColor || "#2563eb",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor =
-                  companyData?.web_config?.recentWorksSettings?.carouselNavColors?.buttonHoverColor || "#1d4ed8"
-                const svg = e.currentTarget.querySelector("svg")
-                if (svg) {
-                  svg.style.color =
-                    companyData?.web_config?.recentWorksSettings?.carouselNavColors?.iconHoverColor || "#ffffff"
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor =
-                  companyData?.web_config?.recentWorksSettings?.carouselNavColors?.buttonColor || "#2563eb"
-                const svg = e.currentTarget.querySelector("svg")
-                if (svg) {
-                  svg.style.color =
-                    companyData?.web_config?.recentWorksSettings?.carouselNavColors?.iconColor || "#ffffff"
-                }
-              }}
-              onClick={() => {
-                if (autoSwipeInterval) {
-                  clearInterval(autoSwipeInterval)
-                  setAutoSwipeInterval(null)
-                }
-                const itemsLength = companyData?.web_config?.recentWorksItems?.length || 1
-                setCurrentSlideIndex((prev) => (prev - 1 + itemsLength) % itemsLength)
-              }}
-            >
-              <svg
-                className="w-5 h-5 transition-colors"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                style={{
-                  color: companyData?.web_config?.recentWorksSettings?.carouselNavColors?.iconColor || "#ffffff",
-                }}
+        </div>
+      </section>
+
+      <section id="products" className="py-16 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold mb-4" style={{ color: theme.textColor }}>
+              {companyData?.web_config?.products?.section_title || "Featured Products"}
+            </h2>
+            <p className="text-gray-600 max-w-2xl mx-auto" style={{ color: theme.secondaryColor }}>
+              {companyData?.web_config?.products?.section_description ||
+                "Explore our range of high-quality LED products."}
+            </p>
+            {process.env.NODE_ENV === "development" && (
+              <Button variant="outline" size="sm" onClick={handleFeaturedProductsClick}>
+                Edit Section
+              </Button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {products.map((product, index) => (
+              <div
+                key={product.id}
+                className="relative rounded-lg shadow-md overflow-hidden group cursor-pointer hover:scale-105 transition-transform duration-300"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <button
-              className="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
-              style={{
-                backgroundColor:
-                  companyData?.web_config?.recentWorksSettings?.carouselNavColors?.buttonColor || "#2563eb",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor =
-                  companyData?.web_config?.recentWorksSettings?.carouselNavColors?.buttonHoverColor || "#1d4ed8"
-                const svg = e.currentTarget.querySelector("svg")
-                if (svg) {
-                  svg.style.color =
-                    companyData?.web_config?.recentWorksSettings?.carouselNavColors?.iconHoverColor || "#ffffff"
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor =
-                  companyData?.web_config?.recentWorksSettings?.carouselNavColors?.buttonColor || "#2563eb"
-                const svg = e.currentTarget.querySelector("svg")
-                if (svg) {
-                  svg.style.color =
-                    companyData?.web_config?.recentWorksSettings?.carouselNavColors?.iconColor || "#ffffff"
-                }
-              }}
-              onClick={() => {
-                if (autoSwipeInterval) {
-                  clearInterval(autoSwipeInterval)
-                  setAutoSwipeInterval(null)
-                }
-                const itemsLength = companyData?.web_config?.recentWorksItems?.length || 1
-                setCurrentSlideIndex((prev) => (prev + 1) % itemsLength)
-              }}
-            >
-              <svg
-                className="w-5 h-5 transition-colors"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                style={{
-                  color: companyData?.web_config?.recentWorksSettings?.carouselNavColors?.iconColor || "#ffffff",
-                }}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
+                <img
+                  src={
+                    product.media?.[0]?.url ||
+                    product.photo_urls?.[0] ||
+                    `/placeholder.svg?height=400&width=600&text=${encodeURIComponent(product.name) || "/placeholder.svg"}`
+                  }
+                  alt={product.name}
+                  className="w-full h-64 object-cover"
+                />
+                <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors duration-300"></div>
+                <div className="absolute bottom-4 left-4 text-white">
+                  <h3 className="font-semibold text-lg">{product.name}</h3>
+                  <p className="text-sm">{product.description}</p>
+                </div>
+                <Link
+                  href={`/product/${product.slug}`}
+                  className="absolute inset-0 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                >
+                  <Button>View Product</Button>
+                </Link>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Featured Products Section */}
-      <section id="products" className="py-16 bg-white">
-        <div className="w-full">
+      <section id="about-us" className="py-16" style={{ backgroundColor: theme.backgroundColor }}>
+        <div className="container mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold mb-4 text-gray-900">
-              {companyData?.web_config?.products?.section_title || "Featured Products"}
+            <h2 className="text-4xl font-bold mb-4" style={{ color: theme.textColor }}>
+              {companyData?.web_config?.aboutUs?.sectionTitle || "About Us"}
             </h2>
+            <p className="text-gray-600 max-w-2xl mx-auto" style={{ color: theme.secondaryColor }}>
+              {companyData?.web_config?.aboutUs?.sectionDescription || "Learn more about our company and our mission."}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
-              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-                {companyData?.web_config?.products?.section_description ||
-                  "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."}
+              <img
+                src="/placeholder.svg?height=400&width=600&text=About+Us"
+                alt="About Us"
+                className="w-full h-auto rounded-lg shadow-md"
+              />
+            </div>
+            <div>
+              <p className="text-gray-700 leading-relaxed" style={{ color: theme.textColor }}>
+                {companyData?.web_config?.aboutUs?.content ||
+                  "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."}
               </p>
             </div>
           </div>
-
-          {products.length > 0 ? (
-            <div className="flex flex-col lg:flex-row min-h-[600px]">
-              <div className="w-full lg:w-1/2 flex items-center p-8 lg:p-16">
-                <div className="w-full h-full flex flex-col justify-center space-y-8">
-                  <div>
-                    <div>
-                      <h3 className="text-4xl lg:text-5xl font-bold mb-6 text-gray-900">
-                        {products[selectedProductIndex]?.name || "Featured Product"}
-                      </h3>
-                    </div>
-
-                    <div>
-                      <p className="text-lg text-gray-600 mb-8">
-                        {products[selectedProductIndex]?.description ||
-                          "Professional LED solution for your business needs."}
-                      </p>
-                    </div>
-
-                    <div>
-                      <Link href={`/website/products/${products[selectedProductIndex]?.id}`}>
-                        <button className="bg-blue-600 text-white px-8 py-3 rounded-full font-semibold mb-8 hover:bg-blue-700 transition-colors">
-                          {companyData?.web_config?.products?.button_text || "View More"}
-                        </button>
-                      </Link>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-4 flex-wrap">
-                    {products.slice(0, 4).map((product, index) => (
-                      <div
-                        key={product.id}
-                        className="text-center cursor-pointer"
-                        onClick={() => setSelectedProductIndex(index)}
-                      >
-                        <div
-                          className={`w-20 h-16 rounded-lg mb-2 flex items-center justify-center ${
-                            index === selectedProductIndex ? "bg-blue-600" : "bg-gray-200"
-                          }`}
-                        >
-                          {product.media?.[0]?.url ? (
-                            <img
-                              src={product.media[0].url || "/placeholder.svg"}
-                              alt={product.name}
-                              className="w-12 h-12 object-cover rounded"
-                            />
-                          ) : (
-                            <div className="w-12 h-12 bg-gray-300 rounded flex items-center justify-center">
-                              <span className="text-xs font-bold text-gray-600">{product.name?.charAt(0) || "P"}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="w-full lg:w-1/2 relative p-8 lg:p-16">
-                <div className="w-full mx-auto aspect-square bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg overflow-hidden mb-6 flex items-center justify-center">
-                  {products[selectedProductIndex]?.media?.[0]?.url ? (
-                    <img
-                      src={products[selectedProductIndex].media[0].url || "/placeholder.svg"}
-                      alt={products[selectedProductIndex].name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <img
-                      src="/placeholder.svg?height=400&width=400"
-                      alt="Product Display"
-                      className="w-full h-full object-cover"
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
-              <div className="text-gray-400 mb-4">
-                <div className="h-16 w-16 mx-auto mb-4 bg-gray-200 rounded-lg flex items-center justify-center">
-                  <span className="text-2xl">📦</span>
-                </div>
-                <h3 className="text-xl font-semibold mb-2">No Products Found</h3>
-                <p className="text-gray-500">
-                  No products have been added for this company yet. Add products to display them here.
-                </p>
-              </div>
-            </div>
-          )}
         </div>
       </section>
 
-      <Dialog open={featuredProductsEditDialog} onOpenChange={setFeaturedProductsEditDialog}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Featured Products Section</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Section Title</label>
-              <Input
-                value={featuredProductsEditData.sectionTitle}
-                onChange={(e) =>
-                  setFeaturedProductsEditData({ ...featuredProductsEditData, sectionTitle: e.target.value })
-                }
-                placeholder="Featured Products"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Section Description</label>
-              <Textarea
-                value={featuredProductsEditData.sectionDescription}
-                onChange={(e) =>
-                  setFeaturedProductsEditData({ ...featuredProductsEditData, sectionDescription: e.target.value })
-                }
-                placeholder="Lorem ipsum dolor sit amet..."
-                rows={3}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Product Title</label>
-              <Input
-                value={featuredProductsEditData.productTitle}
-                onChange={(e) =>
-                  setFeaturedProductsEditData({ ...featuredProductsEditData, productTitle: e.target.value })
-                }
-                placeholder="Classic Products"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Product Description</label>
-              <Textarea
-                value={featuredProductsEditData.productDescription}
-                onChange={(e) =>
-                  setFeaturedProductsEditData({ ...featuredProductsEditData, productDescription: e.target.value })
-                }
-                placeholder="LED signage that provides exceptional image..."
-                rows={3}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Button Text</label>
-              <Input
-                value={featuredProductsEditData.buttonText}
-                onChange={(e) =>
-                  setFeaturedProductsEditData({ ...featuredProductsEditData, buttonText: e.target.value })
-                }
-                placeholder="View More"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Background Color</label>
-                <Input
-                  type="color"
-                  value={featuredProductsEditData.backgroundColor}
-                  onChange={(e) =>
-                    setFeaturedProductsEditData({ ...featuredProductsEditData, backgroundColor: e.target.value })
-                  }
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Text Color</label>
-                <Input
-                  type="color"
-                  value={featuredProductsEditData.textColor}
-                  onChange={(e) =>
-                    setFeaturedProductsEditData({ ...featuredProductsEditData, textColor: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 mt-6">
-            <Button variant="outline" onClick={() => setFeaturedProductsEditDialog(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                console.log("[v0] Featured products data to save:", featuredProductsEditData)
-                setFeaturedProductsEditDialog(false)
-              }}
-            >
-              Save Changes
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <section id="about-us" className="bg-background">
-        <div className="w-full">
-          <div className="flex flex-col lg:flex-row min-h-[600px]">
-            <div
-              className="w-full lg:w-1/2 flex items-center p-8 lg:p-16"
-              style={{
-                backgroundColor: companyData?.web_config?.aboutUs?.backgroundColor || "#111827",
-                color: companyData?.web_config?.aboutUs?.textColor || "#ffffff",
-              }}
-            >
-              <div className="max-w-xl">
-                <h2 className="text-4xl lg:text-5xl font-bold mb-4">
-                  {companyData?.web_config?.aboutUs?.title || "About Us"}
-                </h2>
-                <h3
-                  className="text-xl lg:text-2xl mb-8"
-                  style={{ color: companyData?.web_config?.aboutUs?.subtitleColor || "#d1d5db" }}
-                >
-                  {companyData?.web_config?.aboutUs?.subtitle || "Consectetur Adipiscing Elit"}
-                </h3>
-                <p className="mb-8 text-sm leading-relaxed">
-                  {companyData?.web_config?.aboutUs?.description ||
-                    "Professional LED solutions for businesses worldwide. Quality, innovation, and reliability in every product."}
-                </p>
-                <div className="mb-8">
-                  <h3 className="font-semibold mb-2 text-sm">Contact Us</h3>
-                  <p className="text-sm">📞 {companyData?.web_config?.aboutUs?.contactPhone || "+63 (2) 8123-4567"}</p>
-                </div>
-                <button
-                  className="px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-colors"
-                  style={{
-                    backgroundColor: companyData?.web_config?.aboutUs?.buttonBackgroundColor || "#ffffff",
-                    color: companyData?.web_config?.aboutUs?.buttonTextColor || "#111827",
-                  }}
-                >
-                  {companyData?.web_config?.aboutUs?.ctaButton || "Get To Know Us"}
-                </button>
-              </div>
-            </div>
-
-            <div className="w-full lg:w-1/2 relative">
-              <img
-                src={companyData?.web_config?.aboutUs?.image || "/placeholder.svg?height=600&width=800"}
-                alt="About Us"
-                className="w-full h-full object-cover"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="why-us" className="py-16 bg-white">
+      <section id="why-us" className="py-16 bg-muted/30">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col lg:flex-row items-center gap-12">
-            {/* Left side - Content */}
-            <div className="w-full lg:w-1/2">
-              <h2 className="text-4xl lg:text-5xl font-bold text-black mb-8">
-                WHY {companyData?.name?.toUpperCase() || "CHOOSE US"}?
-              </h2>
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold mb-4" style={{ color: theme.textColor }}>
+              {companyData?.web_config?.whyUs?.sectionTitle || "Why Choose Us?"}
+            </h2>
+            <p className="text-gray-600 max-w-2xl mx-auto" style={{ color: theme.secondaryColor }}>
+              {companyData?.web_config?.whyUs?.sectionDescription ||
+                "Discover the reasons why we are the best choice for your LED solutions."}
+            </p>
+          </div>
 
-              <div className="space-y-6">
-                {(
-                  companyData?.web_config?.whyUs?.bulletPoints || [
-                    "We create LED displays with a focus on quality and usability.",
-                    "Our products are conceived, designed, tested, and supported in-house to ensure quality control.",
-                    `${companyData?.name || "We"} provide world-class support with our five-year product warranty, 10-year parts availability guarantee, and white glove service style.`,
-                    "Since our founding, our company has relied on a tireless work ethic to outperform the competition.",
-                    `Thousands of businesses nationwide have trusted ${companyData?.name || "us"} as their LED display manufacturer.`,
-                  ]
-                ).map((text, index) => (
-                  <div key={index} className="flex items-start gap-4">
-                    <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                    <p
-                      className="text-lg text-gray-800"
-                      dangerouslySetInnerHTML={{ __html: text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") }}
-                    />
-                  </div>
-                ))}
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="text-center">
+              <Zap className="h-12 w-12 mx-auto mb-4 text-primary" />
+              <h3 className="font-semibold text-lg mb-2" style={{ color: theme.textColor }}>
+                Innovation
+              </h3>
+              <p className="text-gray-700" style={{ color: theme.textColor }}>
+                We are committed to providing innovative and cutting-edge LED solutions.
+              </p>
             </div>
-
-            {/* Right side - Video/Image */}
-            <div className="w-full lg:w-1/2 relative">
-              {companyData?.web_config?.whyUs?.videoUrl ? (
-                <video
-                  src={companyData.web_config.whyUs.videoUrl}
-                  className="w-full aspect-video rounded-lg object-cover shadow-lg"
-                  controls
-                  autoPlay
-                  muted
-                  loop
-                  poster="/placeholder.svg?height=400&width=600"
-                />
-              ) : (
-                <div className="relative aspect-video rounded-lg overflow-hidden shadow-lg">
-                  <img
-                    src="/placeholder.svg?height=400&width=600"
-                    alt="LED displays and audiovisual systems showcase"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <button className="w-16 h-16 bg-red-600 rounded-lg flex items-center justify-center hover:bg-red-700 transition-colors shadow-lg">
-                      <svg className="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              )}
+            <div className="text-center">
+              <Lightbulb className="h-12 w-12 mx-auto mb-4 text-primary" />
+              <h3 className="font-semibold text-lg mb-2" style={{ color: theme.textColor }}>
+                Quality
+              </h3>
+              <p className="text-gray-700" style={{ color: theme.textColor }}>
+                We use only the highest quality materials and components in our products.
+              </p>
+            </div>
+            <div className="text-center">
+              <Monitor className="h-12 w-12 mx-auto mb-4 text-primary" />
+              <h3 className="font-semibold text-lg mb-2" style={{ color: theme.textColor }}>
+                Reliability
+              </h3>
+              <p className="text-gray-700" style={{ color: theme.textColor }}>
+                Our products are designed and tested to ensure long-lasting reliability.
+              </p>
             </div>
           </div>
         </div>
       </section>
 
       <footer
+        className="py-8 text-center"
         style={{
-          backgroundColor:
-            companyData?.web_config?.footer?.backgroundColor || companyData?.theme?.footerBackgroundColor || "#0f172a",
-          color: companyData?.web_config?.footer?.textColor || companyData?.theme?.footerTextColor || "#ffffff",
+          backgroundColor: theme?.footerBackgroundColor || theme?.primaryColor || "hsl(var(--background))",
+          color: theme?.footerTextColor || "#ffffff",
         }}
       >
-        <div className="py-16 text-center">
-          <h2 className="text-4xl lg:text-5xl font-bold mb-4">
-            {companyData?.web_config?.footer?.title || "How Can We Help You?"}
-          </h2>
+        <p>
+          &copy; {new Date().getFullYear()} {companyData?.name || "Company"}. All rights reserved.
+        </p>
+      </footer>
 
-          <p className="text-lg mb-8 opacity-75">
-            {companyData?.web_config?.footer?.subtitle || "Feel free to let us know."}
-          </p>
-
-          <button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-colors">
-            {companyData?.web_config?.footer?.buttonText || "contact us"}
-          </button>
-        </div>
-
-        <div
-          className="border-t border-opacity-20 py-8"
-          style={{
-            borderColor: companyData?.web_config?.footer?.textColor || companyData?.theme?.footerTextColor || "#ffffff",
-          }}
-        >
-          <div className="container mx-auto px-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-              {/* About Us Section */}
-              <div className="text-left">
-                <h3 className="font-semibold mb-4">{companyData?.web_config?.footer?.aboutUs?.title || "About Us"}</h3>
-                <div className="opacity-75 space-y-2">
-                  {(
-                    companyData?.web_config?.footer?.aboutUs?.links || [
-                      "About Unilumin",
-                      "Joint-Stock Company",
-                      "U-Green",
-                    ]
-                  ).map((link, index) => (
-                    <p key={index}>{link}</p>
-                  ))}
-                </div>
-              </div>
-
-              {/* Address Section */}
-              <div className="text-left">
-                <h3 className="font-semibold mb-4">{companyData?.web_config?.footer?.address?.title || "Address"}</h3>
-                <div className="opacity-75 space-y-2">
-                  {(
-                    companyData?.web_config?.footer?.address?.lines || [
-                      "No. 18 Haoye Road, Fuhai Sub-district, Bao'an District",
-                      "Shenzhen, Guangdong Province",
-                      "sales@unilumin.com",
-                      "+86-755-29019999",
-                    ]
-                  ).map((line, index) => (
-                    <p key={index}>{line}</p>
-                  ))}
-                </div>
-              </div>
-
-              {/* Follow Us Section */}
-              <div className="text-left">
-                <h3 className="font-semibold mb-4">
-                  {companyData?.web_config?.footer?.followUs?.title || "Follow Us"}
-                </h3>
-                <div className="flex space-x-4">
-                  <a href="#" className="opacity-75 hover:opacity-100 transition-opacity">
-                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z" />
-                    </svg>
-                  </a>
-                  <a href="#" className="opacity-75 hover:opacity-100 transition-opacity">
-                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                    </svg>
-                  </a>
-                  <a href="#" className="opacity-75 hover:opacity-100 transition-opacity">
-                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-                    </svg>
-                  </a>
-                </div>
-              </div>
+      <Dialog open={featuredProductsEditDialog} onOpenChange={setFeaturedProductsEditDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Featured Products Section</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label htmlFor="sectionTitle" className="text-right">
+                Section Title
+              </label>
+              <Input
+                id="sectionTitle"
+                value={featuredProductsEditData.sectionTitle}
+                onChange={(e) =>
+                  setFeaturedProductsEditData({ ...featuredProductsEditData, sectionTitle: e.target.value })
+                }
+                className="col-span-3"
+              />
             </div>
-
-            {/* Copyright Section */}
-            <div
-              className="border-t border-opacity-20 pt-8 text-center"
-              style={{
-                borderColor:
-                  companyData?.web_config?.footer?.textColor || companyData?.theme?.footerTextColor || "#ffffff",
-              }}
-            >
-              <p className="opacity-75">
-                {companyData?.web_config?.footer?.copyright || "copyright © 2025 Display Option Solutions"}
-              </p>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label htmlFor="sectionDescription" className="text-right">
+                Section Description
+              </label>
+              <Textarea
+                id="sectionDescription"
+                value={featuredProductsEditData.sectionDescription}
+                onChange={(e) =>
+                  setFeaturedProductsEditData({ ...featuredProductsEditData, sectionDescription: e.target.value })
+                }
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label htmlFor="productTitle" className="text-right">
+                Product Title
+              </label>
+              <Input
+                id="productTitle"
+                value={featuredProductsEditData.productTitle}
+                onChange={(e) =>
+                  setFeaturedProductsEditData({ ...featuredProductsEditData, productTitle: e.target.value })
+                }
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label htmlFor="productDescription" className="text-right">
+                Product Description
+              </label>
+              <Textarea
+                id="productDescription"
+                value={featuredProductsEditData.productDescription}
+                onChange={(e) =>
+                  setFeaturedProductsEditData({ ...featuredProductsEditData, productDescription: e.target.value })
+                }
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label htmlFor="buttonText" className="text-right">
+                Button Text
+              </label>
+              <Input
+                id="buttonText"
+                value={featuredProductsEditData.buttonText}
+                onChange={(e) =>
+                  setFeaturedProductsEditData({ ...featuredProductsEditData, buttonText: e.target.value })
+                }
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label htmlFor="backgroundColor" className="text-right">
+                Background Color
+              </label>
+              <Input
+                type="color"
+                id="backgroundColor"
+                value={featuredProductsEditData.backgroundColor}
+                onChange={(e) =>
+                  setFeaturedProductsEditData({ ...featuredProductsEditData, backgroundColor: e.target.value })
+                }
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label htmlFor="textColor" className="text-right">
+                Text Color
+              </label>
+              <Input
+                type="color"
+                id="textColor"
+                value={featuredProductsEditData.textColor}
+                onChange={(e) =>
+                  setFeaturedProductsEditData({ ...featuredProductsEditData, textColor: e.target.value })
+                }
+                className="col-span-3"
+              />
             </div>
           </div>
-        </div>
-      </footer>
+          <Button onClick={() => setFeaturedProductsEditDialog(false)}>Save</Button>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
