@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Edit3, FileText, Package, ArrowLeft, BarChart3 } from "lucide-react"
+import { Plus, Edit3, FileText, Package, BarChart3 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -144,12 +144,6 @@ export default function ProductBriefPage() {
         <div className="max-w-6xl mx-auto">
           <div className="mb-8">
             <div className="bg-white rounded-lg p-6 shadow-sm border">
-              <div className="flex items-center justify-between mb-4">
-                <Button variant="outline" onClick={() => router.push("/dashboard")} className="flex items-center gap-2">
-                  <ArrowLeft className="w-4 h-4" />
-                  Back to Dashboard
-                </Button>
-              </div>
               <div className="flex items-center justify-between">
                 <div>
                   <h1 className="text-4xl font-bold text-gray-900 flex items-center gap-3 mb-2">

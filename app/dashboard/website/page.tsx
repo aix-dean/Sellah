@@ -1,6 +1,6 @@
 "use client"
 
-import { Eye, Edit3, Palette, Terminal, Copy, QrCode, Lock, FileText } from "lucide-react"
+import { Eye, Edit3, Palette, Terminal, Copy, QrCode, Lock, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -347,7 +347,7 @@ export default function WebsitePage() {
           </div>
 
           {/* Website Overview Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <Card className="hover:shadow-md transition-shadow border-0 shadow-sm">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg">
@@ -359,9 +359,20 @@ export default function WebsitePage() {
                 <CardDescription className="text-sm">Your terminal is live and accessible</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="text-sm font-semibold text-green-700">Active</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-sm font-semibold text-green-700">Active</span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="hover:bg-green-50 hover:border-green-200 bg-transparent"
+                    onClick={() => router.push("/website/ZxWUmoFXCLnTXJVAOaAA")}
+                  >
+                    <ExternalLink className="w-3 h-3 mr-2" />
+                    View Terminal
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -386,29 +397,6 @@ export default function WebsitePage() {
                 >
                   <Lock className="w-3 h-3 mr-2" />
                   {isCheckingPin ? "Checking..." : "Edit Content"}
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="hover:shadow-md transition-shadow border-0 shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <div className="p-1.5 bg-blue-100 rounded-md">
-                    <FileText className="w-4 h-4 text-blue-600" />
-                  </div>
-                  Product Brief
-                </CardTitle>
-                <CardDescription className="text-sm">Create and manage product brief forms</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full hover:bg-blue-50 hover:border-blue-200 bg-transparent"
-                  onClick={() => router.push("/dashboard/product-brief")}
-                >
-                  <FileText className="w-3 h-3 mr-2" />
-                  Manage Forms
                 </Button>
               </CardContent>
             </Card>

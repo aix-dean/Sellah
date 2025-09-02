@@ -10,7 +10,18 @@ import { db } from "@/lib/firebase"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Package, ShoppingCart, Users, Bell, MessageSquare, ChevronDown, LogOut, X, Globe } from "lucide-react"
+import {
+  Package,
+  ShoppingCart,
+  Users,
+  Bell,
+  MessageSquare,
+  ChevronDown,
+  LogOut,
+  X,
+  Globe,
+  FileText,
+} from "lucide-react"
 import { useRouter, usePathname } from "next/navigation"
 import { signOut } from "@/lib/auth"
 
@@ -35,7 +46,8 @@ export default function DashboardLayout({ children, activeItem, userName = "" }:
   const menuItems = [
     { id: "inventory", label: "Inventory", icon: Package, href: "/dashboard/products" },
     { id: "orders", label: "Orders", icon: ShoppingCart, href: "/dashboard/orders" },
-    { id: "website", label: "Terminal", icon: Globe, href: "/dashboard/website" },
+    { id: "website", label: "Central Terminal", icon: Globe, href: "/dashboard/website" }, // Changed "Terminal" to "Central Terminal"
+    { id: "project-brief", label: "Project Brief", icon: FileText, href: "/dashboard/product-brief" },
     { id: "account", label: "Account", icon: Users, href: "/dashboard/account" },
   ]
 
@@ -45,7 +57,8 @@ export default function DashboardLayout({ children, activeItem, userName = "" }:
 
     if (pathname.startsWith("/dashboard/products")) return "inventory"
     if (pathname.startsWith("/dashboard/orders")) return "orders"
-    if (pathname.startsWith("/dashboard/website") || pathname.startsWith("/dashboard/product-brief")) return "website"
+    if (pathname.startsWith("/dashboard/website")) return "website"
+    if (pathname.startsWith("/dashboard/product-brief")) return "project-brief"
     if (pathname.startsWith("/dashboard/account")) return "account"
 
     return "inventory" // default fallback
