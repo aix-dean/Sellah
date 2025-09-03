@@ -1,14 +1,23 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Edit3, FileText, Package, BarChart3 } from "lucide-react"
+import { Plus, Edit3, FileText, Package, BarChart3, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useUserData } from "@/hooks/use-user-data"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
-import { collection, query, where, getDocs, addDoc, Timestamp } from "firebase/firestore"
+import { collection, query, where, getDocs, addDoc, doc, getDoc, Timestamp } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import type { Product } from "@/lib/product-service"
 
@@ -16,6 +25,14 @@ interface ProductWithBrief extends Product {
   briefId?: string
   briefTitle?: string
   hasForm: boolean
+}
+
+interface CopyBriefState {
+  isOpen: boolean
+  sourceBriefId: string | null
+  sourceProductName: string | null
+  targetProducts: string[]
+  isLoading: boolean
 }
 
 export default function ProductBriefPage() {
@@ -26,6 +43,13 @@ export default function ProductBriefPage() {
   const [productsWithBriefs, setProductsWithBriefs] = useState<ProductWithBrief[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isCreating, setIsCreating] = useState<string | null>(null)
+  const [copyBriefState, setCopyBriefState] = useState<CopyBriefState>({
+    isOpen: false,
+    sourceBriefId: null,
+    sourceProductName: null,
+    targetProducts: [],
+    isLoading: false,
+  })
 
   useEffect(() => {
     if (userData?.company_id) {
@@ -52,7 +76,6 @@ export default function ProductBriefPage() {
       const briefsQuery = query(briefsRef, where("companyId", "==", userData.company_id))
       const briefsSnapshot = await getDocs(briefsQuery)
 
-      // Create a map of product IDs to brief forms
       const briefsByProductId = new Map()
       briefsSnapshot.forEach((doc) => {
         const data = doc.data()
@@ -135,6 +158,110 @@ export default function ProductBriefPage() {
   const handleEditForm = (product: ProductWithBrief) => {
     if (product.briefId) {
       router.push(`/dashboard/product-brief/builder/${product.briefId}`)
+    }
+  }
+
+  const handleCopyBrief = (product: ProductWithBrief) => {
+    if (!product.briefId) return
+
+    setCopyBriefState({
+      isOpen: true,
+      sourceBriefId: product.briefId,
+      sourceProductName: product.name,
+      targetProducts: [],
+      isLoading: false,
+    })
+  }
+
+  const getProductsWithoutForms = () => {
+    return productsWithBriefs.filter((product) => !product.hasForm)
+  }
+
+  const handleTargetProductToggle = (productId: string) => {
+    setCopyBriefState((prev) => ({
+      ...prev,
+      targetProducts: prev.targetProducts.includes(productId)
+        ? prev.targetProducts.filter((id) => id !== productId)
+        : [...prev.targetProducts, productId],
+    }))
+  }
+
+  const executeCopyBrief = async () => {
+    if (!copyBriefState.sourceBriefId || copyBriefState.targetProducts.length === 0 || !userData?.company_id) {
+      return
+    }
+
+    try {
+      setCopyBriefState((prev) => ({ ...prev, isLoading: true }))
+
+      const sourceBriefRef = doc(db, "products_brief", copyBriefState.sourceBriefId)
+      const sourceBriefSnap = await getDoc(sourceBriefRef)
+
+      if (!sourceBriefSnap.exists()) {
+        toast({
+          title: "Error",
+          description: "Source brief form not found",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const sourceBriefData = sourceBriefSnap.data()
+      const briefsRef = collection(db, "products_brief")
+
+      const copyPromises = copyBriefState.targetProducts.map(async (targetProductId) => {
+        const targetProduct = productsWithBriefs.find((p) => p.id === targetProductId)
+        if (!targetProduct) return
+
+        const newBrief = {
+          title: `${targetProduct.name} Brief`,
+          description: `Product brief form for ${targetProduct.name} (copied from ${copyBriefState.sourceProductName})`,
+          companyId: userData.company_id,
+          createdBy: userData.uid,
+          pages: sourceBriefData.pages || [],
+          questions: sourceBriefData.questions || [],
+          theme: sourceBriefData.theme || {
+            name: "Ocean Blue",
+            primaryColor: "#2563eb",
+            secondaryColor: "#3b82f6",
+            accentColor: "#1d4ed8",
+          },
+          isActive: true,
+          responseCount: 0,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+          linkedProductId: targetProductId,
+          linkedProductName: targetProduct.name,
+        }
+
+        return addDoc(briefsRef, newBrief)
+      })
+
+      await Promise.all(copyPromises)
+
+      toast({
+        title: "Brief Forms Copied",
+        description: `Successfully copied brief form to ${copyBriefState.targetProducts.length} product${copyBriefState.targetProducts.length > 1 ? "s" : ""}`,
+      })
+
+      await fetchProductsWithBriefs()
+
+      setCopyBriefState({
+        isOpen: false,
+        sourceBriefId: null,
+        sourceProductName: null,
+        targetProducts: [],
+        isLoading: false,
+      })
+    } catch (error) {
+      console.error("Error copying brief:", error)
+      toast({
+        title: "Error",
+        description: "Failed to copy brief forms",
+        variant: "destructive",
+      })
+    } finally {
+      setCopyBriefState((prev) => ({ ...prev, isLoading: false }))
     }
   }
 
@@ -260,15 +387,33 @@ export default function ProductBriefPage() {
                       </div>
 
                       {product.hasForm && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => router.push(`/dashboard/product-brief/responses/${product.briefId}`)}
-                          className="w-full text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                        >
-                          <BarChart3 className="w-3 h-3 mr-1" />
-                          View Responses
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => router.push(`/dashboard/product-brief/responses/${product.briefId}`)}
+                            className="flex-1 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                          >
+                            <BarChart3 className="w-3 h-3 mr-1" />
+                            View Responses
+                          </Button>
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCopyBrief(product)}
+                            disabled={getProductsWithoutForms().length === 0}
+                            className="flex-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                            title={
+                              getProductsWithoutForms().length === 0
+                                ? "No products available to copy to"
+                                : "Copy this brief to other products"
+                            }
+                          >
+                            <Copy className="w-3 h-3 mr-1" />
+                            Copy Brief
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </CardContent>
@@ -278,6 +423,76 @@ export default function ProductBriefPage() {
           )}
         </div>
       </div>
+
+      <Dialog
+        open={copyBriefState.isOpen}
+        onOpenChange={(open) => !open && setCopyBriefState((prev) => ({ ...prev, isOpen: false }))}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Copy Brief Form</DialogTitle>
+            <DialogDescription>
+              Copy the brief form from "{copyBriefState.sourceProductName}" to other products that don't have forms yet.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-gray-700">Select products to copy to:</p>
+
+              {getProductsWithoutForms().length === 0 ? (
+                <p className="text-sm text-gray-500 italic">All products already have brief forms.</p>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {getProductsWithoutForms().map((product) => (
+                    <div key={product.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`copy-target-${product.id}`}
+                        checked={copyBriefState.targetProducts.includes(product.id!)}
+                        onCheckedChange={() => handleTargetProductToggle(product.id!)}
+                      />
+                      <label
+                        htmlFor={`copy-target-${product.id}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
+                      >
+                        <div className="flex items-center gap-2">
+                          {product.media && product.media[0]?.url && (
+                            <img
+                              src={product.media[0].url || "/placeholder.svg"}
+                              alt={product.name}
+                              className="w-6 h-6 rounded object-cover"
+                            />
+                          )}
+                          <span>{product.name}</span>
+                        </div>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCopyBriefState((prev) => ({ ...prev, isOpen: false }))}
+              disabled={copyBriefState.isLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={executeCopyBrief}
+              disabled={copyBriefState.targetProducts.length === 0 || copyBriefState.isLoading}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {copyBriefState.isLoading
+                ? "Copying..."
+                : `Copy to ${copyBriefState.targetProducts.length} Product${copyBriefState.targetProducts.length !== 1 ? "s" : ""}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
