@@ -115,25 +115,37 @@ export default function ApplicationTabs({ theme, config, content }: ApplicationT
   }
 
   const getDisplayImage = () => {
-    if (!currentContent || !currentContent.applications || !Array.isArray(currentContent.applications)) {
-      console.log("[v0] No valid content or applications array, using fallback")
+    if (!currentContent) {
+      console.log("[v0] No current content, using fallback")
       return "/placeholder.svg?height=400&width=600"
     }
 
+    // If no applications exist, always show the main tab image
+    if (
+      !currentContent.applications ||
+      !Array.isArray(currentContent.applications) ||
+      currentContent.applications.length === 0
+    ) {
+      console.log("[v0] No applications available, using main tab image:", currentContent.image)
+      return currentContent.image || "/placeholder.svg?height=400&width=600"
+    }
+
+    // If selectedApplication is out of bounds, use main tab image
     if (selectedApplication < 0 || selectedApplication >= currentContent.applications.length) {
-      console.log("[v0] Selected application index out of bounds, using fallback")
+      console.log("[v0] Selected application index out of bounds, using main tab image:", currentContent.image)
       return currentContent.image || "/placeholder.svg?height=400&width=600"
     }
 
     const application = currentContent.applications[selectedApplication]
     console.log("[v0] Selected application:", application)
 
+    // If application has an image, use it; otherwise use main tab image
     if (application && typeof application === "object" && application.image) {
       console.log("[v0] Using application image:", application.image)
       return application.image
     }
 
-    console.log("[v0] Using default image:", currentContent.image || "/placeholder.svg")
+    console.log("[v0] Using main tab image:", currentContent.image)
     return currentContent.image || "/placeholder.svg?height=400&width=600"
   }
 

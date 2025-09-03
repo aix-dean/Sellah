@@ -1189,6 +1189,22 @@ export default function WebsiteEditPage() {
     updateTabContent(tabId, "applications", updatedApplications)
   }
 
+  const uploadFileToStorage = async (file: File, path: string) => {
+    const storageRef = ref(storage, `${path}/${file.name}`)
+    await uploadBytes(storageRef, file)
+    return await getDownloadURL(storageRef)
+  }
+
+  const handleTabContentImageUpload = async (tabId: string, file: File) => {
+    try {
+      const companyId = slug
+      const url = await uploadFileToStorage(file, `websites/${companyId}/tabs/${tabId}`)
+      updateTabContent(tabId, "image", url)
+    } catch (error) {
+      console.error("Error uploading image:", error)
+    }
+  }
+
   const handleApplicationImageUpload = async (tabId: string, appIndex: number, file: File) => {
     try {
       const fileName = `${Date.now()}_${file.name}`
@@ -1201,25 +1217,6 @@ export default function WebsiteEditPage() {
       updateApplication(tabId, appIndex, "image", downloadURL)
     } catch (error) {
       console.error("Error uploading application image:", error)
-    }
-  }
-
-  const handleTabContentImageUpload = async (tabId: string, file: File) => {
-    try {
-      const formData = new FormData()
-      formData.append("file", file)
-
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        updateTabContent(tabId, "image", data.url)
-      }
-    } catch (error) {
-      console.error("Error uploading image:", error)
     }
   }
 
@@ -1684,7 +1681,7 @@ export default function WebsiteEditPage() {
               <ApplicationTabs
                 theme={theme}
                 config={companyData?.web_config?.applicationTabs || applicationTabsConfig}
-                content={companyData?.web_config?.applicationTabs?.content}
+                content={(companyData?.web_config?.applicationTabs || applicationTabsConfig)?.content}
               />
               <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
                 <div className="bg-blue-500 text-white p-1 rounded-bl text-xs flex items-center gap-1">
@@ -3080,15 +3077,12 @@ export default function WebsiteEditPage() {
             <div className="border rounded-lg p-4">
               <Label>Preview:</Label>
               <div
-                className="mt-2 h-20 rounded-lg flex flex-col items-center justify-center font-medium"
+                className="mt-2 h-16 rounded-lg flex items-center justify-center font-medium space-x-4"
                 style={{ backgroundColor: headerColor }}
               >
-                <div className="text-white text-sm mb-2">Header Preview</div>
-                <div className="flex gap-4 text-sm" style={{ color: navColor }}>
-                  <span>Home</span>
-                  <span>Application</span>
-                  <span>Recent Works</span>
-                </div>
+                <span style={{ color: navColor }}>Home</span>
+                <span style={{ color: navColor }}>Application</span>
+                <span style={{ color: navColor }}>Recent Works</span>
               </div>
             </div>
           </div>
@@ -3106,77 +3100,6 @@ export default function WebsiteEditPage() {
             </Button>
             <Button onClick={handleSaveHeaderColor} disabled={headerColorSaving} className="flex items-center gap-2">
               {headerColorSaving ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  Save Colors
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Nav Color Dialog */}
-      <Dialog open={navColorDialog} onOpenChange={setNavColorDialog}>
-        <DialogContent className="bg-white">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Palette className="w-5 h-5" />
-              Edit Navigation Color
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="nav-color">Navigation Text Color</Label>
-              <div className="flex gap-3 mt-2">
-                <Input
-                  id="nav-color"
-                  type="color"
-                  value={navColor}
-                  onChange={(e) => setNavColor(e.target.value)}
-                  className="w-16 h-10 p-1 border rounded"
-                />
-                <Input
-                  type="text"
-                  value={navColor}
-                  onChange={(e) => setNavColor(e.target.value)}
-                  placeholder="#ffffff"
-                  className="flex-1"
-                />
-              </div>
-            </div>
-
-            <div className="border rounded-lg p-4">
-              <Label>Preview:</Label>
-              <div
-                className="mt-2 h-16 rounded-lg flex items-center justify-center font-medium space-x-4"
-                style={{ backgroundColor: headerColor }}
-              >
-                <span style={{ color: navColor }}>Home</span>
-                <span style={{ color: navColor }}>Application</span>
-                <span style={{ color: navColor }}>Recent Works</span>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setNavColorDialog(false)
-                setNavColor(companyData?.web_config?.theme?.navColor || "#ffffff")
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleSaveNavColor} disabled={navColorSaving} className="flex items-center gap-2">
-              {navColorSaving ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   Saving...
@@ -3812,6 +3735,114 @@ export default function WebsiteEditPage() {
                         onChange={(e) => updateTabContent(selectedTabForContent, "description", e.target.value)}
                         rows={3}
                       />
+                    </div>
+
+                    <div>
+                      <Label>Tab Image</Label>
+                      <div className="space-y-2">
+                        {applicationTabsConfig.content[selectedTabForContent]?.image && (
+                          <div className="relative">
+                            <img
+                              src={applicationTabsConfig.content[selectedTabForContent].image || "/placeholder.svg"}
+                              alt="Tab content"
+                              className="w-32 h-32 object-cover rounded border"
+                            />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => updateTabContent(selectedTabForContent, "image", "")}
+                              className="absolute top-1 right-1 h-6 w-6 p-0"
+                            >
+                              ×
+                            </Button>
+                          </div>
+                        )}
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) {
+                              handleTabContentImageUpload(selectedTabForContent, file)
+                            }
+                          }}
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label>Application Images</Label>
+                      <div className="space-y-3 mt-2">
+                        {applicationTabsConfig.content[selectedTabForContent]?.applications?.map((app, index) => (
+                          <div key={index} className="border rounded-lg p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium text-sm">{app.name}</span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => removeApplication(selectedTabForContent, index)}
+                                className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                              >
+                                ×
+                              </Button>
+                            </div>
+
+                            <div>
+                              <Label className="text-xs">Application Name</Label>
+                              <Input
+                                value={app.name}
+                                onChange={(e) =>
+                                  updateApplication(selectedTabForContent, index, "name", e.target.value)
+                                }
+                                className="text-sm"
+                              />
+                            </div>
+
+                            <div>
+                              <Label className="text-xs">Application Image</Label>
+                              <div className="space-y-2">
+                                {app.image && (
+                                  <div className="relative">
+                                    <img
+                                      src={app.image || "/placeholder.svg"}
+                                      alt={app.name}
+                                      className="w-24 h-24 object-cover rounded border"
+                                    />
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => updateApplication(selectedTabForContent, index, "image", "")}
+                                      className="absolute top-1 right-1 h-5 w-5 p-0"
+                                    >
+                                      ×
+                                    </Button>
+                                  </div>
+                                )}
+                                <Input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0]
+                                    if (file) {
+                                      handleApplicationImageUpload(selectedTabForContent, index, file)
+                                    }
+                                  }}
+                                  className="text-sm"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+
+                        <Button
+                          variant="outline"
+                          onClick={() => addApplication(selectedTabForContent)}
+                          className="w-full"
+                        >
+                          + Add Application
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )}
