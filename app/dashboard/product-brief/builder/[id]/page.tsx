@@ -434,8 +434,11 @@ export default function FormBuilderPage() {
           order: question.order || 0,
         }
 
+        // Use question.description if available, otherwise fall back to page.title
         if (question.description && question.description.trim() !== "") {
           cleanedQuestion.description = question.description
+        } else if (page.title && page.title.trim() !== "") {
+          cleanedQuestion.description = page.title
         }
 
         if (question.imageUrl) {
