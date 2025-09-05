@@ -665,7 +665,7 @@ export default function TypeformStylePage() {
                   <h2 className="text-3xl font-bold text-gray-900 mb-2">{currentPage.title}</h2>
                   {currentPage.description && <p className="text-gray-600 mb-4">{currentPage.description}</p>}
                   {currentPage.imageUrl && (
-                    <div className="mb-8">
+                    <div className="mb-8 flex justify-center">
                       <img src={currentPage.imageUrl} alt="Page image" className="max-w-full h-auto rounded-lg shadow-md" />
                     </div>
                   )}
