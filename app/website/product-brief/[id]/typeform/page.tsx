@@ -18,11 +18,12 @@ import Link from "next/link"
 
 interface Question {
   id: string
-  type: "text" | "textarea" | "multiple_choice" | "checkbox" | "dropdown" | "email" | "phone" | "date"
+  type: "text" | "textarea" | "multiple_choice" | "checkbox" | "dropdown" | "email" | "phone" | "date" | "image"
   title: string
   description?: string
   required: boolean
   options?: { imageUrl?: string; text: string }[]
+  imageUrl?: string // Added for image upload questions
   order: number
 }
 
@@ -30,6 +31,7 @@ interface Page {
   id: string
   title: string
   description?: string
+  imageUrl?: string // Added for page image
   questions: Question[]
   order: number
 }
@@ -121,6 +123,7 @@ export default function TypeformStylePage() {
             id: page.id || `page_${Date.now()}`,
             title: page.title || "Untitled Page",
             description: page.description || "",
+            imageUrl: page.imageUrl || undefined, // Add imageUrl for page
             questions: (page.questions || []).map((q: any) => ({
               ...q,
               options: (q.options || []).map((opt: any) => {
@@ -132,6 +135,7 @@ export default function TypeformStylePage() {
                   text: opt.text || '',
                 };
               }),
+              imageUrl: q.imageUrl || undefined, // Add imageUrl
             })).sort((a: Question, b: Question) => a.order - b.order),
             order: page.order || 0,
           }))
@@ -152,6 +156,7 @@ export default function TypeformStylePage() {
                     text: opt.text || '',
                   };
                 }),
+                imageUrl: q.imageUrl || undefined, // Add imageUrl
               })).sort((a: Question, b: Question) => a.order - b.order),
               order: 0,
             },
@@ -275,6 +280,12 @@ export default function TypeformStylePage() {
     return isValid
   }
 
+  const handlePrevious = () => {
+    if (currentPageIndex > 0) {
+      setCurrentPageIndex(currentPageIndex - 1)
+    }
+  }
+
   const handleNext = () => {
     if (!validateCurrentPage()) return
 
@@ -378,10 +389,171 @@ export default function TypeformStylePage() {
     }
   }
 
+  const renderQuestionContent = (question: Question) => {
+    const hasError = !!errors[question.id]
+
+    switch (question.type) {
+      case "text":
+      case "email":
+      case "phone":
+        return (
+          <>
+            <Input
+              type={question.type === "email" ? "email" : question.type === "phone" ? "tel" : "text"}
+              value={responses[question.id] || ""}
+              onChange={(e) => handleInputChange(question.id, e.target.value)}
+              className={`text-base p-3 border-2 ${hasError ? "border-red-500" : "border-gray-200 focus:border-blue-500"}`}
+              placeholder="Type your answer here..."
+            />
+            {hasError && <p className="text-red-600 text-sm">{errors[question.id]}</p>}
+          </>
+        )
+
+      case "textarea":
+        return (
+          <>
+            <Textarea
+              value={responses[question.id] || ""}
+              onChange={(e) => handleInputChange(question.id, e.target.value)}
+              className={`text-base p-3 border-2 min-h-24 ${hasError ? "border-red-500" : "border-gray-200 focus:border-blue-500"}`}
+              placeholder="Type your answer here..."
+            />
+            {hasError && <p className="text-red-600 text-sm">{errors[question.id]}</p>}
+          </>
+        )
+
+      case "multiple_choice":
+        return (
+          <>
+            <RadioGroup
+              value={responses[question.id] || ""}
+              onValueChange={(value) => handleInputChange(question.id, value)}
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+            >
+              {question.options?.map((option, index) => (
+                <div key={index} className="flex">
+                  <input
+                    type="radio"
+                    id={`${question.id}-${index}`}
+                    value={option.text}
+                    checked={responses[question.id] === option.text}
+                    onChange={() => handleInputChange(question.id, option.text)}
+                    className="sr-only"
+                  />
+                  <Label
+                    htmlFor={`${question.id}-${index}`}
+                    className={`
+                       flex flex-col items-center justify-center p-4 border-2 rounded-lg cursor-pointer
+                       transition-all duration-200 ease-in-out text-center w-full h-full
+                       ${responses[question.id] === option.text
+                         ? `border-${currentTheme.primaryColor.replace('#', '')} ring-2 ring-${currentTheme.primaryColor.replace('#', '')} bg-${currentTheme.primaryColor.replace('#', '')}10`
+                         : "border-gray-200 hover:border-gray-300 bg-white"
+                       }
+                     `}
+                    style={{
+                      borderColor: responses[question.id] === option.text ? currentTheme.primaryColor : undefined,
+                      boxShadow: responses[question.id] === option.text ? `0 0 0 2px ${currentTheme.primaryColor}` : undefined,
+                      backgroundColor: responses[question.id] === option.text ? `${currentTheme.primaryColor}10` : undefined,
+                    }}
+                  >
+                    {option.imageUrl && (
+                      <img
+                        src={option.imageUrl}
+                        alt={option.text}
+                        className="w-32 h-32 object-cover rounded-md mb-3 aspect-square"
+                      />
+                    )}
+                    <span className="text-base font-medium text-gray-800">
+                       {typeof option === 'object' && option !== null && 'text' in option ? option.text : String(option)}
+                     </span>
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
+            {hasError && <p className="text-red-600 text-sm mt-2">{errors[question.id]}</p>}
+          </>
+        )
+
+      case "checkbox":
+        return (
+          <>
+            <div className="space-y-2">
+              {question.options?.map((option, index) => (
+                <div key={index} className="flex items-center space-x-3">
+                  {option.imageUrl && (
+                    <img src={option.imageUrl} alt={option.text} className="w-16 h-16 object-cover rounded-md" />
+                  )}
+                  <Checkbox
+                    id={`${question.id}-${index}`}
+                    checked={(responses[question.id] || []).includes(typeof option === 'object' && option !== null && 'text' in option ? option.text : String(option))}
+                    onCheckedChange={(checked) => {
+                      const currentValues = responses[question.id] || []
+                      const optionValue = typeof option === 'object' && option !== null && 'text' in option ? option.text : String(option);
+                      if (checked) {
+                        handleInputChange(question.id, [...currentValues, optionValue])
+                      } else {
+                        handleInputChange(
+                          question.id,
+                          currentValues.filter((v: string) => v !== optionValue),
+                        )
+                      }
+                    }}
+                    className="text-blue-600"
+                  />
+                  <Label htmlFor={`${question.id}-${index}`} className="text-base cursor-pointer">
+                    {typeof option === 'object' && option !== null && 'text' in option ? option.text : String(option)}
+                  </Label>
+                </div>
+              ))}
+            </div>
+            {hasError && <p className="text-red-600 text-sm">{errors[question.id]}</p>}
+          </>
+        )
+
+      case "dropdown":
+        return (
+          <>
+            <Select
+              value={responses[question.id] || ""}
+              onValueChange={(value) => handleInputChange(question.id, value)}
+            >
+              <SelectTrigger
+                className={`text-base p-3 border-2 ${hasError ? "border-red-500" : "border-gray-200"}`}
+              >
+                <SelectValue placeholder="Choose an option..." />
+              </SelectTrigger>
+              <SelectContent>
+                {question.options?.map((option, index) => (
+                  <SelectItem key={index} value={typeof option === 'object' && option !== null && 'text' in option ? option.text : String(option)} className="text-base">
+                    {typeof option === 'object' && option !== null && 'text' in option ? option.text : String(option)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {hasError && <p className="text-red-600 text-sm">{errors[question.id]}</p>}
+          </>
+        )
+
+      case "date":
+        return (
+          <>
+            <Input
+              type="date"
+              value={responses[question.id] || ""}
+              onChange={(e) => handleInputChange(question.id, e.target.value)}
+              className={`text-base p-3 border-2 ${hasError ? "border-red-500" : "border-gray-200 focus:border-blue-500"}`}
+            />
+            {hasError && <p className="text-red-600 text-sm">{errors[question.id]}</p>}
+          </>
+        )
+
+      default:
+        return null
+    }
+  }
+
   const renderQuestion = (question: Question) => {
     if (!question) return null
-
-    const hasError = !!errors[question.id]
 
     return (
       <div key={question.id} className="mb-8">
@@ -391,136 +563,13 @@ export default function TypeformStylePage() {
         </Label>
 
         <div className="space-y-4">
-          {(() => {
-            switch (question.type) {
-              case "text":
-              case "email":
-              case "phone":
-                return (
-                  <>
-                    <Input
-                      type={question.type === "email" ? "email" : question.type === "phone" ? "tel" : "text"}
-                      value={responses[question.id] || ""}
-                      onChange={(e) => handleInputChange(question.id, e.target.value)}
-                      className={`text-base p-3 border-2 ${hasError ? "border-red-500" : "border-gray-200 focus:border-blue-500"}`}
-                      placeholder="Type your answer here..."
-                    />
-                    {hasError && <p className="text-red-600 text-sm">{errors[question.id]}</p>}
-                  </>
-                )
-
-              case "textarea":
-                return (
-                  <>
-                    <Textarea
-                      value={responses[question.id] || ""}
-                      onChange={(e) => handleInputChange(question.id, e.target.value)}
-                      className={`text-base p-3 border-2 min-h-24 ${hasError ? "border-red-500" : "border-gray-200 focus:border-blue-500"}`}
-                      placeholder="Type your answer here..."
-                    />
-                    {hasError && <p className="text-red-600 text-sm">{errors[question.id]}</p>}
-                  </>
-                )
-
-              case "multiple_choice":
-                return (
-                  <>
-                    <RadioGroup
-                      value={responses[question.id] || ""}
-                      onValueChange={(value) => handleInputChange(question.id, value)}
-                      className="space-y-2"
-                    >
-                      {question.options?.map((option, index) => (
-                        <div key={index} className="flex items-center space-x-3">
-                          <RadioGroupItem value={option.text} id={`${question.id}-${index}`} className="text-blue-600" />
-                          <Label htmlFor={`${question.id}-${index}`} className="text-base cursor-pointer">
-                            {typeof option === 'object' && option !== null && 'text' in option ? option.text : String(option)}
-                          </Label>
-                        </div>
-                      ))}
-                    </RadioGroup>
-                    {hasError && <p className="text-red-600 text-sm">{errors[question.id]}</p>}
-                  </>
-                )
-
-              case "checkbox":
-                return (
-                  <>
-                    <div className="space-y-2">
-                      {question.options?.map((option, index) => (
-                        <div key={index} className="flex items-center space-x-3">
-                          {option.imageUrl && (
-                            <img src={option.imageUrl} alt={option.text} className="w-16 h-16 object-cover rounded-md" />
-                          )}
-                          <Checkbox
-                            id={`${question.id}-${index}`}
-                            checked={(responses[question.id] || []).includes(typeof option === 'object' && option !== null && 'text' in option ? option.text : String(option))}
-                            onCheckedChange={(checked) => {
-                              const currentValues = responses[question.id] || []
-                              const optionValue = typeof option === 'object' && option !== null && 'text' in option ? option.text : String(option);
-                              if (checked) {
-                                handleInputChange(question.id, [...currentValues, optionValue])
-                              } else {
-                                handleInputChange(
-                                  question.id,
-                                  currentValues.filter((v: string) => v !== optionValue),
-                                )
-                              }
-                            }}
-                            className="text-blue-600"
-                          />
-                          <Label htmlFor={`${question.id}-${index}`} className="text-base cursor-pointer">
-                            {typeof option === 'object' && option !== null && 'text' in option ? option.text : String(option)}
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
-                    {hasError && <p className="text-red-600 text-sm">{errors[question.id]}</p>}
-                  </>
-                )
-
-              case "dropdown":
-                return (
-                  <>
-                    <Select
-                      value={responses[question.id] || ""}
-                      onValueChange={(value) => handleInputChange(question.id, value)}
-                    >
-                      <SelectTrigger
-                        className={`text-base p-3 border-2 ${hasError ? "border-red-500" : "border-gray-200"}`}
-                      >
-                        <SelectValue placeholder="Choose an option..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {question.options?.map((option, index) => (
-                          <SelectItem key={index} value={typeof option === 'object' && option !== null && 'text' in option ? option.text : String(option)} className="text-base">
-                            {typeof option === 'object' && option !== null && 'text' in option ? option.text : String(option)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {hasError && <p className="text-red-600 text-sm">{errors[question.id]}</p>}
-                  </>
-                )
-
-              case "date":
-                return (
-                  <>
-                    <Input
-                      type="date"
-                      value={responses[question.id] || ""}
-                      onChange={(e) => handleInputChange(question.id, e.target.value)}
-                      className={`text-base p-3 border-2 ${hasError ? "border-red-500" : "border-gray-200 focus:border-blue-500"}`}
-                    />
-                    {hasError && <p className="text-red-600 text-sm">{errors[question.id]}</p>}
-                  </>
-                )
-
-              default:
-                return null
-            }
-          })()}
+          {renderQuestionContent(question)}
         </div>
+        {question.type === "image" && question.imageUrl && (
+          <div className="mt-4">
+            <img src={question.imageUrl} alt="Question image" className="max-w-full h-auto rounded-lg shadow-md" />
+          </div>
+        )}
       </div>
     )
   }
@@ -615,18 +664,50 @@ export default function TypeformStylePage() {
                 </div>
 
                 <div className="mb-12">
-                  <h2 className="text-3xl font-bold text-gray-900 mb-2">{currentPage.title}</h2>
-                  {currentPage.description && <p className="text-gray-600 mb-8">{currentPage.description}</p>}
-
-                  <div className="space-y-8">{currentPage.questions.map((question) => renderQuestion(question))}</div>
+                  {currentPage.questions.length === 1 ? (
+                    <>
+                      <h2 className="text-3xl font-bold text-gray-900 mb-2">
+                        {currentPage.questions[0].description || currentPage.questions[0].title}
+                      </h2>
+                      <div className="space-y-4">
+                        {renderQuestionContent(currentPage.questions[0])}
+                      </div>
+                      {currentPage.questions[0].type === "image" && currentPage.questions[0].imageUrl && (
+                        <div className="mt-4">
+                          <img src={currentPage.questions[0].imageUrl} alt="Question image" className="max-w-full h-auto rounded-lg shadow-md" />
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <h2 className="text-3xl font-bold text-gray-900 mb-2">{currentPage.title}</h2>
+                      {currentPage.description && <p className="text-gray-600 mb-4">{currentPage.description}</p>}
+                      {currentPage.imageUrl && (
+                        <div className="mb-8 flex justify-center">
+                          <img src={currentPage.imageUrl} alt="Page image" className="max-w-full h-auto rounded-lg shadow-md" />
+                        </div>
+                      )}
+                      <div className="space-y-8">{currentPage.questions.map((question) => renderQuestion(question))}</div>
+                    </>
+                  )}
                 </div>
 
-                <div className="flex justify-end">
+                <div className="flex justify-between">
+                  {currentPageIndex > 0 && (
+                    <Button
+                      onClick={handlePrevious}
+                      variant="outline"
+                      className="flex items-center gap-2"
+                      style={{ borderColor: currentTheme.primaryColor, color: currentTheme.primaryColor }}
+                    >
+                      Previous Page
+                    </Button>
+                  )}
                   <Button
                     onClick={handleNext}
                     disabled={isSubmitting}
-                    className="text-white flex items-center gap-2"
-                    style={{ backgroundColor: currentTheme.primaryColor }}
+                    className={`flex items-center gap-2 ${currentPageIndex === 0 ? "ml-auto" : ""}`}
+                    style={{ backgroundColor: currentTheme.primaryColor, color: "white" }}
                   >
                     {currentPageIndex === formData.pages.length - 1 ? (
                       isSubmitting ? (
