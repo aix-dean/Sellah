@@ -434,18 +434,49 @@ export default function TypeformStylePage() {
                     <RadioGroup
                       value={responses[question.id] || ""}
                       onValueChange={(value) => handleInputChange(question.id, value)}
-                      className="space-y-2"
+                      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
                     >
                       {question.options?.map((option, index) => (
-                        <div key={index} className="flex items-center space-x-3">
-                          <RadioGroupItem value={option.text} id={`${question.id}-${index}`} className="text-blue-600" />
-                          <Label htmlFor={`${question.id}-${index}`} className="text-base cursor-pointer">
-                            {typeof option === 'object' && option !== null && 'text' in option ? option.text : String(option)}
+                        <div key={index} className="flex">
+                          <input
+                            type="radio"
+                            id={`${question.id}-${index}`}
+                            value={option.text}
+                            checked={responses[question.id] === option.text}
+                            onChange={() => handleInputChange(question.id, option.text)}
+                            className="sr-only"
+                          />
+                          <Label
+                            htmlFor={`${question.id}-${index}`}
+                            className={`
+                               flex flex-col items-center justify-center p-4 border-2 rounded-lg cursor-pointer
+                               transition-all duration-200 ease-in-out text-center w-full h-full
+                               ${responses[question.id] === option.text
+                                 ? `border-${currentTheme.primaryColor.replace('#', '')} ring-2 ring-${currentTheme.primaryColor.replace('#', '')} bg-${currentTheme.primaryColor.replace('#', '')}10`
+                                 : "border-gray-200 hover:border-gray-300 bg-white"
+                               }
+                             `}
+                            style={{
+                              borderColor: responses[question.id] === option.text ? currentTheme.primaryColor : undefined,
+                              boxShadow: responses[question.id] === option.text ? `0 0 0 2px ${currentTheme.primaryColor}` : undefined,
+                              backgroundColor: responses[question.id] === option.text ? `${currentTheme.primaryColor}10` : undefined,
+                            }}
+                          >
+                            {option.imageUrl && (
+                              <img
+                                src={option.imageUrl}
+                                alt={option.text}
+                                className="w-32 h-32 object-cover rounded-md mb-3 aspect-square"
+                              />
+                            )}
+                            <span className="text-base font-medium text-gray-800">
+                               {typeof option === 'object' && option !== null && 'text' in option ? option.text : String(option)}
+                             </span>
                           </Label>
                         </div>
                       ))}
                     </RadioGroup>
-                    {hasError && <p className="text-red-600 text-sm">{errors[question.id]}</p>}
+                    {hasError && <p className="text-red-600 text-sm mt-2">{errors[question.id]}</p>}
                   </>
                 )
 

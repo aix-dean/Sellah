@@ -442,7 +442,12 @@ export default function FormBuilderPage() {
         }
 
         if (question.options && question.options.length > 0) {
-          cleanedQuestion.options = question.options.filter((option) => option.text && option.text.trim() !== "")
+          cleanedQuestion.options = question.options
+            .filter((option) => option.text?.trim() !== "" || option.imageUrl) // Keep options with text or image
+            .map((option) => ({
+              text: option.text || "",
+              ...(option.imageUrl && { imageUrl: option.imageUrl }), // Include imageUrl if present
+            }))
         }
 
         return cleanedQuestion
