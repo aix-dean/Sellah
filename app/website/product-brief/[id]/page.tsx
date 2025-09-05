@@ -20,11 +20,12 @@ import Link from "next/link"
 
 interface Question {
   id: string
-  type: "text" | "textarea" | "multiple_choice" | "checkbox" | "dropdown" | "email" | "phone" | "date"
+  type: "text" | "textarea" | "multiple_choice" | "checkbox" | "dropdown" | "email" | "phone" | "date" | "image"
   title: string
   description?: string
   required: boolean
-  options?: string[]
+  options?: { text: string; imageUrl?: string }[]
+  imageUrl?: string // Added for image upload questions
   order: number
 }
 
@@ -178,7 +179,12 @@ export default function PublicProductBriefPage() {
             questionText: question.description || question.title,
             questionType: question.type,
             value: value,
-            displayValue: Array.isArray(value) ? value.join(", ") : String(value),
+            displayValue:
+              question.type === "image"
+                ? value // For image type, value is already the URL
+                : Array.isArray(value)
+                  ? value.join(", ")
+                  : String(value),
             pageTitle: "Main Form",
           }
 
@@ -287,8 +293,13 @@ export default function PublicProductBriefPage() {
             >
               {question.options?.map((option, index) => (
                 <div key={index} className="flex items-center space-x-2">
-                  <RadioGroupItem value={option} id={`${question.id}-${index}`} />
-                  <Label htmlFor={`${question.id}-${index}`}>{option}</Label>
+                  <RadioGroupItem value={option.text} id={`${question.id}-${index}`} />
+                  <Label htmlFor={`${question.id}-${index}`} className="flex items-center">
+                    {option.imageUrl && (
+                      <img src={option.imageUrl} alt={option.text} className="w-10 h-10 object-cover rounded mr-2" />
+                    )}
+                    <span>{option.text}</span>
+                  </Label>
                 </div>
               ))}
             </RadioGroup>
@@ -308,20 +319,25 @@ export default function PublicProductBriefPage() {
                 <div key={index} className="flex items-center space-x-2">
                   <Checkbox
                     id={`${question.id}-${index}`}
-                    checked={(responses[question.id] || []).includes(option)}
+                    checked={(responses[question.id] || []).includes(option.text)}
                     onCheckedChange={(checked) => {
                       const currentValues = responses[question.id] || []
                       if (checked) {
-                        handleInputChange(question.id, [...currentValues, option])
+                        handleInputChange(question.id, [...currentValues, option.text])
                       } else {
                         handleInputChange(
                           question.id,
-                          currentValues.filter((v: string) => v !== option),
+                          currentValues.filter((v: string) => v !== option.text),
                         )
                       }
                     }}
                   />
-                  <Label htmlFor={`${question.id}-${index}`}>{option}</Label>
+                  <Label htmlFor={`${question.id}-${index}`} className="flex items-center">
+                    {option.imageUrl && (
+                      <img src={option.imageUrl} alt={option.text} className="w-10 h-10 object-cover rounded mr-2" />
+                    )}
+                    <span>{option.text}</span>
+                  </Label>
                 </div>
               ))}
             </div>
@@ -345,8 +361,13 @@ export default function PublicProductBriefPage() {
               </SelectTrigger>
               <SelectContent>
                 {question.options?.map((option, index) => (
-                  <SelectItem key={index} value={option}>
-                    {option}
+                  <SelectItem key={index} value={option.text}>
+                    <div className="flex items-center">
+                      {option.imageUrl && (
+                        <img src={option.imageUrl} alt={option.text} className="w-10 h-10 object-cover rounded mr-2" />
+                      )}
+                      <span>{option.text}</span>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>

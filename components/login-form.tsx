@@ -13,7 +13,7 @@ import {
 } from "lucide-react"
 import { ExclamationTriangleIcon } from "@radix-ui/react-icons"
 
-import { signInWithEmail, wasLoggedOut, wasSessionExpired, getLogoutReason, clearLogoutFlags } from "@/lib/auth"
+import { signInWithEmail, wasLoggedOut, wasSessionExpired, getLogoutReason, clearLogoutFlags, sendEmailVerification } from "@/lib/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"

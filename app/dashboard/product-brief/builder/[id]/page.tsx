@@ -18,6 +18,7 @@ import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
+  Image as ImageIcon, // Renamed to avoid conflict with HTML ImageElement
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -29,17 +30,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useUserData } from "@/hooks/use-user-data"
 import { useToast } from "@/hooks/use-toast"
 import { doc, getDoc, updateDoc, Timestamp } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { db, storage } from "@/lib/firebase" // Import storage
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Checkbox } from "@/components/ui/checkbox"
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage" // Import storage functions
 
 interface Question {
   id: string
-  type: "text" | "textarea" | "multiple_choice" | "checkbox" | "dropdown" | "email" | "phone" | "date"
+  type: "text" | "textarea" | "multiple_choice" | "checkbox" | "dropdown" | "email" | "phone" | "date" | "image"
   title: string // keeping for backward compatibility but will be hidden in UI
   description?: string
   required: boolean
-  options?: string[]
+  options?: { text: string; imageUrl?: string }[]
+  imageUrl?: string // Added for image upload questions
   order: number
 }
 
@@ -84,7 +87,14 @@ const questionTypes = [
   { value: "email", label: "Email", icon: Mail },
   { value: "phone", label: "Phone", icon: Phone },
   { value: "date", label: "Date", icon: Calendar },
+  { value: "image", label: "Image Upload", icon: ImageIcon }, // Added image upload type
 ]
+
+const uploadImageToFirebase = async (file: File, path: string): Promise<string> => {
+  const storageRef = ref(storage, path)
+  await uploadBytes(storageRef, file)
+  return getDownloadURL(storageRef)
+}
 
 const colorThemes = [
   {
@@ -215,8 +225,8 @@ export default function FormBuilderPage() {
           pages: pages,
           isActive: data.isActive !== false,
           theme: data.theme || colorThemes[0], // Default to Ocean Blue
-          linkedProductId: data.linkedProductId,
-          linkedProductName: data.linkedProductName,
+          linkedProductId: data.linkedProductId || null, // Ensure it's not undefined
+          linkedProductName: data.linkedProductName || null, // Ensure it's not undefined
         })
       } else {
         toast({
@@ -294,7 +304,11 @@ export default function FormBuilderPage() {
       title: "", // keeping empty for backward compatibility
       description: "", // this will be the main question content
       required: false,
-      options: type === "multiple_choice" || type === "checkbox" || type === "dropdown" ? ["Option 1"] : undefined,
+      options:
+        type === "multiple_choice" || type === "checkbox" || type === "dropdown"
+          ? [{ text: "Option 1", imageUrl: undefined }]
+          : undefined,
+      imageUrl: type === "image" ? "" : undefined, // Initialize imageUrl for image type
       order: currentPage.questions.length,
     }
 
@@ -332,17 +346,27 @@ export default function FormBuilderPage() {
     const question = currentPage?.questions.find((q) => q.id === questionId)
     if (!question || !question.options) return
 
-    const newOptions = [...question.options, `Option ${question.options.length + 1}`]
+    const newOptions = [...question.options, { text: `Option ${question.options.length + 1}`, imageUrl: undefined }]
     updateQuestion(questionId, { options: newOptions })
   }
 
-  const updateOption = (questionId: string, optionIndex: number, value: string) => {
+  const updateOptionText = (questionId: string, optionIndex: number, value: string) => {
     const currentPage = formData?.pages[currentPageIndex]
     const question = currentPage?.questions.find((q) => q.id === questionId)
     if (!question || !question.options) return
 
     const newOptions = [...question.options]
-    newOptions[optionIndex] = value
+    newOptions[optionIndex] = { ...newOptions[optionIndex], text: value }
+    updateQuestion(questionId, { options: newOptions })
+  }
+
+  const updateOptionImage = (questionId: string, optionIndex: number, imageUrl: string | undefined) => {
+    const currentPage = formData?.pages[currentPageIndex]
+    const question = currentPage?.questions.find((q) => q.id === questionId)
+    if (!question || !question.options) return
+
+    const newOptions = [...question.options]
+    newOptions[optionIndex] = { ...newOptions[optionIndex], imageUrl: imageUrl }
     updateQuestion(questionId, { options: newOptions })
   }
 
@@ -353,6 +377,49 @@ export default function FormBuilderPage() {
 
     const newOptions = question.options.filter((_, index) => index !== optionIndex)
     updateQuestion(questionId, { options: newOptions })
+  }
+
+  const handleImageUpload = async (
+    file: File,
+    questionId: string,
+    optionIndex?: number,
+  ) => {
+    if (!userData?.company_id) {
+      toast({
+        title: "Authentication Error",
+        description: "You must be logged in to upload images.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      // Determine the storage path
+      let path = `companies/${userData.company_id}/product_briefs/${formData?.id}/questions/${questionId}/${file.name}`
+      if (optionIndex !== undefined) {
+        path = `companies/${userData.company_id}/product_briefs/${formData?.id}/questions/${questionId}/options/${optionIndex}/${file.name}`
+      }
+
+      const imageUrl = await uploadImageToFirebase(file, path)
+
+      if (optionIndex !== undefined) {
+        updateOptionImage(questionId, optionIndex, imageUrl)
+      } else {
+        updateQuestion(questionId, { imageUrl: imageUrl })
+      }
+
+      toast({
+        title: "Image Uploaded",
+        description: "Image uploaded successfully!",
+      })
+    } catch (error) {
+      console.error("Error uploading image:", error)
+      toast({
+        title: "Upload Failed",
+        description: "Failed to upload image. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   const cleanFormDataForFirebase = (data: FormData) => {
@@ -370,8 +437,12 @@ export default function FormBuilderPage() {
           cleanedQuestion.description = question.description
         }
 
+        if (question.imageUrl) {
+          cleanedQuestion.imageUrl = question.imageUrl
+        }
+
         if (question.options && question.options.length > 0) {
-          cleanedQuestion.options = question.options.filter((option) => option && option.trim() !== "")
+          cleanedQuestion.options = question.options.filter((option) => option.text && option.text.trim() !== "")
         }
 
         return cleanedQuestion
@@ -392,8 +463,8 @@ export default function FormBuilderPage() {
       pages: cleanedPages,
       isActive: data.isActive !== undefined ? data.isActive : true,
       theme: data.theme || colorThemes[0],
-      linkedProductId: data.linkedProductId,
-      linkedProductName: data.linkedProductName,
+      linkedProductId: data.linkedProductId || null, // Ensure it's not undefined
+      linkedProductName: data.linkedProductName || null, // Ensure it's not undefined
       updatedAt: Timestamp.now(),
     }
   }
@@ -446,6 +517,39 @@ export default function FormBuilderPage() {
 
   const previewTypeform = () => {
     router.push(`/website/product-brief/${formData?.id}/typeform`)
+  }
+
+  const deleteForm = async () => {
+    if (!formData || !userData?.company_id) return
+
+    if (!confirm("Are you sure you want to delete this product brief? This action cannot be undone.")) {
+      return
+    }
+
+    try {
+      setIsSaving(true) // Use isSaving to disable buttons during deletion
+      const docRef = doc(db, "products_brief", formData.id)
+
+      console.log("[v0] Deleting product brief:", formData.id) // Debug log
+
+      await updateDoc(docRef, { deleted: true, updatedAt: Timestamp.now() })
+
+      toast({
+        title: "Product Brief Deleted",
+        description: "The product brief has been marked as deleted.",
+      })
+
+      router.push("/dashboard/product-brief")
+    } catch (error) {
+      console.error("Error deleting form:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete product brief.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleInputChange = (questionId: string, value: any) => {
@@ -512,9 +616,12 @@ export default function FormBuilderPage() {
             >
               {question.options?.map((option, index) => (
                 <div key={index} className="flex items-center space-x-3">
-                  <RadioGroupItem value={option} id={`${question.id}-${index}`} className="text-blue-600" />
-                  <Label htmlFor={`${question.id}-${index}`} className="text-lg cursor-pointer">
-                    {option}
+                  <RadioGroupItem value={option.text} id={`${question.id}-${index}`} className="text-blue-600" />
+                  <Label htmlFor={`${question.id}-${index}`} className="text-lg cursor-pointer flex items-center">
+                    {option.imageUrl && (
+                      <img src={option.imageUrl} alt={option.text} className="w-12 h-12 object-cover rounded mr-3" />
+                    )}
+                    {option.text}
                   </Label>
                 </div>
               ))}
@@ -531,22 +638,25 @@ export default function FormBuilderPage() {
                 <div key={index} className="flex items-center space-x-3">
                   <Checkbox
                     id={`${question.id}-${index}`}
-                    checked={(responses[question.id] || []).includes(option)}
+                    checked={(responses[question.id] || []).includes(option.text)}
                     onCheckedChange={(checked) => {
                       const currentValues = responses[question.id] || []
                       if (checked) {
-                        handleInputChange(question.id, [...currentValues, option])
+                        handleInputChange(question.id, [...currentValues, option.text])
                       } else {
                         handleInputChange(
                           question.id,
-                          currentValues.filter((v: string) => v !== option),
+                          currentValues.filter((v: string) => v !== option.text),
                         )
                       }
                     }}
                     className="text-blue-600"
                   />
-                  <Label htmlFor={`${question.id}-${index}`} className="text-lg cursor-pointer">
-                    {option}
+                  <Label htmlFor={`${question.id}-${index}`} className="text-lg cursor-pointer flex items-center">
+                    {option.imageUrl && (
+                      <img src={option.imageUrl} alt={option.text} className="w-12 h-12 object-cover rounded mr-3" />
+                    )}
+                    {option.text}
                   </Label>
                 </div>
               ))}
@@ -567,8 +677,13 @@ export default function FormBuilderPage() {
               </SelectTrigger>
               <SelectContent>
                 {question.options?.map((option, index) => (
-                  <SelectItem key={index} value={option} className="text-lg">
-                    {option}
+                  <SelectItem key={index} value={option.text} className="text-lg">
+                    <div className="flex items-center">
+                      {option.imageUrl && (
+                        <img src={option.imageUrl} alt={option.text} className="w-8 h-8 object-cover rounded mr-2" />
+                      )}
+                      {option.text}
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -587,6 +702,39 @@ export default function FormBuilderPage() {
               className={`text-lg p-4 border-2 ${hasError ? "border-red-500" : "border-gray-200 focus:border-blue-500"}`}
               autoFocus
             />
+            {hasError && <p className="text-red-600 text-sm">{errors[question.id]}</p>}
+          </div>
+        )
+
+      case "image":
+        return (
+          <div className="space-y-4">
+            <Label htmlFor={`image-upload-${question.id}`}>Upload Image</Label>
+            <Input
+              id={`image-upload-${question.id}`}
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0]) {
+                  handleImageUpload(e.target.files[0], question.id)
+                }
+              }}
+              className={`text-lg p-4 border-2 ${hasError ? "border-red-500" : "border-gray-200 focus:border-blue-500"}`}
+            />
+            {question.imageUrl && (
+              <div className="mt-4">
+                <p className="text-sm text-gray-600 mb-2">Current Image:</p>
+                <img src={question.imageUrl} alt="Uploaded image" className="max-w-xs h-auto rounded-lg shadow-md" />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => updateQuestion(question.id, { imageUrl: undefined })}
+                  className="mt-2 text-red-600 hover:text-red-700"
+                >
+                  Remove Image
+                </Button>
+              </div>
+            )}
             {hasError && <p className="text-red-600 text-sm">{errors[question.id]}</p>}
           </div>
         )
@@ -648,6 +796,15 @@ export default function FormBuilderPage() {
                   >
                     <Eye className="w-4 h-4" />
                     Typeform Style
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={deleteForm}
+                    disabled={isSaving}
+                    className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    {isSaving ? "Deleting..." : "Delete Form"}
                   </Button>
                 </div>
               </div>
@@ -880,23 +1037,54 @@ export default function FormBuilderPage() {
                     <div className="space-y-2 mb-4">
                       <Label>Options</Label>
                       {question.options?.map((option, optionIndex) => (
-                        <div key={optionIndex} className="flex items-center gap-2">
-                          <Input
-                            value={option}
-                            onChange={(e) => updateOption(question.id, optionIndex, e.target.value)}
-                            placeholder={`Option ${optionIndex + 1}`}
-                            className="flex-1"
-                          />
-                          {question.options && question.options.length > 1 && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => removeOption(question.id, optionIndex)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
-                          )}
+                        <div key={optionIndex} className="flex flex-col gap-2 mb-4 p-3 border rounded-md bg-gray-50">
+                          <div className="flex items-center gap-2">
+                            <Input
+                              value={option.text}
+                              onChange={(e) => updateOptionText(question.id, optionIndex, e.target.value)}
+                              placeholder={`Option ${optionIndex + 1}`}
+                              className="flex-1"
+                            />
+                            {question.options && question.options.length > 1 && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => removeOption(question.id, optionIndex)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Label htmlFor={`option-image-${question.id}-${optionIndex}`} className="sr-only">
+                              Upload Image for Option {optionIndex + 1}
+                            </Label>
+                            <Input
+                              id={`option-image-${question.id}-${optionIndex}`}
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                if (e.target.files && e.target.files[0]) {
+                                  handleImageUpload(e.target.files[0], question.id, optionIndex)
+                                }
+                              }}
+                              className="flex-1 text-sm"
+                            />
+                            {option.imageUrl && (
+                              <div className="flex items-center gap-2">
+                                <img src={option.imageUrl} alt="Option image" className="w-10 h-10 object-cover rounded" />
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => updateOptionImage(question.id, optionIndex, undefined)}
+                                  className="text-red-600 hover:text-red-700"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       ))}
                       <Button

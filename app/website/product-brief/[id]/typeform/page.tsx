@@ -22,7 +22,7 @@ interface Question {
   title: string
   description?: string
   required: boolean
-  options?: string[]
+  options?: { imageUrl?: string; text: string }[]
   order: number
 }
 
@@ -121,7 +121,18 @@ export default function TypeformStylePage() {
             id: page.id || `page_${Date.now()}`,
             title: page.title || "Untitled Page",
             description: page.description || "",
-            questions: (page.questions || []).sort((a: Question, b: Question) => a.order - b.order),
+            questions: (page.questions || []).map((q: any) => ({
+              ...q,
+              options: (q.options || []).map((opt: any) => {
+                if (typeof opt === 'string') {
+                  return { text: opt };
+                }
+                return {
+                  ...opt,
+                  text: opt.text || '',
+                };
+              }),
+            })).sort((a: Question, b: Question) => a.order - b.order),
             order: page.order || 0,
           }))
         } else if (data.questions && Array.isArray(data.questions)) {
@@ -130,7 +141,18 @@ export default function TypeformStylePage() {
               id: `page_${Date.now()}`,
               title: "Page 1",
               description: "",
-              questions: data.questions.sort((a: Question, b: Question) => a.order - b.order),
+              questions: (data.questions || []).map((q: any) => ({
+                ...q,
+                options: (q.options || []).map((opt: any) => {
+                  if (typeof opt === 'string') {
+                    return { text: opt };
+                  }
+                  return {
+                    ...opt,
+                    text: opt.text || '',
+                  };
+                }),
+              })).sort((a: Question, b: Question) => a.order - b.order),
               order: 0,
             },
           ]
@@ -410,9 +432,9 @@ export default function TypeformStylePage() {
                     >
                       {question.options?.map((option, index) => (
                         <div key={index} className="flex items-center space-x-3">
-                          <RadioGroupItem value={option} id={`${question.id}-${index}`} className="text-blue-600" />
+                          <RadioGroupItem value={option.text} id={`${question.id}-${index}`} className="text-blue-600" />
                           <Label htmlFor={`${question.id}-${index}`} className="text-base cursor-pointer">
-                            {option}
+                            {typeof option === 'object' && option !== null && 'text' in option ? option.text : String(option)}
                           </Label>
                         </div>
                       ))}
@@ -427,24 +449,28 @@ export default function TypeformStylePage() {
                     <div className="space-y-2">
                       {question.options?.map((option, index) => (
                         <div key={index} className="flex items-center space-x-3">
+                          {option.imageUrl && (
+                            <img src={option.imageUrl} alt={option.text} className="w-16 h-16 object-cover rounded-md" />
+                          )}
                           <Checkbox
                             id={`${question.id}-${index}`}
-                            checked={(responses[question.id] || []).includes(option)}
+                            checked={(responses[question.id] || []).includes(typeof option === 'object' && option !== null && 'text' in option ? option.text : String(option))}
                             onCheckedChange={(checked) => {
                               const currentValues = responses[question.id] || []
+                              const optionValue = typeof option === 'object' && option !== null && 'text' in option ? option.text : String(option);
                               if (checked) {
-                                handleInputChange(question.id, [...currentValues, option])
+                                handleInputChange(question.id, [...currentValues, optionValue])
                               } else {
                                 handleInputChange(
                                   question.id,
-                                  currentValues.filter((v: string) => v !== option),
+                                  currentValues.filter((v: string) => v !== optionValue),
                                 )
                               }
                             }}
                             className="text-blue-600"
                           />
                           <Label htmlFor={`${question.id}-${index}`} className="text-base cursor-pointer">
-                            {option}
+                            {typeof option === 'object' && option !== null && 'text' in option ? option.text : String(option)}
                           </Label>
                         </div>
                       ))}
@@ -467,8 +493,8 @@ export default function TypeformStylePage() {
                       </SelectTrigger>
                       <SelectContent>
                         {question.options?.map((option, index) => (
-                          <SelectItem key={index} value={option} className="text-base">
-                            {option}
+                          <SelectItem key={index} value={typeof option === 'object' && option !== null && 'text' in option ? option.text : String(option)} className="text-base">
+                            {typeof option === 'object' && option !== null && 'text' in option ? option.text : String(option)}
                           </SelectItem>
                         ))}
                       </SelectContent>

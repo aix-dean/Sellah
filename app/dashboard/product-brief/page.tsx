@@ -90,7 +90,11 @@ export default function ProductBriefPage() {
       setIsLoading(true)
 
       const briefsRef = collection(db, "products_brief")
-      const briefsQuery = query(briefsRef, where("companyId", "==", userData.company_id))
+      const briefsQuery = query(
+        briefsRef,
+        where("companyId", "==", userData.company_id),
+        where("deleted", "==", false) // Filter out deleted product briefs
+      )
       const briefsSnapshot = await getDocs(briefsQuery)
 
       const briefs: ProductBrief[] = []
@@ -158,6 +162,7 @@ export default function ProductBriefPage() {
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
         linkedProductIds: [], // Initialize with empty array instead of single product
+        deleted: false, // Set deleted to false by default
       }
 
       const docRef = await addDoc(briefsRef, newBrief)
@@ -497,9 +502,9 @@ function ProductLinkingDialog({
               />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  {product.media?.[0]?.url && (
+                  {product.images?.[0] && (
                     <img
-                      src={product.media[0].url || "/placeholder.svg"}
+                      src={product.images[0] || "/placeholder.svg"}
                       alt={product.name}
                       className="w-8 h-8 object-cover rounded"
                     />

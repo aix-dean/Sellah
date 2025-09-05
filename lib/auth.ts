@@ -3,6 +3,7 @@ import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   sendPasswordResetEmail,
+  sendEmailVerification as firebaseSendEmailVerification,
   updateProfile,
   type User,
   type AuthError,
@@ -72,7 +73,7 @@ const SESSION_EXPIRED_KEY = "sellah_session_expired"
 const LOGOUT_REASON_KEY = "sellah_logout_reason"
 
 // Session management functions
-export function setLogoutFlags(reason: "manual" | "session_expired" | "inactivity" = "manual") {
+export function setLogoutFlags(reason: "manual" | "session_expired" | "inactivity" | "security" = "manual") {
   if (typeof window !== "undefined") {
     localStorage.setItem(LOGOUT_FLAG_KEY, "true")
     localStorage.setItem(LOGOUT_REASON_KEY, reason)
@@ -312,7 +313,7 @@ export async function registerUser(data: RegistrationData): Promise<Registration
 }
 
 // Sign out user
-export async function signOut(reason: "manual" | "session_expired" | "inactivity" = "manual"): Promise<void> {
+export async function signOut(reason: "manual" | "session_expired" | "inactivity" | "security" = "manual"): Promise<void> {
   try {
     // Set logout flags before signing out
     setLogoutFlags(reason)
@@ -323,6 +324,7 @@ export async function signOut(reason: "manual" | "session_expired" | "inactivity
     throw error
   }
 }
+
 
 // Force logout (e.g., for session expiration or security)
 export async function forceLogout(reason: "session_expired" | "inactivity" | "security" = "security"): Promise<void> {
