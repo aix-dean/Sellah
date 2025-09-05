@@ -18,11 +18,12 @@ import Link from "next/link"
 
 interface Question {
   id: string
-  type: "text" | "textarea" | "multiple_choice" | "checkbox" | "dropdown" | "email" | "phone" | "date"
+  type: "text" | "textarea" | "multiple_choice" | "checkbox" | "dropdown" | "email" | "phone" | "date" | "image"
   title: string
   description?: string
   required: boolean
   options?: { imageUrl?: string; text: string }[]
+  imageUrl?: string // Added for image upload questions
   order: number
 }
 
@@ -30,6 +31,7 @@ interface Page {
   id: string
   title: string
   description?: string
+  imageUrl?: string // Added for page image
   questions: Question[]
   order: number
 }
@@ -121,6 +123,7 @@ export default function TypeformStylePage() {
             id: page.id || `page_${Date.now()}`,
             title: page.title || "Untitled Page",
             description: page.description || "",
+            imageUrl: page.imageUrl || undefined, // Add imageUrl for page
             questions: (page.questions || []).map((q: any) => ({
               ...q,
               options: (q.options || []).map((opt: any) => {
@@ -132,6 +135,7 @@ export default function TypeformStylePage() {
                   text: opt.text || '',
                 };
               }),
+              imageUrl: q.imageUrl || undefined, // Add imageUrl
             })).sort((a: Question, b: Question) => a.order - b.order),
             order: page.order || 0,
           }))
@@ -152,6 +156,7 @@ export default function TypeformStylePage() {
                     text: opt.text || '',
                   };
                 }),
+                imageUrl: q.imageUrl || undefined, // Add imageUrl
               })).sort((a: Question, b: Question) => a.order - b.order),
               order: 0,
             },
@@ -558,6 +563,11 @@ export default function TypeformStylePage() {
             }
           })()}
         </div>
+        {question.type === "image" && question.imageUrl && (
+          <div className="mt-4">
+            <img src={question.imageUrl} alt="Question image" className="max-w-full h-auto rounded-lg shadow-md" />
+          </div>
+        )}
       </div>
     )
   }
@@ -653,7 +663,12 @@ export default function TypeformStylePage() {
 
                 <div className="mb-12">
                   <h2 className="text-3xl font-bold text-gray-900 mb-2">{currentPage.title}</h2>
-                  {currentPage.description && <p className="text-gray-600 mb-8">{currentPage.description}</p>}
+                  {currentPage.description && <p className="text-gray-600 mb-4">{currentPage.description}</p>}
+                  {currentPage.imageUrl && (
+                    <div className="mb-8">
+                      <img src={currentPage.imageUrl} alt="Page image" className="max-w-full h-auto rounded-lg shadow-md" />
+                    </div>
+                  )}
 
                   <div className="space-y-8">{currentPage.questions.map((question) => renderQuestion(question))}</div>
                 </div>

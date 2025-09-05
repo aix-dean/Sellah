@@ -50,6 +50,7 @@ interface Page {
   id: string
   title: string
   description?: string
+  imageUrl?: string // Added for page image
   questions: Question[]
   order: number
 }
@@ -457,6 +458,7 @@ export default function FormBuilderPage() {
         id: page.id || "",
         title: page.title || "",
         description: page.description || "",
+        ...(page.imageUrl && { imageUrl: page.imageUrl }), // Include imageUrl if present
         questions: cleanedQuestions,
         order: page.order || 0,
       }
@@ -969,6 +971,59 @@ export default function FormBuilderPage() {
                     placeholder="Page description (optional)"
                     className="text-sm"
                   />
+                  {/* Page Image Upload */}
+                  <div className="mt-4">
+                    <Label htmlFor={`page-image-upload-${currentPage.id}`}>Page Image (Optional)</Label>
+                    <Input
+                      id={`page-image-upload-${currentPage.id}`}
+                      type="file"
+                      accept="image/*"
+                      onChange={async (e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          const file = e.target.files[0]
+                          if (!userData?.company_id || !formData?.id) {
+                            toast({
+                              title: "Authentication Error",
+                              description: "You must be logged in to upload images.",
+                              variant: "destructive",
+                            })
+                            return
+                          }
+                          try {
+                            const path = `companies/${userData.company_id}/product_briefs/${formData.id}/pages/${currentPage.id}/${file.name}`
+                            const imageUrl = await uploadImageToFirebase(file, path)
+                            updatePage(currentPage.id, { imageUrl: imageUrl })
+                            toast({
+                              title: "Image Uploaded",
+                              description: "Page image uploaded successfully!",
+                            })
+                          } catch (error) {
+                            console.error("Error uploading page image:", error)
+                            toast({
+                              title: "Upload Failed",
+                              description: "Failed to upload page image. Please try again.",
+                              variant: "destructive",
+                            })
+                          }
+                        }
+                      }}
+                      className="text-sm p-2 border-2 border-gray-200 focus:border-blue-500"
+                    />
+                    {currentPage.imageUrl && (
+                      <div className="mt-2">
+                        <p className="text-xs text-gray-600 mb-1">Current Page Image:</p>
+                        <img src={currentPage.imageUrl} alt="Page image" className="max-w-xs h-auto rounded-lg shadow-md" />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => updatePage(currentPage.id, { imageUrl: undefined })}
+                          className="mt-1 text-red-600 hover:text-red-700"
+                        >
+                          Remove Image
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <Button
