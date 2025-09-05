@@ -275,6 +275,12 @@ export default function TypeformStylePage() {
     return isValid
   }
 
+  const handlePrevious = () => {
+    if (currentPageIndex > 0) {
+      setCurrentPageIndex(currentPageIndex - 1)
+    }
+  }
+
   const handleNext = () => {
     if (!validateCurrentPage()) return
 
@@ -621,12 +627,22 @@ export default function TypeformStylePage() {
                   <div className="space-y-8">{currentPage.questions.map((question) => renderQuestion(question))}</div>
                 </div>
 
-                <div className="flex justify-end">
+                <div className="flex justify-between">
+                  {currentPageIndex > 0 && (
+                    <Button
+                      onClick={handlePrevious}
+                      variant="outline"
+                      className="flex items-center gap-2"
+                      style={{ borderColor: currentTheme.primaryColor, color: currentTheme.primaryColor }}
+                    >
+                      Previous Page
+                    </Button>
+                  )}
                   <Button
                     onClick={handleNext}
                     disabled={isSubmitting}
-                    className="text-white flex items-center gap-2"
-                    style={{ backgroundColor: currentTheme.primaryColor }}
+                    className={`flex items-center gap-2 ${currentPageIndex === 0 ? "ml-auto" : ""}`}
+                    style={{ backgroundColor: currentTheme.primaryColor, color: "white" }}
                   >
                     {currentPageIndex === formData.pages.length - 1 ? (
                       isSubmitting ? (
