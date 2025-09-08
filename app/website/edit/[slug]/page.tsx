@@ -73,6 +73,22 @@ interface CompanyData {
       projectTitle: string
       projectDescription: string
     }
+    recentWorksItems?: { // Added this
+      id: number;
+      backgroundImage: string;
+      sectionTitle: string;
+      projectTitle: string;
+      projectDescription: string;
+      mediaType?: "image" | "video"; // Added mediaType
+    }[];
+    recentWorksSettings?: {
+      carouselNavColors?: {
+        buttonColor: string;
+        buttonHoverColor: string;
+        iconColor: string;
+        iconHoverColor: string;
+      };
+    };
     applicationTabs?: {
       tabs: { id: string; label: string; enabled: boolean }[]
       activeTabColor: string
@@ -122,6 +138,23 @@ interface CompanyData {
       subtitle: string
       technologies?: { name: string; image: string }[]
     }
+    ourClients?: {
+      sectionTitle: string;
+      testimonials: {
+        id: string;
+        quote: string;
+        clientName: string;
+        clientTitle: string;
+        clientImage?: string;
+      }[];
+      carouselNavColors?: {
+        buttonColor: string;
+        buttonHoverColor: string;
+        iconColor: string;
+        iconHoverColor: string;
+      };
+    };
+    [key: string]: any; // Add index signature to allow dynamic access
   }
 }
 
@@ -198,7 +231,21 @@ export default function WebsiteEditPage() {
 
   const [showApplicationTabsDialog, setShowApplicationTabsDialog] = useState(false)
   const [applicationTabsDialogTab, setApplicationTabsDialogTab] = useState("manage")
-  const [applicationTabsConfig, setApplicationTabsConfig] = useState({
+  const [applicationTabsConfig, setApplicationTabsConfig] = useState<{
+    tabs: { id: string; label: string; enabled: boolean }[];
+    activeTabColor: string;
+    inactiveTabColor: string;
+    activeTextColor: string;
+    inactiveTextColor: string;
+    content: {
+      [key: string]: {
+        title: string;
+        description: string;
+        applications: { name: string; image: string }[];
+        image: string;
+      };
+    };
+  }>({
     tabs: [
       { id: "Indoor", label: "Indoor", enabled: true },
       { id: "Outdoor", label: "Outdoor", enabled: true },
@@ -285,6 +332,46 @@ export default function WebsiteEditPage() {
   })
   const [selectedTabForContent, setSelectedTabForContent] = useState("Indoor")
 
+  const [ourClientsDialog, setOurClientsDialog] = useState(false)
+  const [ourClientsConfig, setOurClientsConfig] = useState<{
+    sectionTitle: string;
+    testimonials: {
+      id: string;
+      quote: string;
+      clientName: string;
+      clientTitle: string;
+      clientImage?: string;
+    }[];
+    carouselNavColors?: { // Made optional here
+      buttonColor: string;
+      buttonHoverColor: string;
+      iconColor: string;
+      iconHoverColor: string;
+    };
+  }>({
+    sectionTitle: "Our Clients",
+    testimonials: [
+      {
+        id: "1",
+        quote:
+          "Globaltronics is not just a product or service. Its technical expertise in the field made us choose it. Besides, we are looking for experts who will elevate our brand look. Our LED billboards from Globaltronics increased the number of walk-in customers especially in Cebu, Davao and Manila. Our shops have become more attractive because of dynamic advertisements that we now have.",
+        clientName: "Mark Lyndon Tabion",
+        clientTitle: "Sales Associates of Honda",
+        clientImage: "/placeholder.svg",
+      },
+    ],
+    carouselNavColors: {
+      buttonColor: "#2563eb", // blue-600
+      buttonHoverColor: "#1d4ed8", // blue-700
+      iconColor: "#ffffff", // white
+      iconHoverColor: "#ffffff", // white
+    },
+  })
+  const [currentTestimonialIndex, setCurrentTestimonialIndex] = useState(0)
+  const [ourClientsSaving, setOurClientsSaving] = useState(false)
+  const [clientImageFile, setClientImageFile] = useState<File | null>(null)
+  const [clientImageUploading, setClientImageUploading] = useState(false)
+
   const [aboutUsDialogOpen, setAboutUsDialogOpen] = useState(false)
   const [aboutUsConfig, setAboutUsConfig] = useState({
     subtitle: "Consectetur Adipiscing Elit",
@@ -351,20 +438,20 @@ export default function WebsiteEditPage() {
 
   const handleFooterClick = () => {
     // Load existing config from database
-    const existingConfig = companyData?.web_config?.footer || {}
+    const existingConfig = companyData?.web_config?.footer
     setFooterConfig({
-      title: existingConfig.title || "How Can We Help You?",
-      subtitle: existingConfig.subtitle || "Feel free to let us know.",
-      buttonText: existingConfig.buttonText || "contact us",
-      backgroundColor: existingConfig.backgroundColor || companyData?.theme?.footerBackgroundColor || "#0f172a",
-      textColor: existingConfig.textColor || companyData?.theme?.footerTextColor || "#ffffff",
+      title: existingConfig?.title || "How Can We Help You?",
+      subtitle: existingConfig?.subtitle || "Feel free to let us know.",
+      buttonText: existingConfig?.buttonText || "contact us",
+      backgroundColor: existingConfig?.backgroundColor || companyData?.theme?.footerBackgroundColor || "#0f172a",
+      textColor: existingConfig?.textColor || companyData?.theme?.footerTextColor || "#ffffff",
       aboutUs: {
-        title: existingConfig.aboutUs?.title || "About Us",
-        links: existingConfig.aboutUs?.links || ["About Unilumin", "Joint-Stock Company", "U-Green"],
+        title: existingConfig?.aboutUs?.title || "About Us",
+        links: existingConfig?.aboutUs?.links || ["About Unilumin", "Joint-Stock Company", "U-Green"],
       },
       address: {
-        title: existingConfig.address?.title || "Address",
-        lines: existingConfig.address?.lines || [
+        title: existingConfig?.address?.title || "Address",
+        lines: existingConfig?.address?.lines || [
           "No. 18 Haoye Road, Fuhai Sub-district, Bao'an District",
           "Shenzhen, Guangdong Province",
           "sales@unilumin.com",
@@ -372,8 +459,8 @@ export default function WebsiteEditPage() {
         ],
       },
       followUs: {
-        title: existingConfig.followUs?.title || "Follow Us",
-        socialLinks: existingConfig.followUs?.socialLinks || [
+        title: existingConfig?.followUs?.title || "Follow Us",
+        socialLinks: existingConfig?.followUs?.socialLinks || [
           { name: "Twitter", url: "#", icon: "twitter" },
           { name: "YouTube", url: "#", icon: "youtube" },
           { name: "LinkedIn", url: "#", icon: "linkedin" },
@@ -381,7 +468,7 @@ export default function WebsiteEditPage() {
           { name: "TikTok", url: "#", icon: "tiktok" },
         ],
       },
-      copyright: existingConfig.copyright || "copyright © 2025 DOS",
+      copyright: existingConfig?.copyright || "copyright © 2025 DOS",
     })
     setFooterDialog(true)
   }
@@ -613,13 +700,13 @@ export default function WebsiteEditPage() {
       setHeaderColor(companyData.web_config.theme.headerColor || "#1f2937")
       setNavColor(companyData.web_config.theme.navColor || "#ffffff")
     }
-  }, [companyData])
 
-  useEffect(() => {
-    if (companyData) {
-      if (companyData.web_config?.recentWorksSettings?.carouselNavColors) {
-        setCarouselNavColors(companyData.web_config.recentWorksSettings.carouselNavColors)
-      }
+    if (companyData?.web_config?.recentWorksSettings?.carouselNavColors) {
+      setCarouselNavColors(companyData.web_config.recentWorksSettings.carouselNavColors)
+    }
+
+    if (companyData?.web_config?.ourClients) {
+      setOurClientsConfig(companyData.web_config.ourClients)
     }
   }, [companyData])
 
@@ -910,13 +997,13 @@ export default function WebsiteEditPage() {
     console.log("[v0] Upload button clicked")
     console.log("[v0] heroVideoFile:", heroVideoFile)
     console.log("[v0] companyData:", companyData)
-    console.log("[v0] companyData.id:", companyData?.id || slug)
+    console.log("[v0] companyId:", slug)
 
-    if (!heroVideoFile || !companyData) {
-      console.log("[v0] Upload cancelled - missing file or company data")
+    if (!heroVideoFile || !slug) { // Changed companyData to slug
+      console.log("[v0] Upload cancelled - missing file or company ID") // Updated message
       toast({
         title: "Error",
-        description: "Please select a video file and ensure company data is loaded.",
+        description: "Please select a video file and ensure company ID is available.", // Updated message
         variant: "destructive",
       })
       return
@@ -1208,7 +1295,7 @@ export default function WebsiteEditPage() {
   const handleApplicationImageUpload = async (tabId: string, appIndex: number, file: File) => {
     try {
       const fileName = `${Date.now()}_${file.name}`
-      const path = `application-images/${companyData?.id}/${tabId}/${fileName}`
+      const path = `application-images/${slug}/${tabId}/${fileName}` // Changed companyData?.id to slug
       const storageRef = ref(storage, path)
 
       const snapshot = await uploadBytes(storageRef, file)

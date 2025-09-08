@@ -72,9 +72,7 @@ export default function ProductDetailPage() {
       try {
         const briefsRef = collection(db, "products_brief")
         const queries = [
-          query(briefsRef, where("linkedProductId", "==", productId), orderBy("createdAt", "desc")),
-          query(briefsRef, where("linkedProduct", "==", productId), orderBy("createdAt", "desc")),
-          query(briefsRef, where("productId", "==", productId), orderBy("createdAt", "desc")),
+          query(briefsRef, where("linkedProductIds", "array-contains", productId), orderBy("createdAt", "desc")),
         ]
 
         console.log("[v0] Checking product brief for productId:", productId)
@@ -391,7 +389,7 @@ export default function ProductDetailPage() {
             href={`/website/product-brief/${productBriefId}/typeform`}
             className="bg-blue-600 text-white py-3 px-8 rounded-full font-medium hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl flex items-center justify-center"
           >
-            Product Brief
+            Project Brief
           </Link>
         </div>
       )}
