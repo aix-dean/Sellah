@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Plus, Edit3, FileText, Package, BarChart3, Link } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -27,7 +27,7 @@ interface ProductBrief {
   id: string
   title: string
   description: string
-  linkedProductIds: string[] // Changed from single linkedProductId to array
+  linkedProductIds: string[] // Changed from single linkedProductId to array Product Briefs
   linkedProducts: Product[] // Added array of linked products
   responseCount: number
   isActive: boolean
@@ -134,15 +134,15 @@ export default function ProductBriefPage() {
     }
   }
 
-  useEffect(() => {
-    if (allProducts.length > 0 && productBriefs.length > 0) {
-      const updatedBriefs = productBriefs.map((brief) => ({
-        ...brief,
-        linkedProducts: allProducts.filter((product) => brief.linkedProductIds.includes(product.id!)),
-      }))
-      setProductBriefs(updatedBriefs)
+  const productBriefsWithLinkedProducts = useMemo(() => {
+    if (allProducts.length === 0 || productBriefs.length === 0) {
+      return []
     }
-  }, [allProducts])
+    return productBriefs.map((brief) => ({
+      ...brief,
+      linkedProducts: allProducts.filter((product) => brief.linkedProductIds.includes(product.id!)),
+    }))
+  }, [allProducts, productBriefs])
 
   const handleCreateBrief = async () => {
     if (!userData?.company_id || !newBriefTitle.trim()) return
@@ -233,7 +233,7 @@ export default function ProductBriefPage() {
                     <div className="p-2 bg-blue-100 rounded-lg">
                       <FileText className="w-8 h-8 text-blue-600" />
                     </div>
-                    Product Briefs
+                    Project Briefs
                   </h1>
                   <p className="text-gray-600 text-lg">Manage product briefs and link them to multiple products</p>
                 </div>
@@ -342,7 +342,7 @@ export default function ProductBriefPage() {
             </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {productBriefs.map((brief) => (
+              {productBriefsWithLinkedProducts.map((brief) => (
                 <Card key={brief.id} className="hover:shadow-md transition-shadow border-0 shadow-sm">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
@@ -357,9 +357,6 @@ export default function ProductBriefPage() {
                             className={brief.isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}
                           >
                             {brief.isActive ? "Active" : "Inactive"}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            {brief.responseCount} responses
                           </Badge>
                         </div>
                       </div>
@@ -444,7 +441,7 @@ export default function ProductBriefPage() {
                         className="w-full text-purple-600 hover:text-purple-700 hover:bg-purple-50"
                       >
                         <BarChart3 className="w-3 h-3 mr-1" />
-                        View Responses ({brief.responseCount})
+                        View Responses
                       </Button>
                     </div>
                   </CardContent>

@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { doc, getDoc, collection, addDoc, Timestamp } from "firebase/firestore"
+import { doc, getDoc, collection, addDoc, Timestamp, updateDoc, FieldValue } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { ArrowRight, FileText } from "lucide-react"
 import Link from "next/link"
@@ -371,6 +371,14 @@ export default function TypeformStylePage() {
 
       const responsesRef = collection(db, "product_brief_responses")
       await addDoc(responsesRef, responseData)
+
+      // Increment responseCount in the products_brief document
+      if (formData?.id) {
+        const productBriefRef = doc(db, "products_brief", formData.id)
+        await updateDoc(productBriefRef, {
+          responseCount: FieldValue.increment(1),
+        })
+      }
 
       setIsSubmitted(true)
       toast({

@@ -10,18 +10,93 @@ import { useParams } from "next/navigation"
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import ApplicationTabs from "@/components/ApplicationTabs" // Import ApplicationTabs component
+import SplashScreen from "@/components/splash-screen" // Import SplashScreen component
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import Link from "next/link"
 
+interface CompanyData {
+  id: string
+  name?: string
+  business_type?: string
+  logo?: string
+  hero_video?: string
+  theme?: any
+  web_config?: {
+    applicationTabs?: any
+    heroContent?: any
+    heroVideoUrl?: string
+    recentWorksItems?: Array<{
+      mediaType?: string
+      backgroundImage?: string
+      projectTitle?: string
+      projectDescription?: string
+    }>
+    recentWorksSettings?: {
+      carouselNavColors?: {
+        buttonColor?: string
+        buttonHoverColor?: string
+        iconColor?: string
+        iconHoverColor?: string
+      }
+    }
+    products?: {
+      section_title?: string
+      section_description?: string
+      product_title?: string
+      product_description?: string
+      button_text?: string
+      backgroundColor?: string
+      textColor?: string
+    }
+    aboutUs?: {
+      backgroundColor?: string
+      textColor?: string
+      title?: string
+      subtitle?: string
+      subtitleColor?: string
+      description?: string
+      contactPhone?: string
+      ctaButton?: string
+      ctaButtonBackgroundColor?: string
+      ctaButtonTextColor?: string
+      image?: string
+    }
+    whyUs?: {
+      bulletPoints?: string[]
+      videoUrl?: string
+    }
+    footer?: {
+      backgroundColor?: string
+      textColor?: string
+      title?: string
+      subtitle?: string
+      buttonText?: string
+      aboutUs?: {
+        title?: string
+        links?: string[]
+      }
+      address?: {
+        title?: string
+        lines?: string[]
+      }
+      followUs?: {
+        title?: string
+      }
+      copyright?: string
+    }
+  }
+}
+
 export default function WebsitePage() {
   const params = useParams()
   const companySlug = params.slug as string
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [companyData, setCompanyData] = useState<any>(null)
+  const [companyData, setCompanyData] = useState<CompanyData | null>(null)
   const [products, setProducts] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [showSplashScreen, setShowSplashScreen] = useState(true) // State for splash screen
+  const [pageLoading, setPageLoading] = useState(true) // State for actual page content loading
   const [theme, setTheme] = useState<any>(null)
   const [heroVideo, setHeroVideo] = useState<string | null>(null)
   const [isVideoMuted, setIsVideoMuted] = useState(true)
@@ -44,7 +119,8 @@ export default function WebsitePage() {
   useEffect(() => {
     if (companySlug === "product-brief") {
       setIsProductBrief(true)
-      setLoading(false)
+      setShowSplashScreen(false)
+      setPageLoading(false)
       return
     } else {
       setIsProductBrief(false)
@@ -52,7 +128,7 @@ export default function WebsitePage() {
 
     const fetchCompanyData = async () => {
       try {
-        setLoading(true)
+        setPageLoading(true)
 
         const companyId = companySlug
 
@@ -60,7 +136,7 @@ export default function WebsitePage() {
         const companyDoc = await getDoc(companyDocRef)
 
         if (companyDoc.exists()) {
-          const companyInfo = { id: companyDoc.id, ...companyDoc.data() }
+          const companyInfo: CompanyData = { id: companyDoc.id, ...companyDoc.data() } as CompanyData
           setCompanyData(companyInfo)
 
           console.log("[v0] Company data:", companyInfo)
@@ -84,7 +160,7 @@ export default function WebsitePage() {
             setHeroContent(companyInfo.web_config.heroContent)
           }
 
-          let videoUrl = null
+          let videoUrl: string | null = null
 
           if (companyInfo.web_config?.heroVideoUrl) {
             console.log("[v0] Hero video URL found in web_config.heroVideoUrl:", companyInfo.web_config.heroVideoUrl)
@@ -186,20 +262,23 @@ export default function WebsitePage() {
         } else {
           console.error("Company not found with ID:", companyId)
           setCompanyData({
+            id: companyId, // Provide a default ID
             name: "Company",
             business_type: "LED Solutions Provider",
           })
-          setFallbackProducts()
+          setFallbackProducts(companyId)
         }
       } catch (error) {
         console.error("Error fetching company data:", error)
         setCompanyData({
+          id: companySlug, // Provide a default ID
           name: "Company",
           business_type: "LED Solutions Provider",
         })
-        setFallbackProducts()
+        setFallbackProducts(companySlug)
       } finally {
-        setLoading(false)
+        setPageLoading(false)
+        setShowSplashScreen(false) // Hide splash screen once all data is fetched
       }
     }
 
@@ -370,18 +449,18 @@ export default function WebsitePage() {
 
         if (companyProducts.length === 0) {
           console.log("No products found for company, showing fallback products")
-          setFallbackProducts()
+          setFallbackProducts(companyId)
         }
       } catch (error) {
         console.error("Error fetching company products:", error)
-        setFallbackProducts()
+        setFallbackProducts(companyId)
       }
     }
 
-    const setFallbackProducts = () => {
+    const setFallbackProducts = (companyId: string) => {
       setProducts([
         {
-          id: 1,
+          id: `${companyId}-1`,
           name: "LED Poster",
           slug: "led-poster",
           icon: <Monitor className="h-8 w-8" />,
@@ -397,7 +476,7 @@ export default function WebsitePage() {
           },
         },
         {
-          id: 2,
+          id: `${companyId}-2`,
           name: "LED Wall",
           slug: "led-wall",
           icon: <Box className="h-8 w-8" />,
@@ -413,7 +492,7 @@ export default function WebsitePage() {
           },
         },
         {
-          id: 3,
+          id: `${companyId}-3`,
           name: "Floodlights",
           slug: "floodlights",
           icon: <Lightbulb className="h-8 w-8" />,
@@ -429,7 +508,7 @@ export default function WebsitePage() {
           },
         },
         {
-          id: 4,
+          id: `${companyId}-4`,
           name: "3D 4x4 Hologram Fan",
           slug: "3d-4x4-hologram-fan",
           icon: <Zap className="h-8 w-8" />,
@@ -445,7 +524,7 @@ export default function WebsitePage() {
           },
         },
         {
-          id: 5,
+          id: `${companyId}-5`,
           name: "Back-to-Back Hologram Fan",
           slug: "back-to-back-hologram-fan",
           icon: <RotateCcw className="h-8 w-8" />,
@@ -742,12 +821,16 @@ export default function WebsitePage() {
     }
   }
 
-  if (loading) {
+  if (showSplashScreen) {
+    return <SplashScreen />
+  }
+
+  if (pageLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading website...</p>
+          <p className="text-muted-foreground">Loading website content...</p>
         </div>
       </div>
     )
@@ -1117,6 +1200,14 @@ export default function WebsitePage() {
                 color: heroContent?.buttonTextColor || theme?.buttonTextColor || "#ffffff",
               }}
               className="hover:opacity-90 transition-opacity shadow-lg"
+              onClick={() => {
+                const productsSection = document.getElementById("products")
+                if (productsSection) {
+                  const yOffset = -80 // Adjust for fixed header
+                  const y = productsSection.getBoundingClientRect().top + window.pageYOffset + yOffset
+                  window.scrollTo({ top: y, behavior: "smooth" })
+                }
+              }}
             >
               View Products
             </Button>
@@ -1146,7 +1237,7 @@ export default function WebsitePage() {
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold mb-4 text-foreground">Application</h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              {companyData?.web_config?.applications?.section_description ||
+              {companyData?.web_config?.applicationTabs?.section_description ||
                 "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."}
             </p>
           </div>
@@ -1160,160 +1251,161 @@ export default function WebsitePage() {
       </section>
 
       {/* Our Recent Works Section */}
-      <section
-        id="recent-works"
-        className="w-full aspect-video relative overflow-hidden"
-        onMouseEnter={() => setCurrentSlideIndex(currentSlideIndex)} // Pause on hover
-      >
-        <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent z-20"></div>
-        {companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.mediaType === "video" ? (
-          <video
-            src={
-              companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.backgroundImage ||
-              "/placeholder.svg?height=720&width=1280"
-            }
-            className="w-full h-full object-cover transition-all duration-500"
-            muted
-            loop
-            autoPlay
-            playsInline
-          />
-        ) : (
-          <img
-            src={
-              companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.backgroundImage ||
-              "/placeholder.svg?height=720&width=1280" ||
-              "/placeholder.svg" ||
-              "/placeholder.svg" ||
-              "/placeholder.svg" ||
-              "/placeholder.svg"
-            }
-            alt={companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.projectTitle || "Recent Work"}
-            className="w-full h-full object-cover transition-all duration-500"
-          />
-        )}
+      {companyData?.web_config?.recentWorksItems && companyData.web_config.recentWorksItems.length > 0 && (
+        <section
+          id="recent-works"
+          className="w-full aspect-video relative overflow-hidden"
+          onMouseEnter={() => setCurrentSlideIndex(currentSlideIndex)} // Pause on hover
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent z-20"></div>
+          {companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.mediaType === "video" ? (
+            <video
+              src={
+                companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.backgroundImage ||
+                "/placeholder.svg?height=720&width=1280"
+              }
+              className="w-full h-full object-cover transition-all duration-500"
+              muted
+              loop
+              autoPlay
+              playsInline
+            />
+          ) : (
+            <img
+              src={
+                companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.backgroundImage ||
+                "/placeholder.svg?height=720&width=1280"
+              }
+              alt={companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.projectTitle || "Recent Work"}
+              className="w-full h-full object-cover transition-all duration-500"
+              onError={(e) => {
+                console.error("[v0] Image failed to load in Recent Works:", e.currentTarget.src)
+              }}
+            />
+          )}
 
-        {/* Content Overlay */}
-        <div className="absolute inset-0 z-30 flex items-end">
-          <div className="p-8 lg:p-16 max-w-2xl">
-            <h2 className="text-4xl lg:text-5xl font-bold text-white mb-4 transition-all duration-500">
-              {companyData?.web_config?.recentWorksItems?.[0]?.sectionTitle || "Our Recent Works"}
-            </h2>
-            <h3 className="text-2xl lg:text-3xl font-semibold text-white mb-6 transition-all duration-500">
-              {companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.projectTitle || "Project Title"}
-            </h3>
-            <p className="text-lg text-white/90 leading-relaxed transition-all duration-500">
-              {companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.projectDescription ||
-                "Project description will appear here."}
-            </p>
+          {/* Content Overlay */}
+          <div className="absolute inset-0 z-30 flex items-end">
+            <div className="p-8 lg:p-16 max-w-2xl">
+              <h2 className="text-4xl lg:text-5xl font-bold text-white mb-4 transition-all duration-500">
+                {companyData?.web_config?.recentWorksItems?.[0]?.projectTitle || "Our Recent Works"}
+              </h2>
+              <h3 className="text-2xl lg:text-3xl font-semibold text-white mb-6 transition-all duration-500">
+                {companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.projectTitle || "Project Title"}
+              </h3>
+              <p className="text-lg text-white/90 leading-relaxed transition-all duration-500">
+                {companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.projectDescription ||
+                  "Project description will appear here."}
+              </p>
+            </div>
           </div>
-        </div>
 
-        <div className="absolute bottom-8 right-8 z-30 flex items-center space-x-4">
-          <div className="flex space-x-2">
-            {(companyData?.web_config?.recentWorksItems || []).map((_, index) => (
-              <div
-                key={index}
-                className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                  index === currentSlideIndex ? "bg-white" : "bg-white/50"
-                }`}
-              ></div>
-            ))}
-          </div>
-          <div className="flex space-x-2">
-            <button
-              className="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
-              style={{
-                backgroundColor:
-                  companyData?.web_config?.recentWorksSettings?.carouselNavColors?.buttonColor || "#2563eb",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor =
-                  companyData?.web_config?.recentWorksSettings?.carouselNavColors?.buttonHoverColor || "#1d4ed8"
-                const svg = e.currentTarget.querySelector("svg")
-                if (svg) {
-                  svg.style.color =
-                    companyData?.web_config?.recentWorksSettings?.carouselNavColors?.iconHoverColor || "#ffffff"
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor =
-                  companyData?.web_config?.recentWorksSettings?.carouselNavColors?.buttonColor || "#2563eb"
-                const svg = e.currentTarget.querySelector("svg")
-                if (svg) {
-                  svg.style.color =
-                    companyData?.web_config?.recentWorksSettings?.carouselNavColors?.iconColor || "#ffffff"
-                }
-              }}
-              onClick={() => {
-                if (autoSwipeInterval) {
-                  clearInterval(autoSwipeInterval)
-                  setAutoSwipeInterval(null)
-                }
-                const itemsLength = companyData?.web_config?.recentWorksItems?.length || 1
-                setCurrentSlideIndex((prev) => (prev - 1 + itemsLength) % itemsLength)
-              }}
-            >
-              <svg
-                className="w-5 h-5 transition-colors"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+          <div className="absolute bottom-8 right-8 z-30 flex items-center space-x-4">
+            <div className="flex space-x-2">
+              {(companyData?.web_config?.recentWorksItems || []).map((_, index) => (
+                <div
+                  key={index}
+                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                    index === currentSlideIndex ? "bg-white" : "bg-white/50"
+                  }`}
+                ></div>
+              ))}
+            </div>
+            <div className="flex space-x-2">
+              <button
+                className="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
                 style={{
-                  color: companyData?.web_config?.recentWorksSettings?.carouselNavColors?.iconColor || "#ffffff",
+                  backgroundColor:
+                    companyData?.web_config?.recentWorksSettings?.carouselNavColors?.buttonColor || "#2563eb",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor =
+                    companyData?.web_config?.recentWorksSettings?.carouselNavColors?.buttonHoverColor || "#1d4ed8"
+                  const svg = e.currentTarget.querySelector("svg")
+                  if (svg) {
+                    svg.style.color =
+                      companyData?.web_config?.recentWorksSettings?.carouselNavColors?.iconHoverColor || "#ffffff"
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor =
+                    companyData?.web_config?.recentWorksSettings?.carouselNavColors?.buttonColor || "#2563eb"
+                  const svg = e.currentTarget.querySelector("svg")
+                  if (svg) {
+                    svg.style.color =
+                      companyData?.web_config?.recentWorksSettings?.carouselNavColors?.iconColor || "#ffffff"
+                  }
+                }}
+                onClick={() => {
+                  if (autoSwipeInterval) {
+                    clearInterval(autoSwipeInterval)
+                    setAutoSwipeInterval(null)
+                  }
+                  const itemsLength = companyData?.web_config?.recentWorksItems?.length || 1
+                  setCurrentSlideIndex((prev) => (prev - 1 + itemsLength) % itemsLength)
                 }}
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <button
-              className="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
-              style={{
-                backgroundColor:
-                  companyData?.web_config?.recentWorksSettings?.carouselNavColors?.buttonColor || "#2563eb",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor =
-                  companyData?.web_config?.recentWorksSettings?.carouselNavColors?.buttonHoverColor || "#1d4ed8"
-                const svg = e.currentTarget.querySelector("svg")
-                if (svg) {
-                  svg.style.color =
-                    companyData?.web_config?.recentWorksSettings?.carouselNavColors?.iconHoverColor || "#ffffff"
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor =
-                  companyData?.web_config?.recentWorksSettings?.carouselNavColors?.buttonColor || "#2563eb"
-                const svg = e.currentTarget.querySelector("svg")
-                if (svg) {
-                  svg.style.color =
-                    companyData?.web_config?.recentWorksSettings?.carouselNavColors?.iconColor || "#ffffff"
-                }
-              }}
-              onClick={() => {
-                if (autoSwipeInterval) {
-                  clearInterval(autoSwipeInterval)
-                  setAutoSwipeInterval(null)
-                }
-                const itemsLength = companyData?.web_config?.recentWorksItems?.length || 1
-                setCurrentSlideIndex((prev) => (prev + 1) % itemsLength)
-              }}
-            >
-              <svg
-                className="w-5 h-5 transition-colors"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+                <svg
+                  className="w-5 h-5 transition-colors"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  style={{
+                    color: companyData?.web_config?.recentWorksSettings?.carouselNavColors?.iconColor || "#ffffff",
+                  }}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <button
+                className="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
                 style={{
-                  color: companyData?.web_config?.recentWorksSettings?.carouselNavColors?.iconColor || "#ffffff",
+                  backgroundColor:
+                    companyData?.web_config?.recentWorksSettings?.carouselNavColors?.buttonColor || "#2563eb",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor =
+                    companyData?.web_config?.recentWorksSettings?.carouselNavColors?.buttonHoverColor || "#1d4ed8"
+                  const svg = e.currentTarget.querySelector("svg")
+                  if (svg) {
+                    svg.style.color =
+                      companyData?.web_config?.recentWorksSettings?.carouselNavColors?.iconHoverColor || "#ffffff"
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor =
+                    companyData?.web_config?.recentWorksSettings?.carouselNavColors?.buttonColor || "#2563eb"
+                  const svg = e.currentTarget.querySelector("svg")
+                  if (svg) {
+                    svg.style.color =
+                      companyData?.web_config?.recentWorksSettings?.carouselNavColors?.iconColor || "#ffffff"
+                  }
+                }}
+                onClick={() => {
+                  if (autoSwipeInterval) {
+                    clearInterval(autoSwipeInterval)
+                    setAutoSwipeInterval(null)
+                  }
+                  const itemsLength = companyData?.web_config?.recentWorksItems?.length || 1
+                  setCurrentSlideIndex((prev) => (prev + 1) % itemsLength)
                 }}
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
+                <svg
+                  className="w-5 h-5 transition-colors"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  style={{
+                    color: companyData?.web_config?.recentWorksSettings?.carouselNavColors?.iconColor || "#ffffff",
+                  }}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Featured Products Section */}
       <section id="products" className="py-16 bg-white">
@@ -1549,8 +1641,8 @@ export default function WebsitePage() {
                 <button
                   className="px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-colors"
                   style={{
-                    backgroundColor: companyData?.web_config?.aboutUs?.buttonBackgroundColor || "#ffffff",
-                    color: companyData?.web_config?.aboutUs?.buttonTextColor || "#111827",
+                    backgroundColor: companyData?.web_config?.aboutUs?.ctaButtonBackgroundColor || "#ffffff",
+                    color: companyData?.web_config?.aboutUs?.ctaButtonTextColor || "#111827",
                   }}
                 >
                   {companyData?.web_config?.aboutUs?.ctaButton || "Get To Know Us"}
