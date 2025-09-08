@@ -116,6 +116,40 @@ export default function WebsitePage() {
   const [selectedProductIndex, setSelectedProductIndex] = useState(0)
   const [isProductBrief, setIsProductBrief] = useState(false)
 
+  const ourClientsConfig = {
+    sectionTitle: "Our Clients",
+    testimonials: [
+      {
+        id: "1",
+        clientImage: "/placeholder.svg",
+        clientName: "Client One",
+        clientTitle: "CEO, Company A",
+        quote: "This company has provided exceptional service and innovative solutions. Highly recommended!",
+      },
+      {
+        id: "2",
+        clientImage: "/placeholder.svg",
+        clientName: "Client Two",
+        clientTitle: "Director, Company B",
+        quote: "Their LED displays are top-notch, and their support team is incredibly responsive.",
+      },
+      {
+        id: "3",
+        clientImage: "/placeholder.svg",
+        clientName: "Client Three",
+        clientTitle: "Manager, Company C",
+        quote: "A truly professional and reliable partner for all our LED and holographic needs.",
+      },
+    ],
+    carouselNavColors: {
+      buttonColor: "#2563eb",
+      buttonHoverColor: "#1d4ed8",
+      iconColor: "#ffffff",
+      iconHoverColor: "#ffffff",
+    },
+  }
+  const [currentTestimonialIndex, setCurrentTestimonialIndex] = useState(0)
+
   useEffect(() => {
     if (companySlug === "product-brief") {
       setIsProductBrief(true)
@@ -1727,6 +1761,125 @@ export default function WebsitePage() {
           </div>
         </div>
       </section>
+
+        {/* Our Clients Section */}
+        <section id="our-clients" className="py-16 bg-gray-100">
+          <div
+            className="container mx-auto px-4 relative group rounded-lg p-4 transition-all"
+          >
+
+            <div className="text-center mb-12">
+              <h2 className="text-4xl font-bold text-gray-900 mb-4">
+                {companyData?.web_config?.ourClients?.sectionTitle || "Our Clients"}
+              </h2>
+            </div>
+
+            <div className="relative">
+              <div className="overflow-hidden">
+                <div
+                  className="flex transition-transform duration-500 ease-in-out"
+                  style={{ transform: `translateX(-${currentTestimonialIndex * 100}%)` }}
+                >
+                  {(companyData?.web_config?.ourClients?.testimonials || ourClientsConfig.testimonials).map(
+                    (testimonial, index) => (
+                      <div key={testimonial.id} className="w-full flex-shrink-0 px-4">
+                        <div className="bg-white p-8 rounded-lg shadow-md text-center max-w-3xl mx-auto">
+                          <div className="flex justify-center mb-4">
+                            {testimonial.clientImage && (
+                              <img
+                                src={testimonial.clientImage}
+                                alt={testimonial.clientName}
+                                className="w-24 h-24 rounded-full object-cover border-4 border-blue-500"
+                              />
+                            )}
+                          </div>
+                          <p className="text-lg italic text-gray-700 mb-6">"{testimonial.quote}"</p>
+                          <p className="font-semibold text-gray-900">{testimonial.clientName}</p>
+                          <p className="text-sm text-gray-500">{testimonial.clientTitle}</p>
+                        </div>
+                      </div>
+                    ),
+                  )}
+                </div>
+              </div>
+
+              {/* Carousel Navigation */}
+              {(companyData?.web_config?.ourClients?.testimonials?.length || ourClientsConfig.testimonials.length) >
+                1 && (
+                <div className="absolute inset-y-0 left-0 right-0 flex items-center justify-between px-4">
+                  <button
+                    className="w-10 h-10 rounded-full flex items-center justify-center transition-colors shadow-md"
+                    style={{
+                      backgroundColor: ourClientsConfig.carouselNavColors?.buttonColor || "#2563eb",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor =
+                        ourClientsConfig.carouselNavColors?.buttonHoverColor || "#1d4ed8"
+                      const svg = e.currentTarget.querySelector("svg")
+                      if (svg) svg.style.color = ourClientsConfig.carouselNavColors?.iconHoverColor || "#ffffff"
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor =
+                        ourClientsConfig.carouselNavColors?.buttonColor || "#2563eb"
+                      const svg = e.currentTarget.querySelector("svg")
+                      if (svg) svg.style.color = ourClientsConfig.carouselNavColors?.iconColor || "#ffffff"
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const itemsLength =
+                        companyData?.web_config?.ourClients?.testimonials?.length || ourClientsConfig.testimonials.length
+                      setCurrentTestimonialIndex((prev) => (prev - 1 + itemsLength) % itemsLength)
+                    }}
+                  >
+                    <svg
+                      className="w-5 h-5 transition-colors"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      style={{ color: ourClientsConfig.carouselNavColors?.iconColor || "#ffffff" }}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button
+                    className="w-10 h-10 rounded-full flex items-center justify-center transition-colors shadow-md"
+                    style={{
+                      backgroundColor: ourClientsConfig.carouselNavColors?.buttonColor || "#2563eb",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor =
+                        ourClientsConfig.carouselNavColors?.buttonHoverColor || "#1d4ed8"
+                      const svg = e.currentTarget.querySelector("svg")
+                      if (svg) svg.style.color = ourClientsConfig.carouselNavColors?.iconHoverColor || "#ffffff"
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor =
+                        ourClientsConfig.carouselNavColors?.buttonColor || "#2563eb"
+                      const svg = e.currentTarget.querySelector("svg")
+                      if (svg) svg.style.color = ourClientsConfig.carouselNavColors?.iconColor || "#ffffff"
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const itemsLength =
+                        companyData?.web_config?.ourClients?.testimonials?.length || ourClientsConfig.testimonials.length
+                      setCurrentTestimonialIndex((prev) => (prev + 1) % itemsLength)
+                    }}
+                  >
+                    <svg
+                      className="w-5 h-5 transition-colors"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      style={{ color: ourClientsConfig.carouselNavColors?.iconColor || "#ffffff" }}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
 
       <footer
         style={{
