@@ -11,6 +11,9 @@ import { collection, query, where, getDocs, doc, getDoc } from "firebase/firesto
 import { db } from "@/lib/firebase"
 import ApplicationTabs from "@/components/ApplicationTabs" // Import ApplicationTabs component
 import SplashScreen from "@/components/splash-screen" // Import SplashScreen component
+import TechnologySection from "@/components/TechnologySection"
+import OurPartnersSection from "@/components/website/OurPartnersSection"
+import GetQuotationSection from "@/components/website/GetQuotationSection"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -86,6 +89,31 @@ interface CompanyData {
       }
       copyright?: string
     }
+    ourTechnology?: {
+      mainTitle: string
+      subtitle: string
+      technologies?: { name: string; image: string }[]
+    }
+    ourClients?: {
+      sectionTitle: string;
+      testimonials: {
+        id: string;
+        quote: string;
+        clientName: string;
+        clientTitle: string;
+        clientImage?: string;
+      }[];
+      carouselNavColors?: {
+        buttonColor?: string;
+        buttonHoverColor?: string;
+        iconColor?: string;
+        iconHoverColor?: string;
+      };
+    };
+    ourPartners?: {
+      sectionTitle?: string;
+      partners?: { id: number; name: string; logo: string }[];
+    };
   }
 }
 
@@ -1265,6 +1293,28 @@ export default function WebsitePage() {
           </div>
         </section>
       </div>
+
+      {/* Technology Section */}
+      {companyData && (
+        <TechnologySection
+          companyData={companyData}
+          slug={companySlug}
+        />
+      )}
+
+      {/* Our Partners Section */}
+      <OurPartnersSection
+        companyData={companyData}
+        slug={companySlug}
+      />
+
+      {/* Get Quotation Section */}
+      {companyData && (
+        <GetQuotationSection
+          slug={companySlug}
+          websiteId={companyData.id || ""}
+        />
+      )}
 
       <section id="applications" className="py-16 bg-muted/30">
         <div className="w-full">

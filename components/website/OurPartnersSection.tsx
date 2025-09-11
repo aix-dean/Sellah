@@ -43,65 +43,57 @@ const OurPartnersSection: React.FC<OurPartnersSectionProps> = ({ companyData, sl
     subtitle: string;
     backgroundColor: string;
     textColor: string;
-    carouselSpeed: number; // Added carouselSpeed
+    carouselSpeed: number;
     partners: Partner[];
   }>({
     sectionTitle: "Our Partners",
     subtitle: "trusted by local and global brands across the philippines",
-    backgroundColor: "#5a32b4", // A shade of purple from the image
+    backgroundColor: "#5a32b4",
     textColor: "#ffffff",
-    carouselSpeed: 30, // Default speed in seconds
-    partners: [
-      { id: 1, name: "National Book Store", logo: "/images/partners/national-book-store.png" },
-      { id: 2, name: "Vans", logo: "/images/partners/vans.png" },
-      { id: 3, name: "Puma", logo: "/images/partners/puma.png" },
-      { id: 4, name: "Calvin Klein", logo: "/images/partners/calvin-klein.png" },
-      { id: 5, name: "Bottega Veneta", logo: "/images/partners/bottega-veneta.png" },
-      { id: 6, name: "Lacoste", logo: "/images/partners/lacoste.png" },
-      { id: 7, name: "Kanebo", logo: "/images/partners/kanebo.png" },
-      { id: 8, name: "Straightforward", logo: "/images/partners/straightforward.png" },
-    ],
+    carouselSpeed: 30,
+    partners: [], // Start with empty array instead of defaults
   });
   const [uploadingImageId, setUploadingImageId] = React.useState<number | null>(null);
   const [saving, setSaving] = React.useState(false);
+  const [savedConfig, setSavedConfig] = React.useState<typeof currentPartnersConfig | null>(null);
 
   React.useEffect(() => {
     if (companyData?.web_config?.ourPartners) {
-      setCurrentPartnersConfig({
+      const firebaseConfig = {
         sectionTitle: companyData.web_config.ourPartners.sectionTitle || "Our Partners",
         subtitle: companyData.web_config.ourPartners.subtitle || "trusted by local and global brands across the philippines",
         backgroundColor: companyData.web_config.ourPartners.backgroundColor || "#5a32b4",
         textColor: companyData.web_config.ourPartners.textColor || "#ffffff",
-        carouselSpeed: companyData.web_config.ourPartners.carouselSpeed || 30, // Added carouselSpeed
-        partners: companyData.web_config.ourPartners.partners || [],
-      });
+        carouselSpeed: companyData.web_config.ourPartners.carouselSpeed || 30,
+        partners: companyData.web_config.ourPartners.partners || [], // Use empty array if no partners
+      };
+      setCurrentPartnersConfig(firebaseConfig);
+      setSavedConfig(firebaseConfig); // Also update saved config
+    } else {
+      // Reset to empty state if no data exists
+      const emptyConfig = {
+        sectionTitle: "Our Partners",
+        subtitle: "trusted by local and global brands across the philippines",
+        backgroundColor: "#5a32b4",
+        textColor: "#ffffff",
+        carouselSpeed: 30,
+        partners: [], // Empty array instead of defaults
+      };
+      setCurrentPartnersConfig(emptyConfig);
+      setSavedConfig(null); // Clear saved config
     }
   }, [companyData]);
 
   const handleEditClick = () => {
-    setCurrentPartnersConfig(companyData?.web_config?.ourPartners ? {
-      sectionTitle: companyData.web_config.ourPartners.sectionTitle || "Our Partners",
-      subtitle: companyData.web_config.ourPartners.subtitle || "trusted by local and global brands across the philippines",
-      backgroundColor: companyData.web_config.ourPartners.backgroundColor || "#5a32b4",
-      textColor: companyData.web_config.ourPartners.textColor || "#ffffff",
-      carouselSpeed: companyData.web_config.ourPartners.carouselSpeed || 30, // Added carouselSpeed
-      partners: companyData.web_config.ourPartners.partners || [],
-    } : {
-      sectionTitle: "Our Partners",
-      subtitle: "trusted by local and global brands across the philippines",
-      backgroundColor: "#5a32b4",
-      textColor: "#ffffff",
-      carouselSpeed: 30, // Default speed in seconds
-      partners: [
-        { id: 1, name: "National Book Store", logo: "/images/partners/national-book-store.png" },
-        { id: 2, name: "Vans", logo: "/images/partners/vans.png" },
-        { id: 3, name: "Puma", logo: "/images/partners/puma.png" },
-        { id: 4, name: "Calvin Klein", logo: "/images/partners/calvin-klein.png" },
-        { id: 5, name: "Bottega Veneta", logo: "/images/partners/bottega-veneta.png" },
-        { id: 6, name: "Lacoste", logo: "/images/partners/lacoste.png" },
-        { id: 7, name: "Kanebo", logo: "/images/partners/kanebo.png" },
-        { id: 8, name: "Straightforward", logo: "/images/partners/straightforward.png" },
-      ],
+    // Always use Firebase data if available, otherwise use empty defaults
+    const existingData = companyData?.web_config?.ourPartners;
+    setCurrentPartnersConfig({
+      sectionTitle: existingData?.sectionTitle || "Our Partners",
+      subtitle: existingData?.subtitle || "trusted by local and global brands across the philippines",
+      backgroundColor: existingData?.backgroundColor || "#5a32b4",
+      textColor: existingData?.textColor || "#ffffff",
+      carouselSpeed: existingData?.carouselSpeed || 30,
+      partners: existingData?.partners || [], // Use empty array if no partners exist
     });
     setDialogOpen(true);
   };
@@ -114,6 +106,10 @@ const OurPartnersSection: React.FC<OurPartnersSectionProps> = ({ companyData, sl
       await updateDoc(docRef, {
         "web_config.ourPartners": currentPartnersConfig,
       });
+
+      // Update the saved config for immediate display
+      setSavedConfig(currentPartnersConfig);
+
       toast({ title: "Success", description: "Our Partners section updated." });
       setDialogOpen(false);
     } catch (error) {
@@ -167,12 +163,14 @@ const OurPartnersSection: React.FC<OurPartnersSectionProps> = ({ companyData, sl
     }
   };
 
-  const partnersToDisplay = companyData?.web_config?.ourPartners?.partners || currentPartnersConfig.partners;
-  const sectionTitleToDisplay = companyData?.web_config?.ourPartners?.sectionTitle || currentPartnersConfig.sectionTitle;
-  const subtitleToDisplay = companyData?.web_config?.ourPartners?.subtitle || currentPartnersConfig.subtitle;
-  const backgroundColorToDisplay = companyData?.web_config?.ourPartners?.backgroundColor || currentPartnersConfig.backgroundColor;
-  const textColorToDisplay = companyData?.web_config?.ourPartners?.textColor || currentPartnersConfig.textColor;
-  const carouselSpeedToDisplay = companyData?.web_config?.ourPartners?.carouselSpeed || currentPartnersConfig.carouselSpeed;
+  // Use saved config if available, otherwise use Firebase data, otherwise use current config
+  const displayConfig = savedConfig || companyData?.web_config?.ourPartners || currentPartnersConfig;
+  const partnersToDisplay = displayConfig.partners || [];
+  const sectionTitleToDisplay = displayConfig.sectionTitle || "Our Partners";
+  const subtitleToDisplay = displayConfig.subtitle || "trusted by local and global brands across the philippines";
+  const backgroundColorToDisplay = displayConfig.backgroundColor || "#5a32b4";
+  const textColorToDisplay = displayConfig.textColor || "#ffffff";
+  const carouselSpeedToDisplay = displayConfig.carouselSpeed || 30;
 
   return (
     <section id="our-partners" className="py-16" style={{ backgroundColor: backgroundColorToDisplay, color: textColorToDisplay }}>
@@ -210,24 +208,37 @@ const OurPartnersSection: React.FC<OurPartnersSectionProps> = ({ companyData, sl
           </EditableElement>
         </div>
 
-        <div className="overflow-hidden whitespace-nowrap py-4">
-          <div className="logo-carousel inline-block" style={{ animationDuration: `${carouselSpeedToDisplay}s` }}>
-            {partnersToDisplay.concat(partnersToDisplay).map((partner: Partner, index: number) => (
-              <div key={index} className="inline-block mx-8">
-                <EditableElement
-                  content={{
-                    type: "image",
-                    content: partner.logo,
-                    section: "ourPartners",
-                    field: `partner_${partner.id}_logo`,
-                  }}
-                >
-                  <img src={partner.logo} alt={partner.name} className="h-24 w-auto object-contain filter grayscale brightness-0 invert" />
-                </EditableElement>
-              </div>
-            ))}
+        {partnersToDisplay.length > 0 ? (
+          <div className="overflow-hidden whitespace-nowrap py-4">
+            <div
+              className="logo-carousel inline-block"
+              style={{ '--carousel-speed': `${carouselSpeedToDisplay}s` } as React.CSSProperties}
+            >
+              {/* Repeat partners multiple times to ensure seamless loop and fill space */}
+              {Array.from({ length: Math.max(partnersToDisplay.length * 4, 12) }, (_, index) => {
+                const partner = partnersToDisplay[index % partnersToDisplay.length];
+                return (
+                  <div key={`${partner.id}-${index}`} className="inline-block mx-8">
+                    <EditableElement
+                      content={{
+                        type: "image",
+                        content: partner.logo,
+                        section: "ourPartners",
+                        field: `partner_${partner.id}_logo`,
+                      }}
+                    >
+                      <img src={partner.logo} alt={partner.name} className="h-24 w-auto object-contain filter grayscale brightness-0 invert" />
+                    </EditableElement>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="py-8 text-center">
+            <p className="text-lg opacity-75">No partners added yet. Click edit to add partners.</p>
+          </div>
+        )}
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -253,22 +264,74 @@ const OurPartnersSection: React.FC<OurPartnersSectionProps> = ({ companyData, sl
               />
             </div>
             <div>
-              <Label htmlFor="backgroundColor">Background Color</Label>
-              <Input
-                id="backgroundColor"
-                type="color"
-                value={currentPartnersConfig.backgroundColor}
-                onChange={(e) => setCurrentPartnersConfig(prev => ({ ...prev, backgroundColor: e.target.value }))}
-              />
+              <Label htmlFor="backgroundColor">Background Color (Hex Code)</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="backgroundColor"
+                  type="text"
+                  value={currentPartnersConfig.backgroundColor}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '' || /^#[0-9A-Fa-f]{6}$/.test(value)) {
+                      setCurrentPartnersConfig(prev => ({ ...prev, backgroundColor: value }));
+                    }
+                  }}
+                  placeholder="#5a32b4"
+                  className="flex-1"
+                />
+                <div
+                  className="w-10 h-10 rounded border border-gray-300 cursor-pointer"
+                  style={{ backgroundColor: currentPartnersConfig.backgroundColor }}
+                  onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'color';
+                    input.value = currentPartnersConfig.backgroundColor;
+                    input.onchange = (e) => {
+                      const target = e.target as HTMLInputElement;
+                      setCurrentPartnersConfig(prev => ({ ...prev, backgroundColor: target.value }));
+                    };
+                    input.click();
+                  }}
+                />
+              </div>
+              {currentPartnersConfig.backgroundColor && !/^#[0-9A-Fa-f]{6}$/.test(currentPartnersConfig.backgroundColor) && (
+                <p className="text-sm text-red-500 mt-1">Please enter a valid hex code (e.g., #5a32b4)</p>
+              )}
             </div>
             <div>
-              <Label htmlFor="textColor">Text Color</Label>
-              <Input
-                id="textColor"
-                type="color"
-                value={currentPartnersConfig.textColor}
-                onChange={(e) => setCurrentPartnersConfig(prev => ({ ...prev, textColor: e.target.value }))}
-              />
+              <Label htmlFor="textColor">Text Color (Hex Code)</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="textColor"
+                  type="text"
+                  value={currentPartnersConfig.textColor}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '' || /^#[0-9A-Fa-f]{6}$/.test(value)) {
+                      setCurrentPartnersConfig(prev => ({ ...prev, textColor: value }));
+                    }
+                  }}
+                  placeholder="#ffffff"
+                  className="flex-1"
+                />
+                <div
+                  className="w-10 h-10 rounded border border-gray-300 cursor-pointer"
+                  style={{ backgroundColor: currentPartnersConfig.textColor }}
+                  onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'color';
+                    input.value = currentPartnersConfig.textColor;
+                    input.onchange = (e) => {
+                      const target = e.target as HTMLInputElement;
+                      setCurrentPartnersConfig(prev => ({ ...prev, textColor: target.value }));
+                    };
+                    input.click();
+                  }}
+                />
+              </div>
+              {currentPartnersConfig.textColor && !/^#[0-9A-Fa-f]{6}$/.test(currentPartnersConfig.textColor) && (
+                <p className="text-sm text-red-500 mt-1">Please enter a valid hex code (e.g., #ffffff)</p>
+              )}
             </div>
             <div>
               <Label htmlFor="carouselSpeed">Carousel Speed (seconds)</Label>
@@ -289,18 +352,63 @@ const OurPartnersSection: React.FC<OurPartnersSectionProps> = ({ companyData, sl
                     onChange={(e) => updatePartner(partner.id, "name", e.target.value)}
                     placeholder="Partner Name"
                   />
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleImageUpload(e, partner.id)}
-                    className="flex-1"
-                  />
-                  {uploadingImageId === partner.id && (
-                    <span className="text-sm text-gray-500">Uploading...</span>
-                  )}
-                  {partner.logo && (
-                    <img src={partner.logo} alt={partner.name} className="w-10 h-10 object-contain rounded" />
-                  )}
+                  <div className="flex-1">
+                    <div
+                      className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer"
+                      onClick={() => document.getElementById(`logo-upload-${partner.id}`)?.click()}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.classList.add('border-blue-500', 'bg-blue-50');
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.classList.remove('border-blue-500', 'bg-blue-50');
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.classList.remove('border-blue-500', 'bg-blue-50');
+                        const files = e.dataTransfer.files;
+                        if (files.length > 0) {
+                          const fakeEvent = {
+                            target: { files: [files[0]] }
+                          } as any;
+                          handleImageUpload(fakeEvent, partner.id);
+                        }
+                      }}
+                    >
+                      {uploadingImageId === partner.id ? (
+                        <div className="flex flex-col items-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-2"></div>
+                          <span className="text-sm text-gray-600">Uploading...</span>
+                        </div>
+                      ) : partner.logo ? (
+                        <div className="flex flex-col items-center">
+                          <img
+                            src={partner.logo}
+                            alt={partner.name}
+                            className="w-16 h-16 object-contain rounded-lg mb-2 border border-gray-200"
+                          />
+                          <span className="text-sm text-gray-600">Click to change logo</span>
+                          <span className="text-xs text-gray-400 mt-1">or drag & drop new image</span>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center">
+                          <svg className="w-12 h-12 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          </svg>
+                          <span className="text-sm text-gray-600">Click to upload logo</span>
+                          <span className="text-xs text-gray-400 mt-1">or drag & drop image here</span>
+                        </div>
+                      )}
+                    </div>
+                    <input
+                      id={`logo-upload-${partner.id}`}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleImageUpload(e, partner.id)}
+                      className="hidden"
+                    />
+                  </div>
                   <Button variant="outline" size="sm" onClick={() => removePartner(partner.id)}>
                     <Trash2 className="w-4 h-4" />
                   </Button>

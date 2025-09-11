@@ -2695,6 +2695,7 @@ export default function WebsiteEditPage() {
         <section id="our-clients" className="py-16 bg-gray-100">
           <div
             className="container mx-auto px-4 relative group cursor-pointer hover:ring-2 hover:ring-blue-400 hover:ring-opacity-50 rounded-lg p-4 transition-all"
+            onClick={handleOurClientsClick}
           >
 
             <div className="text-center mb-12">
@@ -2821,8 +2822,9 @@ export default function WebsiteEditPage() {
         {companyData && (
           <GetQuotationSection
             slug={params.slug as string}
-            websiteId={companyData.id || ""} // Ensure companyData.id is available or provide fallback
+            websiteId={params.slug as string} // Use slug as websiteId
             isEditing={true} // Assuming isEditingMode is a boolean state
+            EditableElement={EditableElement}
           />
         )}
 
