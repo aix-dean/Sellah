@@ -172,6 +172,7 @@ const OurPartnersSection: React.FC<OurPartnersSectionProps> = ({ companyData, sl
   const textColorToDisplay = displayConfig.textColor || "#ffffff";
   const carouselSpeedToDisplay = displayConfig.carouselSpeed || 30;
 
+
   return (
     <section id="our-partners" className="py-16" style={{ backgroundColor: backgroundColorToDisplay, color: textColorToDisplay }}>
       <div
@@ -227,7 +228,11 @@ const OurPartnersSection: React.FC<OurPartnersSectionProps> = ({ companyData, sl
                         field: `partner_${partner.id}_logo`,
                       }}
                     >
-                      <img src={partner.logo} alt={partner.name} className="h-24 w-auto object-contain filter grayscale brightness-0 invert" />
+                      <img
+                        src={partner.logo}
+                        alt={partner.name}
+                        className="h-24 w-auto object-contain"
+                      />
                     </EditableElement>
                   </div>
                 );
