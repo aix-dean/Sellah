@@ -19,6 +19,9 @@ import { Badge } from "@/components/ui/badge"
 
 import ApplicationTabs from "@/components/ApplicationTabs"
 import FeaturedProductsEditDialog from "@/components/featured-products-edit-dialog"
+import TechnologySection from "@/components/TechnologySection"
+import GetQuotationSection from "@/components/website/GetQuotationSection"
+import OurPartnersSection from "@/components/website/OurPartnersSection"
 
 interface Product {
   id: string
@@ -50,7 +53,7 @@ interface CompanyData {
   }
   web_config?: {
     theme?: {
-      headerColor?: string // Made headerColor optional
+      headerColor?: string // Made headerColor optional 
       navColor?: string
     }
     heroVideoUrl?: string
@@ -83,10 +86,10 @@ interface CompanyData {
     }[];
     recentWorksSettings?: {
       carouselNavColors?: {
-        buttonColor: string;
-        buttonHoverColor: string;
-        iconColor: string;
-        iconHoverColor: string;
+        buttonColor?: string;
+        buttonHoverColor?: string;
+        iconColor?: string;
+        iconHoverColor?: string;
       };
     };
     applicationTabs?: {
@@ -157,11 +160,15 @@ interface CompanyData {
         clientImage?: string;
       }[];
       carouselNavColors?: {
-        buttonColor: string;
-        buttonHoverColor: string;
-        iconColor: string;
-        iconHoverColor: string;
+        buttonColor?: string;
+        buttonHoverColor?: string;
+        iconColor?: string;
+        iconHoverColor?: string;
       };
+    };
+    ourPartners?: {
+      sectionTitle?: string;
+      partners?: { id: number; name: string; logo: string }[];
     };
     [key: string]: any; // Add index signature to allow dynamic access
   }
@@ -231,7 +238,12 @@ export default function WebsiteEditPage() {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
   const [autoSwipeInterval, setAutoSwipeInterval] = useState<NodeJS.Timeout | null>(null)
 
-  const [carouselNavColors, setCarouselNavColors] = useState({
+  const [carouselNavColors, setCarouselNavColors] = useState<{
+    buttonColor?: string;
+    buttonHoverColor?: string;
+    iconColor?: string;
+    iconHoverColor?: string;
+  }>({
     buttonColor: "#2563eb", // blue-600
     buttonHoverColor: "#1d4ed8", // blue-700
     iconColor: "#ffffff", // white
@@ -352,10 +364,10 @@ export default function WebsiteEditPage() {
       clientImage?: string;
     }[];
     carouselNavColors?: { // Made optional here
-      buttonColor: string;
-      buttonHoverColor: string;
-      iconColor: string;
-      iconHoverColor: string;
+      buttonColor?: string;
+      buttonHoverColor?: string;
+      iconColor?: string;
+      iconHoverColor?: string;
     };
   }>({
     sectionTitle: "Our Clients",
@@ -1706,6 +1718,7 @@ export default function WebsiteEditPage() {
   }
 
   const handleOurClientsClick = () => {
+    console.log("handleOurClientsClick called");
     const existingConfig = companyData?.web_config?.ourClients
     if (existingConfig) {
       setOurClientsConfig(existingConfig)
@@ -1731,6 +1744,7 @@ export default function WebsiteEditPage() {
       })
     }
     setOurClientsDialog(true)
+    console.log("ourClientsDialog state set to true");
   }
 
   // const handleFeaturedProductsClick = () => {
@@ -1988,6 +2002,15 @@ export default function WebsiteEditPage() {
           </div>
         </section>
 
+        {/* Technology Section */}
+        {companyData && (
+          <TechnologySection
+            companyData={companyData}
+            slug={slug}
+            EditableElement={EditableElement}
+          />
+        )}
+
         {/* Applications Section */}
         <section id="applications" className="py-20" style={{ backgroundColor: theme.backgroundColor }}>
           <div className="container mx-auto px-4">
@@ -2116,17 +2139,17 @@ export default function WebsiteEditPage() {
               <button
                 className="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
                 style={{
-                  backgroundColor: carouselNavColors.buttonColor,
+                  backgroundColor: carouselNavColors.buttonColor || "#2563eb",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = carouselNavColors.buttonHoverColor
+                  e.currentTarget.style.backgroundColor = carouselNavColors.buttonHoverColor ?? "#1d4ed8"
                   const svg = e.currentTarget.querySelector("svg")
-                  if (svg) svg.style.color = carouselNavColors.iconHoverColor
+                  if (svg) svg.style.color = carouselNavColors.iconHoverColor ?? "#ffffff"
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = carouselNavColors.buttonColor
+                  e.currentTarget.style.backgroundColor = carouselNavColors.buttonColor ?? "#2563eb"
                   const svg = e.currentTarget.querySelector("svg")
-                  if (svg) svg.style.color = carouselNavColors.iconColor
+                  if (svg) svg.style.color = carouselNavColors.iconColor ?? "#ffffff"
                 }}
                 onClick={(e) => {
                   e.stopPropagation()
@@ -2143,7 +2166,7 @@ export default function WebsiteEditPage() {
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
-                  style={{ color: carouselNavColors.iconColor }}
+                  style={{ color: carouselNavColors.iconColor ?? "#ffffff" }}
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
@@ -2151,17 +2174,17 @@ export default function WebsiteEditPage() {
               <button
                 className="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
                 style={{
-                  backgroundColor: carouselNavColors.buttonColor,
+                  backgroundColor: carouselNavColors.buttonColor || "#2563eb",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = carouselNavColors.buttonHoverColor
+                  e.currentTarget.style.backgroundColor = carouselNavColors.buttonHoverColor ?? "#1d4ed8"
                   const svg = e.currentTarget.querySelector("svg")
-                  if (svg) svg.style.color = carouselNavColors.iconHoverColor
+                  if (svg) svg.style.color = carouselNavColors.iconHoverColor ?? "#ffffff"
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = carouselNavColors.buttonColor
+                  e.currentTarget.style.backgroundColor = carouselNavColors.buttonColor ?? "#2563eb"
                   const svg = e.currentTarget.querySelector("svg")
-                  if (svg) svg.style.color = carouselNavColors.iconColor
+                  if (svg) svg.style.color = carouselNavColors.iconColor ?? "#ffffff"
                 }}
                 onClick={(e) => {
                   e.stopPropagation()
@@ -2178,7 +2201,7 @@ export default function WebsiteEditPage() {
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
-                  style={{ color: carouselNavColors.iconColor }}
+                  style={{ color: carouselNavColors.iconColor ?? "#ffffff" }}
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
@@ -2289,6 +2312,7 @@ export default function WebsiteEditPage() {
             </div>
           </section>
         </FeaturedProductsEditDialog>
+
 
         {/* About Us Section */}
         <section id="about-us" className="bg-background">
@@ -2785,6 +2809,22 @@ export default function WebsiteEditPage() {
             </div>
           </div>
         </section>
+
+        {/* Our Partners Section */}
+        <OurPartnersSection
+          companyData={companyData}
+          slug={slug}
+          EditableElement={EditableElement}
+        />
+
+        {/* Get Quotation Section */}
+        {companyData && (
+          <GetQuotationSection
+            slug={params.slug as string}
+            websiteId={companyData.id || ""} // Ensure companyData.id is available or provide fallback
+            isEditing={true} // Assuming isEditingMode is a boolean state
+          />
+        )}
 
         {/* Footer Section */}
         <footer className="bg-slate-900 text-white">
@@ -4380,6 +4420,21 @@ export default function WebsiteEditPage() {
             {/* Left Column - Testimonials Management */}
             <div className="xl:col-span-2 space-y-6">
               <div>
+                <div className="mb-6">
+                  <Label htmlFor="section-title" className="text-xl font-semibold text-gray-900 mb-2 block">
+                    Section Title
+                  </Label>
+                  <Input
+                    id="section-title"
+                    value={ourClientsConfig.sectionTitle}
+                    onChange={(e) =>
+                      setOurClientsConfig((prev) => ({ ...prev, sectionTitle: e.target.value }))
+                    }
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Our Clients"
+                  />
+                </div>
+
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-xl font-semibold text-gray-900">Testimonials</h3>
                   <span className="text-sm text-gray-500">{ourClientsConfig.testimonials.length} testimonials</span>
@@ -4482,7 +4537,7 @@ export default function WebsiteEditPage() {
                         onChange={(e) =>
                           setOurClientsConfig((prev) => ({
                             ...prev,
-                            carouselNavColors: { ...prev.carouselNavColors, buttonColor: e.target.value },
+                            carouselNavColors: { ...(prev.carouselNavColors || {}), buttonColor: e.target.value },
                           }))
                         }
                         className="w-16 h-10 p-1"
@@ -4493,7 +4548,35 @@ export default function WebsiteEditPage() {
                         onChange={(e) =>
                           setOurClientsConfig((prev) => ({
                             ...prev,
-                            carouselNavColors: { ...prev.carouselNavColors, buttonColor: e.target.value },
+                            carouselNavColors: { ...(prev.carouselNavColors || {}), buttonColor: e.target.value },
+                          }))
+                        }
+                        className="flex-1"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="client-button-hover-color">Button Hover Color</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        id="client-button-hover-color"
+                        type="color"
+                        value={ourClientsConfig.carouselNavColors?.buttonHoverColor || "#1d4ed8"}
+                        onChange={(e) =>
+                          setOurClientsConfig((prev) => ({
+                            ...prev,
+                            carouselNavColors: { ...(prev.carouselNavColors || {}), buttonHoverColor: e.target.value },
+                          }))
+                        }
+                        className="w-16 h-10 p-1"
+                      />
+                      <Input
+                        type="text"
+                        value={ourClientsConfig.carouselNavColors?.buttonHoverColor || "#1d4ed8"}
+                        onChange={(e) =>
+                          setOurClientsConfig((prev) => ({
+                            ...prev,
+                            carouselNavColors: { ...(prev.carouselNavColors || {}), buttonHoverColor: e.target.value },
                           }))
                         }
                         className="flex-1"
@@ -4510,7 +4593,7 @@ export default function WebsiteEditPage() {
                         onChange={(e) =>
                           setOurClientsConfig((prev) => ({
                             ...prev,
-                            carouselNavColors: { ...prev.carouselNavColors, iconColor: e.target.value },
+                            carouselNavColors: { ...(prev.carouselNavColors || {}), iconColor: e.target.value },
                           }))
                         }
                         className="w-16 h-10 p-1"
@@ -4521,7 +4604,35 @@ export default function WebsiteEditPage() {
                         onChange={(e) =>
                           setOurClientsConfig((prev) => ({
                             ...prev,
-                            carouselNavColors: { ...prev.carouselNavColors, iconColor: e.target.value },
+                            carouselNavColors: { ...(prev.carouselNavColors || {}), iconColor: e.target.value },
+                          }))
+                        }
+                        className="flex-1"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="client-icon-hover-color">Icon Hover Color</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        id="client-icon-hover-color"
+                        type="color"
+                        value={ourClientsConfig.carouselNavColors?.iconHoverColor || "#ffffff"}
+                        onChange={(e) =>
+                          setOurClientsConfig((prev) => ({
+                            ...prev,
+                            carouselNavColors: { ...(prev.carouselNavColors || {}), iconHoverColor: e.target.value },
+                          }))
+                        }
+                        className="w-16 h-10 p-1"
+                      />
+                      <Input
+                        type="text"
+                        value={ourClientsConfig.carouselNavColors?.iconHoverColor || "#ffffff"}
+                        onChange={(e) =>
+                          setOurClientsConfig((prev) => ({
+                            ...prev,
+                            carouselNavColors: { ...(prev.carouselNavColors || {}), iconHoverColor: e.target.value },
                           }))
                         }
                         className="flex-1"

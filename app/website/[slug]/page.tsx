@@ -1308,12 +1308,13 @@ export default function WebsitePage() {
             <img
               src={
                 companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.backgroundImage ||
-                "/placeholder.svg?height=720&width=1280"
+                "/placeholder.svg"
               }
               alt={companyData?.web_config?.recentWorksItems?.[currentSlideIndex]?.projectTitle || "Recent Work"}
               className="w-full h-full object-cover transition-all duration-500"
               onError={(e) => {
                 console.error("[v0] Image failed to load in Recent Works:", e.currentTarget.src)
+                console.log("[v0] Recent Works Image URL that failed:", e.currentTarget.src)
               }}
             />
           )}
