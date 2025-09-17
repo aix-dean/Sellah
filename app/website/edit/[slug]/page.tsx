@@ -19,6 +19,9 @@ import { Badge } from "@/components/ui/badge"
 
 import ApplicationTabs from "@/components/ApplicationTabs"
 import FeaturedProductsEditDialog from "@/components/featured-products-edit-dialog"
+import TechnologySection from "@/components/TechnologySection"
+import GetQuotationSection from "@/components/website/GetQuotationSection"
+import OurPartnersSection from "@/components/website/OurPartnersSection"
 
 interface Product {
   id: string
@@ -50,7 +53,7 @@ interface CompanyData {
   }
   web_config?: {
     theme?: {
-      headerColor: string
+      headerColor?: string // Made headerColor optional 
       navColor?: string
     }
     heroVideoUrl?: string
@@ -83,10 +86,10 @@ interface CompanyData {
     }[];
     recentWorksSettings?: {
       carouselNavColors?: {
-        buttonColor: string;
-        buttonHoverColor: string;
-        iconColor: string;
-        iconHoverColor: string;
+        buttonColor?: string;
+        buttonHoverColor?: string;
+        iconColor?: string;
+        iconHoverColor?: string;
       };
     };
     applicationTabs?: {
@@ -95,9 +98,17 @@ interface CompanyData {
       inactiveTabColor: string
       activeTextColor: string
       inactiveTextColor: string
+      content?: { // Made content optional
+        [key: string]: {
+          title: string;
+          description: string;
+          applications: { name: string; image: string }[];
+          image: string;
+        };
+      };
     }
     aboutUs?: {
-      title: string
+      title?: string // Made title optional
       subtitle: string
       description: string
       contactPhone: string
@@ -119,6 +130,7 @@ interface CompanyData {
       buttonText: string
       backgroundColor: string // Default slate-900
       textColor: string // Default white text
+      sectionTitleColor?: string; // Added sectionTitleColor
       aboutUs: {
         title: string
         links: string[]
@@ -148,11 +160,15 @@ interface CompanyData {
         clientImage?: string;
       }[];
       carouselNavColors?: {
-        buttonColor: string;
-        buttonHoverColor: string;
-        iconColor: string;
-        iconHoverColor: string;
+        buttonColor?: string;
+        buttonHoverColor?: string;
+        iconColor?: string;
+        iconHoverColor?: string;
       };
+    };
+    ourPartners?: {
+      sectionTitle?: string;
+      partners?: { id: number; name: string; logo: string }[];
     };
     [key: string]: any; // Add index signature to allow dynamic access
   }
@@ -222,7 +238,12 @@ export default function WebsiteEditPage() {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
   const [autoSwipeInterval, setAutoSwipeInterval] = useState<NodeJS.Timeout | null>(null)
 
-  const [carouselNavColors, setCarouselNavColors] = useState({
+  const [carouselNavColors, setCarouselNavColors] = useState<{
+    buttonColor?: string;
+    buttonHoverColor?: string;
+    iconColor?: string;
+    iconHoverColor?: string;
+  }>({
     buttonColor: "#2563eb", // blue-600
     buttonHoverColor: "#1d4ed8", // blue-700
     iconColor: "#ffffff", // white
@@ -343,10 +364,10 @@ export default function WebsiteEditPage() {
       clientImage?: string;
     }[];
     carouselNavColors?: { // Made optional here
-      buttonColor: string;
-      buttonHoverColor: string;
-      iconColor: string;
-      iconHoverColor: string;
+      buttonColor?: string;
+      buttonHoverColor?: string;
+      iconColor?: string;
+      iconHoverColor?: string;
     };
   }>({
     sectionTitle: "Our Clients",
@@ -403,12 +424,33 @@ export default function WebsiteEditPage() {
   const [whyUsLoading, setWhyUsLoading] = useState(false)
 
   const [footerDialog, setFooterDialog] = useState(false)
-  const [footerConfig, setFooterConfig] = useState({
+  const [footerConfig, setFooterConfig] = useState<{
+    title: string;
+    subtitle: string;
+    buttonText: string;
+    backgroundColor: string;
+    textColor: string;
+    sectionTitleColor?: string; // Added this
+    aboutUs: {
+      title: string;
+      links: string[];
+    };
+    address: {
+      title: string;
+      lines: string[];
+    };
+    followUs: {
+      title: string;
+      socialLinks: { name: string; url: string; icon: string }[];
+    };
+    copyright: string;
+  }>({
     title: "How Can We Help You?",
     subtitle: "Feel free to let us know.",
     buttonText: "contact us",
     backgroundColor: "#0f172a", // Default slate-900
     textColor: "#ffffff", // Default white text
+    sectionTitleColor: "#ffffff", // Default value
     aboutUs: {
       title: "About Us",
       links: ["About Unilumin", "Joint-Stock Company", "U-Green"],
@@ -438,13 +480,14 @@ export default function WebsiteEditPage() {
 
   const handleFooterClick = () => {
     // Load existing config from database
-    const existingConfig = companyData?.web_config?.footer
+    const existingConfig = companyData?.web_config?.footer as typeof footerConfig | undefined // Explicitly type existingConfig
     setFooterConfig({
       title: existingConfig?.title || "How Can We Help You?",
       subtitle: existingConfig?.subtitle || "Feel free to let us know.",
       buttonText: existingConfig?.buttonText || "contact us",
       backgroundColor: existingConfig?.backgroundColor || companyData?.theme?.footerBackgroundColor || "#0f172a",
       textColor: existingConfig?.textColor || companyData?.theme?.footerTextColor || "#ffffff",
+      sectionTitleColor: existingConfig?.sectionTitleColor || existingConfig?.textColor || "#ffffff", // Added this line
       aboutUs: {
         title: existingConfig?.aboutUs?.title || "About Us",
         links: existingConfig?.aboutUs?.links || ["About Unilumin", "Joint-Stock Company", "U-Green"],
@@ -738,6 +781,7 @@ export default function WebsiteEditPage() {
 
       setCompanyData((prevData) => {
         if (!prevData) return prevData
+        if (!editDialog.content) return prevData // Add null check for editDialog.content
 
         const newData = { ...prevData }
 
@@ -877,17 +921,19 @@ export default function WebsiteEditPage() {
       })
 
       // Update local state
-      setCompanyData((prev) =>
-        prev
-          ? {
-              ...prev,
-              theme: {
-                ...prev.theme,
-                navColor: navColor,
-              },
-            }
-          : null,
-      )
+      setCompanyData((prev) => {
+        if (!prev) return null
+        return {
+          ...prev,
+          web_config: {
+            ...(prev.web_config || {}), // Ensure web_config exists
+            theme: {
+              ...(prev.web_config?.theme || {}), // Ensure theme exists
+              navColor: navColor,
+            },
+          },
+        }
+      })
 
       toast({
         title: "Nav Color Updated",
@@ -1138,16 +1184,16 @@ export default function WebsiteEditPage() {
           ...updatedItems[currentItemIndex],
           backgroundImage: backgroundMediaUrl,
           mediaType: isVideo ? "video" : "image",
-        }
+        } as (typeof recentWorksItems)[number] // Explicitly cast to the correct type
       }
 
       const updateData = {
         ...companyData,
         web_config: {
-          ...companyData.web_config,
+          ...(companyData?.web_config || {}), // Ensure web_config exists
           recentWorksItems: recentWorksItems,
           recentWorksSettings: {
-            ...companyData.web_config?.recentWorksSettings,
+            ...(companyData?.web_config?.recentWorksSettings || {}), // Ensure recentWorksSettings exists
             carouselNavColors: carouselNavColors,
           },
         },
@@ -1197,7 +1243,93 @@ export default function WebsiteEditPage() {
     // Load existing config from database
     const existingConfig = companyData?.web_config?.applicationTabs
     if (existingConfig) {
-      setApplicationTabsConfig(existingConfig)
+      setApplicationTabsConfig({ ...existingConfig, content: existingConfig.content || {} }) // Ensure content is always present
+    } else {
+      setApplicationTabsConfig({
+        tabs: [
+          { id: "Indoor", label: "Indoor", enabled: true },
+          { id: "Outdoor", label: "Outdoor", enabled: true },
+          { id: "Rental", label: "Rental", enabled: true },
+          { id: "Sports", label: "Sports", enabled: true },
+          { id: "Lighting", label: "Lighting", enabled: true },
+        ],
+        activeTabColor: "#3b82f6",
+        inactiveTabColor: "#ffffff",
+        activeTextColor: "#ffffff",
+        inactiveTextColor: "#374151",
+        content: {
+          Indoor: {
+            title: "Indoor",
+            description:
+              "From control rooms to governments to retail, Unilumin LED display presents exceptional images in mission-critical places and indoor commercial space.",
+            applications: [
+              { name: "Broadcast Room", image: "" },
+              { name: "Education & Medical", image: "" },
+              { name: "Control Room", image: "" },
+              { name: "Corporate", image: "" },
+              { name: "Hospitality", image: "" },
+              { name: "Retail", image: "" },
+            ],
+            image: "",
+          },
+          Outdoor: {
+            title: "Outdoor",
+            description:
+              "Weather-resistant LED displays designed for outdoor advertising, digital billboards, and large-scale installations with high brightness and durability.",
+            applications: [
+              { name: "Digital Billboards", image: "" },
+              { name: "Stadium Displays", image: "" },
+              { name: "Transportation Hubs", image: "" },
+              { name: "Outdoor Advertising", image: "" },
+              { name: "Public Information", image: "" },
+              { name: "Event Venues", image: "" },
+            ],
+            image: "",
+          },
+          Rental: {
+            title: "Rental",
+            description:
+              "Portable and modular LED display solutions perfect for events, concerts, trade shows, and temporary installations with quick setup and breakdown.",
+            applications: [
+              { name: "Concerts & Events", image: "" },
+              { name: "Trade Shows", image: "" },
+              { name: "Corporate Events", image: "" },
+              { name: "Weddings", image: "" },
+              { name: "Conferences", image: "" },
+              { name: "Stage Backdrops", image: "" },
+            ],
+            image: "",
+          },
+          Sports: {
+            title: "Sports",
+            description:
+              "High-performance LED displays for sports venues, stadiums, and arenas with fast refresh rates and excellent visibility for live events.",
+            applications: [
+              { name: "Stadium Scoreboards", image: "" },
+              { name: "Perimeter Displays", image: "" },
+              { name: "Video Walls", image: "" },
+              { name: "Sports Bars", image: "" },
+              { name: "Training Facilities", image: "" },
+              { name: "Broadcasting", image: "" },
+            ],
+            image: "",
+          },
+          Lighting: {
+            title: "Lighting",
+            description:
+              "Energy-efficient LED lighting solutions for commercial, industrial, and residential applications with smart controls and long lifespan.",
+            applications: [
+              { name: "Street Lighting", image: "" },
+              { name: "Industrial Lighting", image: "" },
+              { name: "Architectural Lighting", image: "" },
+              { name: "Landscape Lighting", image: "" },
+              { name: "Emergency Lighting", image: "" },
+              { name: "Smart City Solutions", image: "" },
+            ],
+            image: "",
+          },
+        },
+      })
     }
     setShowApplicationTabsDialog(true)
   }
@@ -1212,7 +1344,7 @@ export default function WebsiteEditPage() {
       // Refresh company data
       const updatedDoc = await getDoc(docRef)
       if (updatedDoc.exists()) {
-        setCompanyData(updatedDoc.data())
+        setCompanyData(updatedDoc.data() as CompanyData) // Cast to CompanyData
       }
     } catch (error) {
       console.error("Error saving application tabs config:", error)
@@ -1311,6 +1443,38 @@ export default function WebsiteEditPage() {
     setRecentWorksItems((prev) => prev.map((item, i) => (i === index ? { ...item, [key]: value } : item)))
   }
 
+  const addTestimonial = () => {
+    setOurClientsConfig((prev) => ({
+      ...prev,
+      testimonials: [
+        ...prev.testimonials,
+        {
+          id: Date.now().toString(),
+          quote: "New testimonial quote...",
+          clientName: "New Client",
+          clientTitle: "Client Title",
+          clientImage: "/placeholder.svg",
+        },
+      ],
+    }))
+  }
+
+  const removeTestimonial = (id: string) => {
+    setOurClientsConfig((prev) => ({
+      ...prev,
+      testimonials: prev.testimonials.filter((testimonial) => testimonial.id !== id),
+    }))
+  }
+
+  const updateTestimonial = (id: string, field: string, value: string) => {
+    setOurClientsConfig((prev) => ({
+      ...prev,
+      testimonials: prev.testimonials.map((testimonial) =>
+        testimonial.id === id ? { ...testimonial, [field]: value } : testimonial,
+      ),
+    }))
+  }
+
   const handleAboutUsClick = () => {
     // Load existing config from database
     const existingConfig = companyData?.web_config?.aboutUs
@@ -1332,10 +1496,19 @@ export default function WebsiteEditPage() {
         web_config: updatedWebConfig,
       })
 
-      setCompanyData((prev) => ({
-        ...prev,
-        web_config: updatedWebConfig,
-      }))
+      setCompanyData((prev) => {
+        if (!prev) return null
+        return {
+          ...prev,
+          web_config: {
+            ...(prev.web_config || {}), // Ensure web_config exists
+            aboutUs: {
+              title: "About Us", // Always set title to "About Us"
+              ...aboutUsConfig,
+            },
+          },
+        }
+      })
 
       setAboutUsDialogOpen(false)
     } catch (error) {
@@ -1343,6 +1516,31 @@ export default function WebsiteEditPage() {
       alert("Failed to save changes. Please try again.")
     } finally {
       setAboutUsSaving(false)
+    }
+  }
+
+  const handleClientImageUpload = async (testimonialId: string, file: File) => {
+    try {
+      const fileName = `${Date.now()}_${file.name}`
+      const path = `client-images/${slug}/${testimonialId}/${fileName}`
+      const storageRef = ref(storage, path)
+
+      const snapshot = await uploadBytes(storageRef, file)
+      const downloadURL = await getDownloadURL(snapshot.ref)
+
+      setOurClientsConfig((prev) => ({
+        ...prev,
+        testimonials: prev.testimonials.map((testimonial) =>
+          testimonial.id === testimonialId ? { ...testimonial, clientImage: downloadURL } : testimonial,
+        ),
+      }))
+    } catch (error) {
+      console.error("Error uploading client image:", error)
+      toast({
+        title: "Upload Failed",
+        description: "Failed to upload client image. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -1444,10 +1642,13 @@ export default function WebsiteEditPage() {
         web_config: updatedWebConfig,
       })
 
-      setCompanyData((prev) => ({
-        ...prev,
-        web_config: updatedWebConfig,
-      }))
+      setCompanyData((prev) => {
+        if (!prev) return null
+        return {
+          ...prev,
+          web_config: updatedWebConfig,
+        }
+      })
 
       setWhyUsDialog(false)
     } catch (error) {
@@ -1455,6 +1656,44 @@ export default function WebsiteEditPage() {
       alert("Failed to save changes. Please try again.")
     } finally {
       setWhyUsLoading(false)
+    }
+  }
+
+  const handleOurClientsSave = async () => {
+    if (!slug) return
+
+    setOurClientsSaving(true)
+    try {
+      const docRef = doc(db, "companies", slug)
+      await updateDoc(docRef, {
+        "web_config.ourClients": ourClientsConfig,
+      })
+
+      setCompanyData((prev) => {
+        if (!prev) return null
+        return {
+          ...prev,
+          web_config: {
+            ...(prev.web_config || {}),
+            ourClients: ourClientsConfig,
+          },
+        }
+      })
+
+      toast({
+        title: "Our Clients Section Updated",
+        description: "Your changes have been saved successfully.",
+      })
+      setOurClientsDialog(false)
+    } catch (error) {
+      console.error("Error saving Our Clients section:", error)
+      toast({
+        title: "Error",
+        description: "Failed to save changes. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setOurClientsSaving(false)
     }
   }
 
@@ -1476,6 +1715,36 @@ export default function WebsiteEditPage() {
       })
     }
     setWhyUsDialog(true)
+  }
+
+  const handleOurClientsClick = () => {
+    console.log("handleOurClientsClick called");
+    const existingConfig = companyData?.web_config?.ourClients
+    if (existingConfig) {
+      setOurClientsConfig(existingConfig)
+    } else {
+      setOurClientsConfig({
+        sectionTitle: "Our Clients",
+        testimonials: [
+          {
+            id: "1",
+            quote:
+              "Globaltronics is not just a product or service. Its technical expertise in the field made us choose it. Besides, we are looking for experts who will elevate our brand look. Our LED billboards from Globaltronics increased the number of walk-in customers especially in Cebu, Davao and Manila. Our shops have become more attractive because of dynamic advertisements that we now have.",
+            clientName: "Mark Lyndon Tabion",
+            clientTitle: "Sales Associates of Honda",
+            clientImage: "/placeholder.svg",
+          },
+        ],
+        carouselNavColors: {
+          buttonColor: "#2563eb", // blue-600
+          buttonHoverColor: "#1d4ed8", // blue-700
+          iconColor: "#ffffff", // white
+          iconHoverColor: "#ffffff", // white
+        },
+      })
+    }
+    setOurClientsDialog(true)
+    console.log("ourClientsDialog state set to true");
   }
 
   // const handleFeaturedProductsClick = () => {
@@ -1733,6 +2002,15 @@ export default function WebsiteEditPage() {
           </div>
         </section>
 
+        {/* Technology Section */}
+        {companyData && (
+          <TechnologySection
+            companyData={companyData}
+            slug={slug}
+            EditableElement={EditableElement}
+          />
+        )}
+
         {/* Applications Section */}
         <section id="applications" className="py-20" style={{ backgroundColor: theme.backgroundColor }}>
           <div className="container mx-auto px-4">
@@ -1768,7 +2046,7 @@ export default function WebsiteEditPage() {
               <ApplicationTabs
                 theme={theme}
                 config={companyData?.web_config?.applicationTabs || applicationTabsConfig}
-                content={(companyData?.web_config?.applicationTabs || applicationTabsConfig)?.content}
+                content={(companyData?.web_config?.applicationTabs?.content || applicationTabsConfig.content)} // Ensure content is always passed
               />
               <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
                 <div className="bg-blue-500 text-white p-1 rounded-bl text-xs flex items-center gap-1">
@@ -1861,17 +2139,17 @@ export default function WebsiteEditPage() {
               <button
                 className="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
                 style={{
-                  backgroundColor: carouselNavColors.buttonColor,
+                  backgroundColor: carouselNavColors.buttonColor || "#2563eb",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = carouselNavColors.buttonHoverColor
+                  e.currentTarget.style.backgroundColor = carouselNavColors.buttonHoverColor ?? "#1d4ed8"
                   const svg = e.currentTarget.querySelector("svg")
-                  if (svg) svg.style.color = carouselNavColors.iconHoverColor
+                  if (svg) svg.style.color = carouselNavColors.iconHoverColor ?? "#ffffff"
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = carouselNavColors.buttonColor
+                  e.currentTarget.style.backgroundColor = carouselNavColors.buttonColor ?? "#2563eb"
                   const svg = e.currentTarget.querySelector("svg")
-                  if (svg) svg.style.color = carouselNavColors.iconColor
+                  if (svg) svg.style.color = carouselNavColors.iconColor ?? "#ffffff"
                 }}
                 onClick={(e) => {
                   e.stopPropagation()
@@ -1888,7 +2166,7 @@ export default function WebsiteEditPage() {
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
-                  style={{ color: carouselNavColors.iconColor }}
+                  style={{ color: carouselNavColors.iconColor ?? "#ffffff" }}
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
@@ -1896,17 +2174,17 @@ export default function WebsiteEditPage() {
               <button
                 className="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
                 style={{
-                  backgroundColor: carouselNavColors.buttonColor,
+                  backgroundColor: carouselNavColors.buttonColor || "#2563eb",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = carouselNavColors.buttonHoverColor
+                  e.currentTarget.style.backgroundColor = carouselNavColors.buttonHoverColor ?? "#1d4ed8"
                   const svg = e.currentTarget.querySelector("svg")
-                  if (svg) svg.style.color = carouselNavColors.iconHoverColor
+                  if (svg) svg.style.color = carouselNavColors.iconHoverColor ?? "#ffffff"
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = carouselNavColors.buttonColor
+                  e.currentTarget.style.backgroundColor = carouselNavColors.buttonColor ?? "#2563eb"
                   const svg = e.currentTarget.querySelector("svg")
-                  if (svg) svg.style.color = carouselNavColors.iconColor
+                  if (svg) svg.style.color = carouselNavColors.iconColor ?? "#ffffff"
                 }}
                 onClick={(e) => {
                   e.stopPropagation()
@@ -1923,7 +2201,7 @@ export default function WebsiteEditPage() {
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
-                  style={{ color: carouselNavColors.iconColor }}
+                  style={{ color: carouselNavColors.iconColor ?? "#ffffff" }}
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
@@ -2034,6 +2312,7 @@ export default function WebsiteEditPage() {
             </div>
           </section>
         </FeaturedProductsEditDialog>
+
 
         {/* About Us Section */}
         <section id="about-us" className="bg-background">
@@ -2411,6 +2690,143 @@ export default function WebsiteEditPage() {
             </div>
           </div>
         </section>
+
+        {/* Our Clients Section */}
+        <section id="our-clients" className="py-16 bg-gray-100">
+          <div
+            className="container mx-auto px-4 relative group cursor-pointer hover:ring-2 hover:ring-blue-400 hover:ring-opacity-50 rounded-lg p-4 transition-all"
+            onClick={handleOurClientsClick}
+          >
+
+            <div className="text-center mb-12">
+              <h2 className="text-4xl font-bold text-gray-900 mb-4">
+                {companyData?.web_config?.ourClients?.sectionTitle || "Our Clients"}
+              </h2>
+            </div>
+
+            <div className="relative">
+              <div className="overflow-hidden">
+                <div
+                  className="flex transition-transform duration-500 ease-in-out"
+                  style={{ transform: `translateX(-${currentTestimonialIndex * 100}%)` }}
+                >
+                  {(companyData?.web_config?.ourClients?.testimonials || ourClientsConfig.testimonials).map(
+                    (testimonial, index) => (
+                      <div key={testimonial.id} className="w-full flex-shrink-0 px-4">
+                        <div className="bg-white p-8 rounded-lg shadow-md text-center max-w-3xl mx-auto">
+                          <div className="flex justify-center mb-4">
+                            {testimonial.clientImage && (
+                              <img
+                                src={testimonial.clientImage}
+                                alt={testimonial.clientName}
+                                className="w-24 h-24 rounded-full object-cover border-4 border-blue-500"
+                              />
+                            )}
+                          </div>
+                          <p className="text-lg italic text-gray-700 mb-6">"{testimonial.quote}"</p>
+                          <p className="font-semibold text-gray-900">{testimonial.clientName}</p>
+                          <p className="text-sm text-gray-500">{testimonial.clientTitle}</p>
+                        </div>
+                      </div>
+                    ),
+                  )}
+                </div>
+              </div>
+
+              {/* Carousel Navigation */}
+              {(companyData?.web_config?.ourClients?.testimonials?.length || ourClientsConfig.testimonials.length) >
+                1 && (
+                <div className="absolute inset-y-0 left-0 right-0 flex items-center justify-between px-4">
+                  <button
+                    className="w-10 h-10 rounded-full flex items-center justify-center transition-colors shadow-md"
+                    style={{
+                      backgroundColor: ourClientsConfig.carouselNavColors?.buttonColor || "#2563eb",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor =
+                        ourClientsConfig.carouselNavColors?.buttonHoverColor || "#1d4ed8"
+                      const svg = e.currentTarget.querySelector("svg")
+                      if (svg) svg.style.color = ourClientsConfig.carouselNavColors?.iconHoverColor || "#ffffff"
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor =
+                        ourClientsConfig.carouselNavColors?.buttonColor || "#2563eb"
+                      const svg = e.currentTarget.querySelector("svg")
+                      if (svg) svg.style.color = ourClientsConfig.carouselNavColors?.iconColor || "#ffffff"
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const itemsLength =
+                        companyData?.web_config?.ourClients?.testimonials?.length || ourClientsConfig.testimonials.length
+                      setCurrentTestimonialIndex((prev) => (prev - 1 + itemsLength) % itemsLength)
+                    }}
+                  >
+                    <svg
+                      className="w-5 h-5 transition-colors"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      style={{ color: ourClientsConfig.carouselNavColors?.iconColor || "#ffffff" }}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button
+                    className="w-10 h-10 rounded-full flex items-center justify-center transition-colors shadow-md"
+                    style={{
+                      backgroundColor: ourClientsConfig.carouselNavColors?.buttonColor || "#2563eb",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor =
+                        ourClientsConfig.carouselNavColors?.buttonHoverColor || "#1d4ed8"
+                      const svg = e.currentTarget.querySelector("svg")
+                      if (svg) svg.style.color = ourClientsConfig.carouselNavColors?.iconHoverColor || "#ffffff"
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor =
+                        ourClientsConfig.carouselNavColors?.buttonColor || "#2563eb"
+                      const svg = e.currentTarget.querySelector("svg")
+                      if (svg) svg.style.color = ourClientsConfig.carouselNavColors?.iconColor || "#ffffff"
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const itemsLength =
+                        companyData?.web_config?.ourClients?.testimonials?.length || ourClientsConfig.testimonials.length
+                      setCurrentTestimonialIndex((prev) => (prev + 1) % itemsLength)
+                    }}
+                  >
+                    <svg
+                      className="w-5 h-5 transition-colors"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      style={{ color: ourClientsConfig.carouselNavColors?.iconColor || "#ffffff" }}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Our Partners Section */}
+        <OurPartnersSection
+          companyData={companyData}
+          slug={slug}
+          EditableElement={EditableElement}
+        />
+
+        {/* Get Quotation Section */}
+        {companyData && (
+          <GetQuotationSection
+            slug={params.slug as string}
+            websiteId={params.slug as string} // Use slug as websiteId
+            isEditing={true} // Assuming isEditingMode is a boolean state
+            EditableElement={EditableElement}
+          />
+        )}
 
         {/* Footer Section */}
         <footer className="bg-slate-900 text-white">
@@ -3990,6 +4406,332 @@ export default function WebsiteEditPage() {
               Cancel
             </Button>
             <Button onClick={saveApplicationTabsConfig}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Our Clients Dialog */}
+      <Dialog open={ourClientsDialog} onOpenChange={setOurClientsDialog}>
+        <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
+          <DialogHeader className="pb-6">
+            <DialogTitle className="text-2xl font-bold">Edit Our Clients Section</DialogTitle>
+            <p className="text-gray-600 mt-2">Manage client testimonials and carousel navigation colors.</p>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+            {/* Left Column - Testimonials Management */}
+            <div className="xl:col-span-2 space-y-6">
+              <div>
+                <div className="mb-6">
+                  <Label htmlFor="section-title" className="text-xl font-semibold text-gray-900 mb-2 block">
+                    Section Title
+                  </Label>
+                  <Input
+                    id="section-title"
+                    value={ourClientsConfig.sectionTitle}
+                    onChange={(e) =>
+                      setOurClientsConfig((prev) => ({ ...prev, sectionTitle: e.target.value }))
+                    }
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Our Clients"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-semibold text-gray-900">Testimonials</h3>
+                  <span className="text-sm text-gray-500">{ourClientsConfig.testimonials.length} testimonials</span>
+                </div>
+
+                <div className="space-y-4">
+                  {ourClientsConfig.testimonials.map((testimonial, index) => (
+                    <div key={testimonial.id} className="group relative">
+                      <div className="flex items-start gap-4 p-4 border-2 border-gray-200 rounded-xl hover:border-blue-300 transition-all duration-200 bg-white">
+                        <div className="flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-600 rounded-full font-semibold text-sm flex-shrink-0 mt-1">
+                          {index + 1}
+                        </div>
+                        <div className="flex-1 space-y-3">
+                          <div>
+                            <Label className="text-xs">Quote</Label>
+                            <Textarea
+                              value={testimonial.quote}
+                              onChange={(e) => updateTestimonial(testimonial.id, "quote", e.target.value)}
+                              className="w-full p-2 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800"
+                              rows={3}
+                              placeholder="Enter testimonial quote..."
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Client Name</Label>
+                            <Input
+                              value={testimonial.clientName}
+                              onChange={(e) => updateTestimonial(testimonial.id, "clientName", e.target.value)}
+                              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800"
+                              placeholder="Client Name"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Client Title</Label>
+                            <Input
+                              value={testimonial.clientTitle}
+                              onChange={(e) => updateTestimonial(testimonial.id, "clientTitle", e.target.value)}
+                              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800"
+                              placeholder="Client Title"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Client Image</Label>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0]
+                                  if (file) {
+                                    handleClientImageUpload(testimonial.id, file)
+                                  }
+                                }}
+                                className="flex-1 p-2 border rounded"
+                              />
+                              {testimonial.clientImage && (
+                                <img
+                                  src={testimonial.clientImage}
+                                  alt="Client"
+                                  className="w-12 h-12 object-cover rounded-full"
+                                />
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeTestimonial(testimonial.id)}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all duration-200 flex-shrink-0"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+
+                  <Button
+                    variant="outline"
+                    onClick={addTestimonial}
+                    className="w-full h-16 border-2 border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50 transition-all duration-200 text-gray-600 hover:text-blue-600 bg-transparent"
+                  >
+                    <Plus className="w-5 h-5 mr-3" />
+                    Add New Testimonial
+                  </Button>
+                </div>
+              </div>
+
+              {/* Carousel Navigation Colors */}
+              <div className="border-t pt-6">
+                <h3 className="text-xl font-semibold text-gray-900 mb-6">Carousel Navigation Colors</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="client-button-color">Button Color</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        id="client-button-color"
+                        type="color"
+                        value={ourClientsConfig.carouselNavColors?.buttonColor || "#2563eb"}
+                        onChange={(e) =>
+                          setOurClientsConfig((prev) => ({
+                            ...prev,
+                            carouselNavColors: { ...(prev.carouselNavColors || {}), buttonColor: e.target.value },
+                          }))
+                        }
+                        className="w-16 h-10 p-1"
+                      />
+                      <Input
+                        type="text"
+                        value={ourClientsConfig.carouselNavColors?.buttonColor || "#2563eb"}
+                        onChange={(e) =>
+                          setOurClientsConfig((prev) => ({
+                            ...prev,
+                            carouselNavColors: { ...(prev.carouselNavColors || {}), buttonColor: e.target.value },
+                          }))
+                        }
+                        className="flex-1"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="client-button-hover-color">Button Hover Color</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        id="client-button-hover-color"
+                        type="color"
+                        value={ourClientsConfig.carouselNavColors?.buttonHoverColor || "#1d4ed8"}
+                        onChange={(e) =>
+                          setOurClientsConfig((prev) => ({
+                            ...prev,
+                            carouselNavColors: { ...(prev.carouselNavColors || {}), buttonHoverColor: e.target.value },
+                          }))
+                        }
+                        className="w-16 h-10 p-1"
+                      />
+                      <Input
+                        type="text"
+                        value={ourClientsConfig.carouselNavColors?.buttonHoverColor || "#1d4ed8"}
+                        onChange={(e) =>
+                          setOurClientsConfig((prev) => ({
+                            ...prev,
+                            carouselNavColors: { ...(prev.carouselNavColors || {}), buttonHoverColor: e.target.value },
+                          }))
+                        }
+                        className="flex-1"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="client-icon-color">Icon Color</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        id="client-icon-color"
+                        type="color"
+                        value={ourClientsConfig.carouselNavColors?.iconColor || "#ffffff"}
+                        onChange={(e) =>
+                          setOurClientsConfig((prev) => ({
+                            ...prev,
+                            carouselNavColors: { ...(prev.carouselNavColors || {}), iconColor: e.target.value },
+                          }))
+                        }
+                        className="w-16 h-10 p-1"
+                      />
+                      <Input
+                        type="text"
+                        value={ourClientsConfig.carouselNavColors?.iconColor || "#ffffff"}
+                        onChange={(e) =>
+                          setOurClientsConfig((prev) => ({
+                            ...prev,
+                            carouselNavColors: { ...(prev.carouselNavColors || {}), iconColor: e.target.value },
+                          }))
+                        }
+                        className="flex-1"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="client-icon-hover-color">Icon Hover Color</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        id="client-icon-hover-color"
+                        type="color"
+                        value={ourClientsConfig.carouselNavColors?.iconHoverColor || "#ffffff"}
+                        onChange={(e) =>
+                          setOurClientsConfig((prev) => ({
+                            ...prev,
+                            carouselNavColors: { ...(prev.carouselNavColors || {}), iconHoverColor: e.target.value },
+                          }))
+                        }
+                        className="w-16 h-10 p-1"
+                      />
+                      <Input
+                        type="text"
+                        value={ourClientsConfig.carouselNavColors?.iconHoverColor || "#ffffff"}
+                        onChange={(e) =>
+                          setOurClientsConfig((prev) => ({
+                            ...prev,
+                            carouselNavColors: { ...(prev.carouselNavColors || {}), iconHoverColor: e.target.value },
+                          }))
+                        }
+                        className="flex-1"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column - Live Preview */}
+            <div className="space-y-6">
+              <div className="sticky top-6">
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">Live Preview</h3>
+                <div className="border-2 border-gray-200 rounded-xl p-6 bg-gray-50">
+                  <h4 className="text-2xl font-bold text-black mb-6 text-center">
+                    {ourClientsConfig.sectionTitle || "Our Clients"}
+                  </h4>
+
+                  <div className="relative">
+                    <div className="overflow-hidden">
+                      <div
+                        className="flex transition-transform duration-500 ease-in-out"
+                        style={{ transform: `translateX(-${currentTestimonialIndex * 100}%)` }}
+                      >
+                        {ourClientsConfig.testimonials.map((testimonial, index) => (
+                          <div key={testimonial.id} className="w-full flex-shrink-0 px-2">
+                            <div className="bg-white p-6 rounded-lg shadow-sm text-center">
+                              <div className="flex justify-center mb-3">
+                                {testimonial.clientImage && (
+                                  <img
+                                    src={testimonial.clientImage}
+                                    alt={testimonial.clientName}
+                                    className="w-20 h-20 rounded-full object-cover border-2 border-blue-400"
+                                  />
+                                )}
+                              </div>
+                              <p className="text-sm italic text-gray-700 mb-4">"{testimonial.quote}"</p>
+                              <p className="font-semibold text-gray-900 text-sm">{testimonial.clientName}</p>
+                              <p className="text-xs text-gray-500">{testimonial.clientTitle}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {ourClientsConfig.testimonials.length > 1 && (
+                      <div className="absolute inset-y-0 left-0 right-0 flex items-center justify-between px-2">
+                        <button
+                          className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+                          style={{
+                            backgroundColor: ourClientsConfig.carouselNavColors?.buttonColor || "#2563eb",
+                            color: ourClientsConfig.carouselNavColors?.iconColor || "#ffffff",
+                          }}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                          </svg>
+                        </button>
+                        <button
+                          className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+                          style={{
+                            backgroundColor: ourClientsConfig.carouselNavColors?.buttonColor || "#2563eb",
+                            color: ourClientsConfig.carouselNavColors?.iconColor || "#ffffff",
+                          }}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="pt-6 border-t">
+            <Button variant="outline" onClick={() => setOurClientsDialog(false)} className="px-6">
+              Cancel
+            </Button>
+            <Button onClick={handleOurClientsSave} disabled={ourClientsSaving} className="px-6">
+              {ourClientsSaving ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Saving Changes...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Save Changes
+                </>
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

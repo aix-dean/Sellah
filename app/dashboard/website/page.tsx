@@ -3,6 +3,7 @@
 import { Eye, Edit3, Palette, Terminal, Copy, QrCode, Lock, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { SalesAgentManager } from "@/components/sales-agent-manager"
 import {
   Dialog,
   DialogContent,
@@ -402,7 +403,8 @@ export default function WebsitePage() {
             </Card>
           </div>
 
-          {/* Terminal Portal */}
+          {/* Terminal Portal - Hidden as per user request */}
+          {/*
           <Card className="shadow-sm border-0 mb-8">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
@@ -437,7 +439,6 @@ export default function WebsitePage() {
                   </Button>
                 </div>
               </div>
-              {/* </CHANGE> */}
               {showQRCode && (
                 <div className="flex justify-center pt-4">
                   <div className="p-4 bg-white border-2 border-gray-200 rounded-xl shadow-sm">
@@ -452,6 +453,10 @@ export default function WebsitePage() {
               )}
             </CardContent>
           </Card>
+          */}
+
+          {/* Sales Agent Management */}
+          <SalesAgentManager />
 
           {/* Quick Actions */}
           <Card className="shadow-sm border-0">

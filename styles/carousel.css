@@ -1,0 +1,18 @@
+@keyframes scroll-left {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.logo-carousel {
+  display: flex;
+  animation: scroll-left var(--carousel-speed, 30s) linear infinite; /* Use CSS variable for speed */
+  width: max-content; /* Ensure content takes up enough space for scrolling */
+}
+
+.logo-carousel:hover {
+  animation-play-state: paused;
+}
