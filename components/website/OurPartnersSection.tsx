@@ -32,10 +32,16 @@ interface CompanyData {
 interface OurPartnersSectionProps {
   companyData: CompanyData | null;
   slug: string;
-  EditableElement: React.ComponentType<any>;
+  EditableElement?: React.ComponentType<any>;
 }
 
 const OurPartnersSection: React.FC<OurPartnersSectionProps> = ({ companyData, slug, EditableElement }) => {
+  // Default EditableElement that just renders children
+  const DefaultEditableElement: React.ComponentType<any> = ({ children, ...props }) => <>{children}</>;
+
+  // Use provided EditableElement or default
+  const ActualEditableElement = EditableElement || DefaultEditableElement;
+
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [currentPartnersConfig, setCurrentPartnersConfig] = React.useState<{
@@ -176,18 +182,22 @@ const OurPartnersSection: React.FC<OurPartnersSectionProps> = ({ companyData, sl
   return (
     <section id="our-partners" className="py-16" style={{ backgroundColor: backgroundColorToDisplay, color: textColorToDisplay }}>
       <div
-        className="container mx-auto px-4 relative group cursor-pointer hover:ring-2 hover:ring-blue-400 hover:ring-opacity-50 rounded-lg p-4 transition-all"
-        onClick={handleEditClick}
+        className={`container mx-auto px-4 relative group rounded-lg p-4 transition-all ${
+          EditableElement ? 'cursor-pointer hover:ring-2 hover:ring-blue-400 hover:ring-opacity-50' : ''
+        }`}
+        onClick={EditableElement ? handleEditClick : undefined}
       >
-        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-          <div className="bg-blue-500 text-white px-3 py-1 rounded text-sm flex items-center gap-2">
-            <Edit3 className="w-4 h-4" />
-            Edit Our Partners Section
+        {EditableElement && (
+          <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+            <div className="bg-blue-500 text-white px-3 py-1 rounded text-sm flex items-center gap-2">
+              <Edit3 className="w-4 h-4" />
+              Edit Our Partners Section
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="text-center mb-12">
-          <EditableElement
+          <ActualEditableElement
             content={{
               type: "heading",
               content: sectionTitleToDisplay,
@@ -196,8 +206,8 @@ const OurPartnersSection: React.FC<OurPartnersSectionProps> = ({ companyData, sl
             }}
           >
             <h2 className="text-4xl font-bold mb-4">{sectionTitleToDisplay}</h2>
-          </EditableElement>
-          <EditableElement
+          </ActualEditableElement>
+          <ActualEditableElement
             content={{
               type: "description",
               content: subtitleToDisplay,
@@ -206,7 +216,7 @@ const OurPartnersSection: React.FC<OurPartnersSectionProps> = ({ companyData, sl
             }}
           >
             <p className="text-xl">{subtitleToDisplay}</p>
-          </EditableElement>
+          </ActualEditableElement>
         </div>
 
         {partnersToDisplay.length > 0 ? (
@@ -220,7 +230,7 @@ const OurPartnersSection: React.FC<OurPartnersSectionProps> = ({ companyData, sl
                 const partner = partnersToDisplay[index % partnersToDisplay.length];
                 return (
                   <div key={`${partner.id}-${index}`} className="inline-block mx-8">
-                    <EditableElement
+                    <ActualEditableElement
                       content={{
                         type: "image",
                         content: partner.logo,
@@ -233,7 +243,7 @@ const OurPartnersSection: React.FC<OurPartnersSectionProps> = ({ companyData, sl
                         alt={partner.name}
                         className="h-24 w-auto object-contain"
                       />
-                    </EditableElement>
+                    </ActualEditableElement>
                   </div>
                 );
               })}
@@ -246,7 +256,8 @@ const OurPartnersSection: React.FC<OurPartnersSectionProps> = ({ companyData, sl
         )}
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {EditableElement && (
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Our Partners Section</DialogTitle>
@@ -432,6 +443,7 @@ const OurPartnersSection: React.FC<OurPartnersSectionProps> = ({ companyData, sl
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      )}
     </section>
   );
 };

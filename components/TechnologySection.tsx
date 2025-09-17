@@ -33,10 +33,16 @@ interface CompanyData {
 interface TechnologySectionProps {
   companyData: CompanyData | null;
   slug: string;
-  EditableElement: React.ComponentType<any>;
+  EditableElement?: React.ComponentType<any>;
 }
 
 const TechnologySection: React.FC<TechnologySectionProps> = ({ companyData, slug, EditableElement }) => {
+  // Default EditableElement that just renders children
+  const DefaultEditableElement: React.ComponentType<any> = ({ children, ...props }) => <>{children}</>;
+
+  // Use provided EditableElement or default
+  const ActualEditableElement = EditableElement || DefaultEditableElement;
+
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [currentTechConfig, setCurrentTechConfig] = React.useState<{
@@ -137,17 +143,21 @@ const TechnologySection: React.FC<TechnologySectionProps> = ({ companyData, slug
   return (
     <section id="our-technology" className="py-16 bg-gray-50">
       <div
-        className="container mx-auto px-4 text-center relative group cursor-pointer hover:ring-2 hover:ring-blue-400 hover:ring-opacity-50 rounded-lg p-4 transition-all"
-        onClick={handleEditClick}
+        className={`container mx-auto px-4 text-center relative group rounded-lg p-4 transition-all ${
+          EditableElement ? 'cursor-pointer hover:ring-2 hover:ring-blue-400 hover:ring-opacity-50' : ''
+        }`}
+        onClick={EditableElement ? handleEditClick : undefined}
       >
-        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-          <div className="bg-blue-500 text-white px-3 py-1 rounded text-sm flex items-center gap-2">
-            <Edit3 className="w-4 h-4" />
-            Edit Technology Section
+        {EditableElement && (
+          <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+            <div className="bg-blue-500 text-white px-3 py-1 rounded text-sm flex items-center gap-2">
+              <Edit3 className="w-4 h-4" />
+              Edit Technology Section
+            </div>
           </div>
-        </div>
+        )}
 
-        <EditableElement
+        <ActualEditableElement
           content={{
             type: "heading",
             content: mainTitleToDisplay,
@@ -156,8 +166,8 @@ const TechnologySection: React.FC<TechnologySectionProps> = ({ companyData, slug
           }}
         >
           <h2 className="text-4xl font-bold text-gray-800 mb-4">{mainTitleToDisplay}</h2>
-        </EditableElement>
-        <EditableElement
+        </ActualEditableElement>
+        <ActualEditableElement
           content={{
             type: "description",
             content: subtitleToDisplay,
@@ -166,7 +176,7 @@ const TechnologySection: React.FC<TechnologySectionProps> = ({ companyData, slug
           }}
         >
           <p className="text-xl text-gray-600 mb-12">{subtitleToDisplay}</p>
-        </EditableElement>
+        </ActualEditableElement>
 
         {/* Products are now fetched and displayed */}
         {productsLoading ? (
@@ -215,7 +225,8 @@ const TechnologySection: React.FC<TechnologySectionProps> = ({ companyData, slug
         )}
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {EditableElement && (
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Our Technology Section</DialogTitle>
@@ -246,6 +257,7 @@ const TechnologySection: React.FC<TechnologySectionProps> = ({ companyData, slug
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      )}
     </section>
   );
 };
