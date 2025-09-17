@@ -1302,20 +1302,6 @@ export default function WebsitePage() {
         />
       )}
 
-      {/* Our Partners Section */}
-      <OurPartnersSection
-        companyData={companyData}
-        slug={companySlug}
-      />
-
-      {/* Get Quotation Section */}
-      {companyData && (
-        <GetQuotationSection
-          slug={companySlug}
-          websiteId={companyData.id || ""}
-        />
-      )}
-
       <section id="applications" className="py-16 bg-muted/30">
         <div className="w-full">
           <div className="text-center mb-12">
@@ -1931,6 +1917,20 @@ export default function WebsitePage() {
             </div>
           </div>
         </section>
+
+      {/* Our Partners Section */}
+      <OurPartnersSection
+        companyData={companyData}
+        slug={companySlug}
+      />
+
+      {/* Get Quotation Section */}
+      {companyData && (
+        <GetQuotationSection
+          slug={companySlug}
+          websiteId={companyData.id || ""}
+        />
+      )}
 
       <footer
         style={{

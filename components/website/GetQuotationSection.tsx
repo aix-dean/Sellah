@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Edit3 } from 'lucide-react';
 import Link from 'next/link';
-import { collection, query, where, getDocs, doc, updateDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 
@@ -18,13 +18,13 @@ interface Product {
 interface GetQuotationSectionProps {
   slug: string;
   websiteId: string;
-  isEditing: boolean;
+  isEditing?: boolean;
   EditableElement?: React.ComponentType<any>;
 }
 
 const GetQuotationSection: React.FC<GetQuotationSectionProps> = ({
   slug,
-  isEditing,
+  isEditing = false,
   EditableElement,
 }) => {
   const { toast } = useToast();
@@ -75,6 +75,33 @@ const GetQuotationSection: React.FC<GetQuotationSectionProps> = ({
     };
     fetchProducts();
   }, [slug, toast]);
+
+  useEffect(() => {
+    const fetchQuotationConfig = async () => {
+      if (!slug) return;
+      try {
+        const docRef = doc(db, "companies", slug);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          const existingConfig = data?.web_config?.getQuotation;
+          if (existingConfig) {
+            setQuotationConfig({
+              title: existingConfig.title || "Get Your Custom Quotation Today!",
+              subtitle: existingConfig.subtitle || "Tell us about your needs, and we'll provide a tailored quote.",
+              backgroundColor: existingConfig.backgroundColor || "#ffffff",
+              textColor: existingConfig.textColor || "#1f2937",
+              buttonColor: existingConfig.buttonColor || "#9333ea",
+              buttonHoverColor: existingConfig.buttonHoverColor || "#7c3aed",
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching quotation config:", error);
+      }
+    };
+    fetchQuotationConfig();
+  }, [slug]);
 
   const handleEditClick = () => {
     setDialogOpen(true);
@@ -154,11 +181,13 @@ const GetQuotationSection: React.FC<GetQuotationSectionProps> = ({
 
   return (
     <section
-      className={`py-16 px-4 max-w-4xl mx-auto relative group cursor-pointer hover:ring-2 hover:ring-blue-400 hover:ring-opacity-50 rounded-lg p-4 transition-all ${isEditing ? '' : ''}`}
-      onClick={isEditing && !dialogOpen ? handleEditClick : undefined}
+      className={`py-16 px-4 max-w-4xl mx-auto relative group rounded-lg p-4 transition-all ${
+        EditableElement ? 'cursor-pointer hover:ring-2 hover:ring-blue-400 hover:ring-opacity-50' : ''
+      }`}
+      onClick={EditableElement && !dialogOpen ? handleEditClick : undefined}
       style={{ backgroundColor: quotationConfig.backgroundColor, color: quotationConfig.textColor }}
     >
-      {isEditing && (
+      {EditableElement && (
         <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity z-10">
           <div className="bg-blue-500 text-white px-3 py-1 rounded text-sm flex items-center gap-2">
             <Edit3 className="w-4 h-4" />
@@ -347,7 +376,8 @@ const GetQuotationSection: React.FC<GetQuotationSectionProps> = ({
       </div>
 
       {/* Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {EditableElement && (
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent
           className="max-w-2xl max-h-[90vh] overflow-y-auto"
           onInteractOutside={() => setDialogOpen(false)}
@@ -459,6 +489,7 @@ const GetQuotationSection: React.FC<GetQuotationSectionProps> = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      )}
     </section>
   );
 };
